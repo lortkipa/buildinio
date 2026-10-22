@@ -1,7 +1,14 @@
-import { EmailForm } from "./email-form";
-
-// The main part of /login and /signup. Only the text above the buttons differs.
-export function AuthPanel({ heading, description }: { heading: string; description: string }) {
+// The main part of /login and /signup, for each step of signing in: a heading, the text under it,
+// and the step's content.
+export function AuthPanel({
+  heading,
+  description,
+  children,
+}: {
+  heading: string;
+  description: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <main className="flex flex-1 items-center justify-center px-4 pt-8 pb-[12vh]">
       <div className="flex w-full max-w-sm flex-col gap-8">
@@ -13,25 +20,25 @@ export function AuthPanel({ heading, description }: { heading: string; descripti
           <p className="text-base text-pretty text-zinc-600 dark:text-zinc-300">{description}</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {/* Placeholders until auth (Better Auth) is set up. */}
-          <ProviderButton icon={<GoogleIcon className="size-5" />}>
-            Continue with Google
-          </ProviderButton>
-          <ProviderButton icon={<GitHubIcon className="size-5" />}>
-            Continue with GitHub
-          </ProviderButton>
-
-          <div className="flex items-center gap-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <span aria-hidden className="h-px flex-1 bg-zinc-950/10 dark:bg-white/10" />
-            or
-            <span aria-hidden className="h-px flex-1 bg-zinc-950/10 dark:bg-white/10" />
-          </div>
-
-          <EmailForm />
-        </div>
+        {children}
       </div>
     </main>
+  );
+}
+
+// Placeholders until auth (Better Auth) is set up.
+export function ProviderButtons() {
+  return (
+    <>
+      <ProviderButton icon={<GoogleIcon className="size-5" />}>Continue with Google</ProviderButton>
+      <ProviderButton icon={<GitHubIcon className="size-5" />}>Continue with GitHub</ProviderButton>
+
+      <div className="flex items-center gap-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <span aria-hidden className="h-px flex-1 bg-zinc-950/10 dark:bg-white/10" />
+        or
+        <span aria-hidden className="h-px flex-1 bg-zinc-950/10 dark:bg-white/10" />
+      </div>
+    </>
   );
 }
 

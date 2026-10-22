@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { ArrowUpIcon, MicIcon, PlusIcon } from "./icons";
+import { hasFinePointer } from "./pointer";
 import { revealForm, VIEWPORT_GAP } from "./reveal-form";
 
 // Shown one after another as the placeholder. Keep them frontend-only (Phase 1).
@@ -15,8 +17,6 @@ const EXAMPLES = [
   "A budget planner that shows where my money goes each month",
   "A trip planner with a day-by-day plan and a packing list",
 ];
-
-const hasFinePointer = () => window.matchMedia("(pointer: fine)").matches;
 
 // Grow with the content up to the max height (see fitTextarea), after which it scrolls.
 function autosize(textarea: HTMLTextAreaElement) {
@@ -167,51 +167,5 @@ export function PromptInput() {
         </div>
       </form>
     </div>
-  );
-}
-
-// Icons from Lucide (https://lucide.dev, ISC license).
-function Icon({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      {children}
-    </svg>
-  );
-}
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <Icon className={className}>
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </Icon>
-  );
-}
-
-function MicIcon({ className }: { className?: string }) {
-  return (
-    <Icon className={className}>
-      <path d="M12 19v3" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <rect x="9" y="2" width="6" height="13" rx="3" />
-    </Icon>
-  );
-}
-
-function ArrowUpIcon({ className }: { className?: string }) {
-  return (
-    <Icon className={className}>
-      <path d="m5 12 7-7 7 7" />
-      <path d="M12 19V5" />
-    </Icon>
   );
 }

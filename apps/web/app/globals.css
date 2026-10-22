@@ -16,6 +16,15 @@
   --animate-placeholder-cycle: placeholder-cycle 4s ease-in-out both;
   --animate-placeholder-fade: placeholder-fade 4s ease-in-out both;
 
+  /* The caret in an empty slot of the verification code. */
+  --animate-caret-blink: caret-blink 1s step-end infinite;
+
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
   @keyframes placeholder-cycle {
     0% {
       opacity: 0;

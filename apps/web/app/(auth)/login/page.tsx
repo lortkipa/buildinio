@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { SiteHeader } from "../../site-header";
-import { AuthPanel } from "../auth-panel";
+import { AuthFlow } from "../auth-flow";
 
 export const metadata: Metadata = { title: "Log in" };
 
 export default function LoginPage() {
-  return (
-    <>
-      <SiteHeader signUp />
-      <AuthPanel heading="Welcome back" description="Log in to keep building." />
-    </>
-  );
+  return <AuthFlow signUp heading="Welcome back" description="Log in to keep building." />;
 }

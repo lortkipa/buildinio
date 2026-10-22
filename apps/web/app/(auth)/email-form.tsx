@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { LoaderIcon } from "../icons";
+import { hasFinePointer } from "../pointer";
 import { revealForm } from "../reveal-form";
+import { type SendResult, sendCode } from "./mock-auth";
 
 // Something@something.something without spaces. Only a sign-in email can prove the address works.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,14 +15,34 @@ function emailError(email: string) {
   return null;
 }
 
-// Passwordless email sign-in, used for both logging in and signing up.
-export function EmailForm() {
+// Passwordless email sign-in, used for both logging in and signing up. Sends a code to the email.
+export function EmailForm({
+  defaultEmail,
+  autoFocus,
+  onSent,
+}: {
+  defaultEmail: string;
+  autoFocus: boolean;
+  onSent: (email: string, result: SendResult) => void;
+}) {
   const id = useId();
   const errorId = `${id}-error`;
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail);
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  // False once the form is gone, e.g. after switching to the other auth page while sending.
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    // Only with a mouse or trackpad: on phones this would pop up the keyboard.
+    if (autoFocus && hasFinePointer()) inputRef.current?.focus();
+    return () => {
+      mounted.current = false;
+    };
+  }, [autoFocus]);
 
   // Keep the whole form, button included, above the phone keyboard (see revealForm).
   useEffect(() => {
@@ -37,16 +60,19 @@ export function EmailForm() {
     if (error && form && document.activeElement === inputRef.current) revealForm(form);
   }, [error]);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextError = emailError(email.trim());
+    if (sending) return;
+    const address = email.trim();
+    const nextError = emailError(address);
     setError(nextError);
     if (nextError) {
       inputRef.current?.focus();
       return;
     }
-    // Sending the sign-in email comes with auth (Better Auth). Until then, accept and clear.
-    setEmail("");
+    setSending(true);
+    const result = await sendCode(address);
+    if (mounted.current) onSent(address, result);
   }
 
   return (
@@ -71,6 +97,8 @@ export function EmailForm() {
           enterKeyHint="go"
           placeholder="Email address"
           value={email}
+          // Not disabled: that would drop the focus and close the phone keyboard.
+          readOnly={sending}
           onChange={(event) => {
             setEmail(event.target.value);
             setError(null);
@@ -88,9 +116,17 @@ export function EmailForm() {
 
       <button
         type="submit"
-        className="flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-5 text-base font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+        aria-disabled={sending}
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 text-base font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet aria-disabled:cursor-default aria-disabled:hover:bg-zinc-950 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 dark:aria-disabled:hover:bg-white"
       >
-        Continue with email
+        {sending ? (
+          <>
+            <LoaderIcon className="size-5" />
+            Sending code…
+          </>
+        ) : (
+          "Continue with email"
+        )}
       </button>
     </form>
   );
