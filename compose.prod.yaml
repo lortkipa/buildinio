@@ -1,6 +1,6 @@
 # Production stack. Start with `pnpm prod:up`, stop with `pnpm prod:down`.
-# Reads POSTGRES_PASSWORD, BETTER_AUTH_SECRET, BETTER_AUTH_URL, the Google keys and WEB_PORT from
-# .env (see .env.example); DB_PORT is not used here.
+# Reads POSTGRES_PASSWORD, BETTER_AUTH_SECRET, BETTER_AUTH_URL, the Google and GitHub keys and
+# WEB_PORT from .env (see .env.example); DB_PORT is not used here.
 name: buildinio-prod
 
 services:
@@ -28,10 +28,12 @@ services:
       DATABASE_URL: postgres://buildinio:${POSTGRES_PASSWORD}@postgres:5432/buildinio
       PORT: "4000"
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
-      # Where people open the web app; Google sends them back to it after signing in.
+      # Where people open the web app; Google and GitHub send them back to it after signing in.
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -15,16 +15,15 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Scaffolded, with real accounts for Google sign-in. The monorepo, web app, API and database are wired together. The web app has four pages:
+Scaffolded, with real accounts for Google and GitHub sign-in. The monorepo, web app, API and database are wired together. The web app has four pages:
 
 - `/`: the landing page, a headline and a prompt input. Submitting a prompt and the plus and mic buttons all go to `/signup` (which sends signed-in users back home); the prompt itself is not kept yet. Signed out, the header links to `/login` and `/signup`. Signed in, the header shows only the logo and an account card (`app/account-card.tsx`) sits above the headline: avatar, name, email, Log out, and Delete account, which asks to confirm in a dialog. Better Auth only deletes after a sign-in within the last day; otherwise the dialog asks the user to log in again. A signed-in user who hasn't confirmed a name yet is sent to `/welcome`.
 - `/login` and `/signup`: the same two-step sign-in (`AuthFlow`) with different text above the buttons, and a header linking to the other page. Signed-in users are sent to `/`. Errors show as a toast at the bottom of the screen (`app/toast.tsx`).
-  - Continue with Google: real sign-in through Better Auth. The button shows "Connecting…" and the browser goes to Google. It comes back to `/welcome` for a new account, else to `/`. Without `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, the toast says Google sign-in isn't set up (in development, naming the keys). A cancelled or failed round trip comes back with `?error=`, shown as a toast.
-  - Continue with GitHub: the same real call, but no GitHub provider is configured yet, so it shows "GitHub sign-in isn't available yet."
+  - Continue with Google and Continue with GitHub: real sign-in through Better Auth. The button shows "Connecting…" and the browser goes to the provider. It comes back to `/welcome` for a new account, else to `/`. Without the provider's keys in `.env` (`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`), the toast says its sign-in isn't set up (in development, naming the keys). A cancelled or failed round trip comes back with `?error=`, shown as a toast. GitHub sign-in uses only an email GitHub has verified; without one it comes back with `?error=email_not_found`, and the toast asks to verify the email on GitHub.
   - Email and code steps: still mocked by `app/(auth)/mock-auth.ts`, which waits like a server would and sends nothing. Email step: an empty or invalid address shows an error. A valid one "sends" a code and opens the code step on the same page. Code step ("Check your email"): six digits, checked as soon as all are in (the code is always `123456`). Each sent code allows 3 tries, and every error says how many are left. A new code can be sent once per 60 s, and going back and resending the same email can't skip that. The header shows only Back. It, and the browser's or phone's Back, return to the email step (the step has its own history entry). A correct code goes to `/welcome`, which sends visitors without a session on to `/login`: the mock signs no one in.
-- `/welcome`: asked once, right after an account is created: "What should we call you?" The name field is prefilled with the name from Google (empty for future email accounts) and can be changed. Continue stays disabled while it is empty. Saving sets the name and `onboarded`, then goes to `/`. The header shows only the logo. Signed out, it redirects to `/login`; already named, to `/`.
+- `/welcome`: asked once, right after an account is created: "What should we call you?" The name field is prefilled with the name from Google or GitHub (the GitHub username when no name is set; empty for future email accounts) and can be changed. Continue stays disabled while it is empty. Saving sets the name and `onboarded`, then goes to `/`. The header shows only the logo. Signed out, it redirects to `/login`; already named, to `/`.
 
-Accounts are keyed by email: signing in with another provider that has the same email signs in to the same account and links that provider. The avatar is Google's (later GitHub's) picture when the account was created that way, else `/avatars/default.svg` (`apps/web/public/avatars/`, a Facebook-style silhouette). The name and avatar don't change when another provider is linked.
+Accounts are keyed by email: signing in with another provider that has the same email signs in to the same account and links that provider. The avatar is Google's or GitHub's picture when the account was created that way, else `/avatars/default.svg` (`apps/web/public/avatars/`, a Facebook-style silhouette). The name and avatar don't change when another provider is linked.
 
 The API serves Better Auth under `/api/auth/*` (`apps/api/src/auth.ts`), plus `GET /health` and `GET /status` (API and database reachability), which the web app doesn't call. The database has Better Auth's tables (`user` with an extra `onboarded` flag, `session`, `account`, `verification`). There are no tests yet, and no generated-app template.
 
@@ -39,7 +38,7 @@ The API serves Better Auth under `/api/auth/*` (`apps/api/src/auth.ts`), plus `G
 | Web app | Next.js (App Router) |
 | API | Hono |
 | Database | PostgreSQL + Drizzle ORM |
-| Auth | Better Auth (in the API; Google sign-in so far) |
+| Auth | Better Auth (in the API; Google and GitHub sign-in so far) |
 | DB driver | postgres (postgres.js) |
 | Styling | Tailwind CSS |
 | Lint / format | Biome |
@@ -114,7 +113,7 @@ Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Dock
 
 There are no tests yet. Add a `test` command here when the first tests land. In development, run `pnpm db:migrate` after creating or pulling a migration. In production, the API image applies pending migrations each time it starts (`apps/api/src/migrate.ts`, with the migrations copied to `MIGRATIONS_DIR`), before serving.
 
-Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit), the sign-in settings (`BETTER_AUTH_SECRET`, optional in dev and required in production; `BETTER_AUTH_URL`, the web app's public origin, default `http://localhost:3000`; `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, Google sign-in is off without both) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`). The web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files, except for Google sign-in. See the `.env.example` files.
+Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit), the sign-in settings (`BETTER_AUTH_SECRET`, optional in dev and required in production; `BETTER_AUTH_URL`, the web app's public origin, default `http://localhost:3000`; `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`, each provider's sign-in is off without both of its keys) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`). The web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files, except for Google and GitHub sign-in. See the `.env.example` files.
 
 ## Working rules
 

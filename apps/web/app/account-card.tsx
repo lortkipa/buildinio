@@ -52,7 +52,7 @@ export function AccountCard({
           <div className="flex min-w-0 flex-1 items-center gap-4">
             {/*
              * no-referrer: Google's picture links can refuse requests that come with a referrer.
-             * A plain img: pictures come from Google's (later GitHub's) servers at a small size,
+             * A plain img: pictures come from Google's or GitHub's servers at a small size,
              * and next/image would need each host listed for little gain.
              */}
             {/* biome-ignore lint/performance/noImgElement: see above */}

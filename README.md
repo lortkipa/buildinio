@@ -11,7 +11,7 @@
 
 Early development. Phase 1 generates frontend-only web apps (React, Vite, Tailwind CSS, shadcn/ui).
 
-The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input, and accounts: sign-in with Google, a name step for new accounts, and Log out and Delete account on the home page. Sign-in with GitHub and email, and generating apps, are not built yet.
+The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input, and accounts: sign-in with Google and GitHub, a name step for new accounts, and Log out and Delete account on the home page. Sign-in with email, and generating apps, are not built yet.
 
 ## Getting started
 
@@ -52,6 +52,21 @@ Without keys, "Continue with Google" says that it isn't set up. To turn it on:
 
 Google accepts `localhost` but not LAN addresses as redirect URIs, so in development Google sign-in works from `http://localhost:3000` only, not from a phone on your network.
 
+#### GitHub sign-in
+
+Without keys, "Continue with GitHub" says that it isn't set up. To turn it on:
+
+1. On GitHub, go to [Settings > Developer settings > OAuth Apps](https://github.com/settings/developers) and create a new OAuth app.
+2. Use `http://localhost:3000` as the homepage URL and `http://localhost:3000/api/auth/callback/github` as the authorization callback URL. An OAuth app has only one callback URL, so create a separate app for production.
+3. Generate a client secret, put the keys in the root `.env`, then restart `pnpm dev`:
+
+   ```sh
+   GITHUB_CLIENT_ID=...
+   GITHUB_CLIENT_SECRET=...
+   ```
+
+Like Google sign-in, it works from `http://localhost:3000` only in development. It signs in with the email GitHub has verified; a GitHub account without one is asked to verify it first.
+
 ### Production
 
 The whole stack (Postgres, API, web) runs with Docker Compose:
@@ -63,7 +78,7 @@ pnpm prod:logs         # follow logs
 pnpm prod:down         # stop (data stays in the postgres-data volume)
 ```
 
-Only the web app is published to the host; it forwards `/api/*` to the API. The API applies pending database migrations each time it starts. Set `WEB_PORT` in `.env` to use another port, and `BETTER_AUTH_URL` to the address people open the app at. For Google sign-in, register `<BETTER_AUTH_URL>/api/auth/callback/google` as a redirect URI too.
+Only the web app is published to the host; it forwards `/api/*` to the API. The API applies pending database migrations each time it starts. Set `WEB_PORT` in `.env` to use another port, and `BETTER_AUTH_URL` to the address people open the app at. For Google sign-in, register `<BETTER_AUTH_URL>/api/auth/callback/google` as a redirect URI too. For GitHub sign-in, create a production OAuth app with the callback URL `<BETTER_AUTH_URL>/api/auth/callback/github`.
 
 ### Other commands
 
