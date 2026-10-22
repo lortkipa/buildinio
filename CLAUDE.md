@@ -15,7 +15,7 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Scaffolded. The monorepo, web app, API and database are wired together. The only feature is a status page at `/` in the web app that shows whether the web app, the API and the database are reachable. There are no tables, migrations, auth or tests yet, and no generated-app template.
+Scaffolded. The monorepo, web app, API and database are wired together. The only feature is the landing page at `/` in the web app: a headline and a prompt input. Submitting a prompt does nothing yet, and the plus and mic buttons and the header's Log in and Sign up buttons are placeholders. The API serves `GET /health` and `GET /status` (API and database reachability), but the web app does not call it yet. There are no tables, migrations, auth or tests yet, and no generated-app template.
 
 ## Tech stack
 
@@ -53,25 +53,28 @@ The logo is a rounded triangle with a five-stop gradient (`#FFB21E` `#FF4F6D` `#
 
 `assets/brand/` is the source of truth. The web app serves unchanged copies: the two logo SVGs in `apps/web/public/brand/` and the mark as the favicon in `apps/web/app/icon.svg`. If a brand file changes, copy it again.
 
+In the web app, the five colors are Tailwind theme colors (`brand-amber`, `brand-coral`, `brand-magenta`, `brand-violet`, `brand-blue`), defined with the gradient utilities in `apps/web/app/globals.css`. Gabarito is loaded as `font-display` for headings. Light and dark mode follow the system setting (Tailwind's default `dark:` variant).
+
 ## Repository layout
 
 ```
 assets/brand        Logo files (SVG and PNG), source of truth
-apps/web            Next.js platform frontend (status page at /)
+apps/web            Next.js platform frontend (landing page at /)
 apps/api            Hono API server (GET /health, GET /status)
 packages/db         Drizzle client, schema, health check, drizzle.config.ts
-packages/shared     Types shared by web and API (e.g. StatusResponse)
+packages/shared     Types shared across apps and packages (e.g. StatusResponse)
 packages/tsconfig   Shared TypeScript config (@buildinio/tsconfig/base.json)
 compose.yaml        Dev database (Postgres)
 compose.prod.yaml   Production stack (Postgres + API + web)
+.claude/launch.json Web dev server for the Claude desktop app's browser preview
 ```
 
 Planned, not created yet: `templates/` for the generated-app base template(s), and more `packages/*` (UI, config) as they are needed.
 
 Notes:
 
-- Workspace packages export TypeScript source (no build step). The API bundles them with tsup; Next.js compiles them via `transpilePackages`.
-- The web app calls the API from the server (`API_URL`, default `http://localhost:4000`), so there is no CORS setup.
+- Workspace packages export TypeScript source (no build step). The API bundles them with tsup. When the web app starts using one, add it to `transpilePackages` in `apps/web/next.config.ts` so Next.js compiles it.
+- `next dev` serves its scripts only to localhost and to the origins in `allowedDevOrigins` (`apps/web/next.config.ts`, currently `192.168.*.*` and `10.*.*.*`). Opening the dev server from another hostname (another LAN range, a tunnel) needs an entry there, or the page won't hydrate.
 - `apps/web/AGENTS.md` is written and kept up to date by `next dev`. Keep it committed and don't edit its managed block.
 - Each app's Dockerfile uses `turbo prune`, so anything an app needs at build time must live in a workspace package, not at the repo root.
 
@@ -96,7 +99,7 @@ Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Dock
 
 There are no tests yet. Add a `test` command here when the first tests land. Migrations are not run automatically in production yet; add that step when the first migration exists.
 
-Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`); the web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files. See the `.env.example` files.
+Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`). Dev defaults work without any env files. See the `.env.example` files.
 
 ## Working rules
 

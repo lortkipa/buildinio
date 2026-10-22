@@ -1,103 +1,57 @@
-import type { ServiceState, StatusResponse } from "@buildinio/shared";
-import { RefreshButton } from "./refresh-button";
+import { PromptInput } from "./prompt-input";
 
-// Check live on every request instead of at build time.
-export const dynamic = "force-dynamic";
-
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
-
-type ApiResult =
-  | { ok: true; status: StatusResponse; responseMs: number }
-  | { ok: false; error: string; responseMs: number };
-
-async function fetchStatus(): Promise<ApiResult> {
-  const started = performance.now();
-  const elapsed = () => Math.round(performance.now() - started);
-  try {
-    const res = await fetch(`${API_URL}/status`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, responseMs: elapsed() };
-    return { ok: true, status: (await res.json()) as StatusResponse, responseMs: elapsed() };
-  } catch (error) {
-    // Node's fetch reports "fetch failed"; the cause has the real reason (e.g. ECONNREFUSED).
-    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
-    return {
-      ok: false,
-      error: cause instanceof Error ? cause.message : String(cause),
-      responseMs: elapsed(),
-    };
-  }
-}
-
-export default async function Home() {
-  const result = await fetchStatus();
-  const database = result.ok ? result.status.database : undefined;
-
+export default function Home() {
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-8 px-4 py-16">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcSet="/brand/buildinio-logo-dark-bg.svg" />
-        <img src="/brand/buildinio-logo-light-bg.svg" alt="Buildinio" width={240} height={47} />
-      </picture>
+    <div className="relative isolate flex min-h-dvh flex-col">
+      <div aria-hidden className="landing-bg" />
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">System status</h1>
-          <RefreshButton />
-        </div>
-        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          <StatusRow name="Web" state="ok" detail="Next.js server is rendering this page" />
-          <StatusRow
-            name="API"
-            state={result.ok ? "ok" : "error"}
-            detail={
-              result.ok
-                ? `v${result.status.api.version} · up ${result.status.api.uptimeSeconds}s · ${result.responseMs} ms`
-                : `Unreachable at ${API_URL}: ${result.error}`
-            }
-          />
-          <StatusRow
-            name="Database"
-            state={database?.status ?? "error"}
-            detail={
-              !database
-                ? "Unknown: the API did not respond"
-                : database.status === "ok"
-                  ? `${database.version?.split(" on ")[0] ?? "PostgreSQL"} · ${database.latencyMs} ms`
-                  : `Error: ${database.error}`
-            }
-          />
-        </ul>
-      </section>
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
+        {/* A plain link, not next/link: clicking the logo on this page reloads it. */}
+        <a
+          href="/"
+          className="rounded-md transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-violet"
+        >
+          <picture>
+            <source
+              media="(prefers-color-scheme: dark)"
+              srcSet="/brand/buildinio-logo-dark-bg.svg"
+            />
+            <img src="/brand/buildinio-logo-light-bg.svg" alt="Buildinio" width={140} height={27} />
+          </picture>
+        </a>
 
-      <p className="text-sm text-zinc-500">Checked at {new Date().toISOString()}</p>
-    </main>
-  );
-}
-
-function StatusRow({ name, state, detail }: { name: string; state: ServiceState; detail: string }) {
-  const ok = state === "ok";
-  return (
-    <li className="flex items-start gap-3 py-3">
-      <span
-        aria-hidden
-        className={`mt-1.5 size-2.5 shrink-0 rounded-full ${ok ? "bg-emerald-500" : "bg-red-500"}`}
-      />
-      <div className="min-w-0">
-        <p className="font-medium">
-          {name}{" "}
-          <span
-            className={
-              ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-            }
+        {/* Placeholders until auth (Better Auth) is set up. Phones show only Sign up. */}
+        <nav aria-label="Account" className="flex items-center gap-2">
+          <button
+            type="button"
+            className="hidden h-9 rounded-full px-4 text-sm font-medium text-zinc-700 transition-colors sm:block hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            {ok ? "Connected" : "Down"}
-          </span>
-        </p>
-        <p className="break-words text-sm text-zinc-500 dark:text-zinc-400">{detail}</p>
-      </div>
-    </li>
+            Log in
+          </button>
+          <button
+            type="button"
+            className="h-9 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            Sign up
+          </button>
+        </nav>
+      </header>
+
+      <main className="flex flex-1 items-center justify-center px-4 pt-8 pb-[12vh]">
+        {/* Headline, description and input share this column, so no text is wider than the input. */}
+        <div className="flex w-full max-w-2xl flex-col items-center gap-10 text-center">
+          <div className="flex flex-col items-center gap-5">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-balance sm:text-4xl md:text-5xl">
+              Describe it. <span className="text-brand-gradient">We’ll build it.</span>
+            </h1>
+            <p className="max-w-xl text-base text-pretty text-zinc-600 sm:text-lg dark:text-zinc-300">
+              Turn your idea into a working app you can see and try right away.
+            </p>
+          </div>
+
+          <PromptInput />
+        </div>
+      </main>
+    </div>
   );
 }
