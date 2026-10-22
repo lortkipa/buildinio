@@ -24,14 +24,12 @@ export default function Home() {
         <nav aria-label="Account" className="flex items-center gap-2">
           <button
             type="button"
-            title="Coming soon"
             className="hidden h-9 rounded-full px-4 text-sm font-medium text-zinc-700 transition-colors sm:block hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             Log in
           </button>
           <button
             type="button"
-            title="Coming soon"
             className="h-9 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
           >
             Sign up

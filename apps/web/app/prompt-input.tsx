@@ -152,7 +152,6 @@ export function PromptInput() {
           <button
             type="button"
             aria-label="Add files"
-            title="Coming soon"
             className="grid size-9 place-items-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <PlusIcon className="size-5" />
@@ -162,7 +161,7 @@ export function PromptInput() {
           <button
             type={hasText ? "submit" : "button"}
             aria-label={hasText ? "Send" : "Voice input"}
-            title={hasText ? "Send" : "Coming soon"}
+            title={hasText ? "Send" : undefined}
             className="group/send relative size-9 rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <span
