@@ -1,0 +1,7 @@
+{
+  "name": "@buildinio/tsconfig",
+  "private": true,
+  "files": [
+    "base.json"
+  ]
+}

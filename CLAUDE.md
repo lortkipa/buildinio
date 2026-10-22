@@ -15,7 +15,7 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Pre-code. The repo holds `README.md`, `LICENSE` and the brand assets in `assets/brand/`. Fill in the **Repository layout** and **Commands** sections as soon as the project is scaffolded.
+Scaffolded. The monorepo, web app, API and database are wired together. The only feature is a status page at `/` in the web app that shows whether the web app, the API and the database are reachable. There are no tables, migrations, auth or tests yet, and no generated-app template.
 
 ## Tech stack
 
@@ -28,7 +28,12 @@ Pre-code. The repo holds `README.md`, `LICENSE` and the brand assets in `assets/
 | Web app | Next.js (App Router) |
 | API | Hono |
 | Database | PostgreSQL + Drizzle ORM |
-| Auth | Better Auth |
+| Auth | Better Auth (not set up yet) |
+| DB driver | postgres (postgres.js) |
+| Styling | Tailwind CSS |
+| Lint / format | Biome |
+| API build | tsup (bundles all dependencies into `dist/index.js`) |
+| Production | Docker Compose (`compose.prod.yaml`) |
 
 ### Generated apps (what users get)
 
@@ -46,22 +51,52 @@ Generated apps run in **self-hosted containers** (Docker). Still open: the produ
 
 The logo is a rounded triangle with a five-stop gradient (`#FFB21E` `#FF4F6D` `#E23FA8` `#7A5BFF` `#2E9BFF`). The wordmark is "Buildinio" in Gabarito Bold. The files are in `assets/brand/`: the logo with the name for light and dark backgrounds, the triangle mark on its own, and 512×512 GitHub avatars. Use these files as they are. Don't redraw or recolor the logo.
 
-## Repository layout (planned)
+`assets/brand/` is the source of truth. The web app serves unchanged copies: the two logo SVGs in `apps/web/public/brand/` and the mark as the favicon in `apps/web/app/icon.svg`. If a brand file changes, copy it again.
 
-Only `assets/brand/` exists so far. Update this section when the layout exists or changes.
+## Repository layout
 
 ```
-assets/brand   Logo files (SVG and PNG)
-apps/web       Next.js platform frontend
-apps/api       Hono API server
-packages/db    Drizzle schema and migrations
-packages/*     Shared code (types, UI, config)
-templates/     Base template(s) for generated apps
+assets/brand        Logo files (SVG and PNG), source of truth
+apps/web            Next.js platform frontend (status page at /)
+apps/api            Hono API server (GET /health, GET /status)
+packages/db         Drizzle client, schema, health check, drizzle.config.ts
+packages/shared     Types shared by web and API (e.g. StatusResponse)
+packages/tsconfig   Shared TypeScript config (@buildinio/tsconfig/base.json)
+compose.yaml        Dev database (Postgres)
+compose.prod.yaml   Production stack (Postgres + API + web)
 ```
+
+Planned, not created yet: `templates/` for the generated-app base template(s), and more `packages/*` (UI, config) as they are needed.
+
+Notes:
+
+- Workspace packages export TypeScript source (no build step). The API bundles them with tsup; Next.js compiles them via `transpilePackages`.
+- The web app calls the API from the server (`API_URL`, default `http://localhost:4000`), so there is no CORS setup.
+- `apps/web/AGENTS.md` is written and kept up to date by `next dev`. Keep it committed and don't edit its managed block.
+- Each app's Dockerfile uses `turbo prune`, so anything an app needs at build time must live in a workspace package, not at the repo root.
 
 ## Commands
 
-None yet. Add install, dev, build, lint, test and DB commands here when the project is scaffolded.
+Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Docker.
+
+| Command | What it does |
+|---|---|
+| `pnpm install` | Install dependencies |
+| `pnpm db:up` / `pnpm db:down` | Start / stop the dev Postgres (`compose.yaml`, host port `DB_PORT`, default 5432) |
+| `pnpm dev` | Run web (http://localhost:3000) and API (http://localhost:4000) with reload, and open the web app in the browser once it responds (`BROWSER=none` skips that; see `apps/web/scripts/open-browser.mjs`) |
+| `pnpm build` | Build all apps |
+| `pnpm typecheck` | Type-check all packages |
+| `pnpm lint` | Lint and check formatting (Biome) |
+| `pnpm format` | Apply Biome formatting and safe fixes |
+| `pnpm db:generate` | Generate a migration from `packages/db/src/schema.ts` |
+| `pnpm db:migrate` | Apply migrations to `DATABASE_URL` (default: dev database) |
+| `pnpm db:studio` | Open Drizzle Studio |
+| `pnpm prod:up` | Build and start the production stack (needs `.env` with `POSTGRES_PASSWORD`) |
+| `pnpm prod:down` / `pnpm prod:logs` | Stop the production stack / follow its logs |
+
+There are no tests yet. Add a `test` command here when the first tests land. Migrations are not run automatically in production yet; add that step when the first migration exists.
+
+Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`); the web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files. See the `.env.example` files.
 
 ## Working rules
 

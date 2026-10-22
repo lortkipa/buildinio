@@ -1,0 +1,28 @@
+{
+  "name": "buildinio",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev dev:open",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @buildinio/db db:generate",
+    "db:migrate": "pnpm --filter @buildinio/db db:migrate",
+    "db:studio": "pnpm --filter @buildinio/db db:studio",
+    "prod:up": "docker compose -f compose.prod.yaml up -d --build --wait",
+    "prod:down": "docker compose -f compose.prod.yaml down",
+    "prod:logs": "docker compose -f compose.prod.yaml logs -f"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.3"
+  }
+}

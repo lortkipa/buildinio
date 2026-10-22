@@ -1,0 +1,15 @@
+{
+  "name": "@buildinio/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@buildinio/tsconfig": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}
