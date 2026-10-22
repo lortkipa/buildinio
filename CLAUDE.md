@@ -15,7 +15,16 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Scaffolded. The monorepo, web app, API and database are wired together. The only feature is the landing page at `/` in the web app: a headline and a prompt input. Submitting a prompt does nothing yet, and the plus and mic buttons and the header's Log in and Sign up buttons are placeholders. The API serves `GET /health` and `GET /status` (API and database reachability), but the web app does not call it yet. There are no tables, migrations, auth or tests yet, and no generated-app template.
+Scaffolded. The monorepo, web app, API and database are wired together. The web app has four pages, all frontend only:
+
+- `/`: the landing page, a headline and a prompt input. Submitting a prompt and the plus and mic buttons all go to `/signup`; the prompt itself is not kept yet. The header links to `/login` and `/signup`.
+- `/login` and `/signup`: the same two-step sign-in (`AuthFlow`) with different text above the buttons, and a header linking to the other page. Sign-in is mocked by `app/(auth)/mock-auth.ts`, which Better Auth will replace. It waits like a server would and sends nothing:
+  - Continue with Google or GitHub: the button shows "Connecting…", then `/welcome` opens.
+  - Email step: an empty or invalid address shows an error. A valid one "sends" a code and opens the code step on the same page.
+  - Code step ("Check your email"): six digits, checked as soon as all are in (the code is always `123456`). Each sent code allows 3 tries, and every error says how many are left. A new code can be sent once per 60 s, and going back and resending the same email can't skip that. A correct code goes to `/welcome`. The header shows only Back. It, and the browser's or phone's Back, return to the email step (the step has its own history entry).
+- `/welcome`: asked after every sign-in, "What should we call you?" with a name field. Continue stays disabled until a name is typed; the mock saves nothing, then goes to `/`. The header shows only Back, which returns to the login or signup email step that led there (`/login` when there is no history). The page is not guarded yet, since there are no sessions.
+
+The API serves `GET /health` and `GET /status` (API and database reachability), but the web app does not call it yet. There are no tables, migrations, auth or tests yet, and no generated-app template.
 
 ## Tech stack
 
@@ -59,7 +68,7 @@ In the web app, the five colors are Tailwind theme colors (`brand-amber`, `brand
 
 ```
 assets/brand        Logo files (SVG and PNG), source of truth
-apps/web            Next.js platform frontend (landing page at /)
+apps/web            Next.js platform frontend (landing page at /, auth pages and /welcome in app/(auth))
 apps/api            Hono API server (GET /health, GET /status)
 packages/db         Drizzle client, schema, health check, drizzle.config.ts
 packages/shared     Types shared across apps and packages (e.g. StatusResponse)
@@ -75,6 +84,8 @@ Notes:
 
 - Workspace packages export TypeScript source (no build step). The API bundles them with tsup. When the web app starts using one, add it to `transpilePackages` in `apps/web/next.config.ts` so Next.js compiles it.
 - `next dev` serves its scripts only to localhost and to the origins in `allowedDevOrigins` (`apps/web/next.config.ts`, currently `192.168.*.*` and `10.*.*.*`). Opening the dev server from another hostname (another LAN range, a tunnel) needs an entry there, or the page won't hydrate.
+- Icons are Lucide's, copied into `apps/web/app/icons.tsx`. `apps/web/app/pointer.ts` has `hasFinePointer`: fields focus themselves only with a mouse or trackpad, since on phones that would pop up the keyboard.
+- Phone keyboards cover the page instead of resizing it. Forms in the web app call `revealForm` (`apps/web/app/reveal-form.ts`) on the visual viewport's `resize` event while a field is focused, so the submit button stays above the keyboard. Use it for new forms too.
 - `apps/web/AGENTS.md` is written and kept up to date by `next dev`. Keep it committed and don't edit its managed block.
 - Each app's Dockerfile uses `turbo prune`, so anything an app needs at build time must live in a workspace package, not at the repo root.
 

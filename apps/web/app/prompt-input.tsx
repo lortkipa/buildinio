@@ -1,6 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { ArrowUpIcon, MicIcon, PlusIcon } from "./icons";
+import { hasFinePointer } from "./pointer";
+import { revealForm, VIEWPORT_GAP } from "./reveal-form";
 
 // Shown one after another as the placeholder. Keep them frontend-only (Phase 1).
 const EXAMPLES = [
@@ -14,26 +18,17 @@ const EXAMPLES = [
   "A trip planner with a day-by-day plan and a packing list",
 ];
 
-const hasFinePointer = () => window.matchMedia("(pointer: fine)").matches;
-
 // Grow with the content up to the max height (see fitTextarea), after which it scrolls.
 function autosize(textarea: HTMLTextAreaElement) {
   textarea.style.height = "auto";
   textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
-/*
- * Phone keyboards cover the page instead of resizing it (only the visual viewport shrinks), and
- * browsers scroll just the caret into view, so the rest of the form can end up under the keyboard.
- * fitTextarea and revealForm keep the whole form, send button included, in the visible area.
- */
-
-// Space kept between the form and the keyboard or the screen edge. Same as scroll-my-4 on the form.
-const VIEWPORT_GAP = 16;
 // One line (text-base/6) plus the textarea's pt-3 and pb-2.
 const MIN_TEXTAREA_HEIGHT = 44;
 
-// Cap the textarea so the form fits in the visible area, then fit the textarea to its content.
+// Cap the textarea so the form fits in the visible area (see revealForm), then fit the textarea
+// to its content.
 function fitTextarea(textarea: HTMLTextAreaElement) {
   const viewport = window.visualViewport;
   const form = textarea.form;
@@ -46,34 +41,12 @@ function fitTextarea(textarea: HTMLTextAreaElement) {
   autosize(textarea);
 }
 
-// How far the form's bottom (positive) or top (negative) sticks out of the visible area, else 0.
-function formOverflow(form: HTMLFormElement, viewport: VisualViewport) {
-  const { top, bottom } = form.getBoundingClientRect();
-  const below = bottom - (viewport.offsetTop + viewport.height - VIEWPORT_GAP);
-  const above = viewport.offsetTop + VIEWPORT_GAP - top;
-  // If the form can't fit, the bottom wins: it has the send button, and the caret is usually there.
-  if (below > 0) return below;
-  if (above > 0) return -above;
-  return 0;
-}
-
-// Scroll the page by the least amount that shows the whole form.
-function revealForm(form: HTMLFormElement) {
-  const viewport = window.visualViewport;
-  if (viewport?.scale !== 1) return;
-  const overflow = formOverflow(form, viewport);
-  if (overflow === 0) return;
-  // Not window.scrollBy: Chrome on Android applies it to the layout viewport only, which the
-  // keyboard doesn't shrink, so a page that fits the screen can't scroll. scrollIntoView also
-  // pans the visual viewport.
-  form.scrollIntoView({ block: overflow > 0 ? "end" : "start" });
-  // A browser whose scrollIntoView ignores the keyboard leaves the rest to window scrolling.
-  const rest = formOverflow(form, viewport);
-  if (Math.abs(rest) >= 1) window.scrollBy(0, rest);
-}
+// Signing up comes first; generating apps is not built yet.
+const NEXT_STEP = "/signup";
 
 export function PromptInput() {
   const id = useId();
+  const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useState("");
   const [exampleIndex, setExampleIndex] = useState(0);
@@ -94,9 +67,14 @@ export function PromptInput() {
     return () => window.visualViewport?.removeEventListener("resize", onResize);
   }, []);
 
+  // Every button and sending the prompt lead to the next step, so have it ready.
+  useEffect(() => {
+    router.prefetch(NEXT_STEP);
+  }, [router]);
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Nothing to send to yet: app generation is not built. The builder flow starts here.
+    router.push(NEXT_STEP);
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -152,6 +130,7 @@ export function PromptInput() {
           <button
             type="button"
             aria-label="Add files"
+            onClick={() => router.push(NEXT_STEP)}
             className="grid size-9 place-items-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <PlusIcon className="size-5" />
@@ -162,6 +141,8 @@ export function PromptInput() {
             type={hasText ? "submit" : "button"}
             aria-label={hasText ? "Send" : "Voice input"}
             title={hasText ? "Send" : undefined}
+            // With text it submits the form instead, and handleSubmit navigates.
+            onClick={hasText ? undefined : () => router.push(NEXT_STEP)}
             className="group/send relative size-9 rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <span
@@ -186,51 +167,5 @@ export function PromptInput() {
         </div>
       </form>
     </div>
-  );
-}
-
-// Icons from Lucide (https://lucide.dev, ISC license).
-function Icon({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      {children}
-    </svg>
-  );
-}
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <Icon className={className}>
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </Icon>
-  );
-}
-
-function MicIcon({ className }: { className?: string }) {
-  return (
-    <Icon className={className}>
-      <path d="M12 19v3" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <rect x="9" y="2" width="6" height="13" rx="3" />
-    </Icon>
-  );
-}
-
-function ArrowUpIcon({ className }: { className?: string }) {
-  return (
-    <Icon className={className}>
-      <path d="m5 12 7-7 7 7" />
-      <path d="M12 19V5" />
-    </Icon>
   );
 }

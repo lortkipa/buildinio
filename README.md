@@ -11,7 +11,7 @@
 
 Early development. Phase 1 generates frontend-only web apps (React, Vite, Tailwind CSS, shadcn/ui).
 
-The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app is a landing page with the prompt input; generating apps is not built yet.
+The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input and log in / sign up pages; sign-in and generating apps are not built yet.
 
 ## Getting started
 
@@ -34,7 +34,7 @@ echo "DB_PORT=5433" >> .env
 pnpm db:down && pnpm db:up
 ```
 
-The defaults need no configuration. For other overrides, see `.env.example`, `apps/api/.env.example` (copy to `apps/api/.env`) and `apps/web/.env.example` (copy to `apps/web/.env.local`).
+The defaults need no configuration. For other overrides, see `.env.example` and `apps/api/.env.example` (copy to `apps/api/.env`).
 
 ### Production
 
