@@ -15,7 +15,8 @@
     "@buildinio/shared": "workspace:*",
     "@hono/node-server": "^1.19.0",
     "better-auth": "^1.7.10",
-    "hono": "^4.9.0"
+    "hono": "^4.9.0",
+    "nodemailer": "^10.1.1"
   },
   "devDependencies": {
     "@buildinio/tsconfig": "workspace:*",

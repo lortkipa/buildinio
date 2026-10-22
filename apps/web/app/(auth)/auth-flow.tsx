@@ -5,8 +5,8 @@ import { SiteHeader } from "../site-header";
 import { Toast, useToast } from "../toast";
 import { AuthPanel } from "./auth-panel";
 import { CodeForm } from "./code-form";
+import { CODE_LENGTH, type SentCode } from "./email-code";
 import { EmailForm } from "./email-form";
-import { CODE_LENGTH, type SendResult } from "./mock-auth";
 import { callbackErrorMessage, ProviderButtons } from "./provider-buttons";
 
 // /login and /signup: the email step, then, on the same page, the step for the code sent to it.
@@ -24,7 +24,7 @@ export function AuthFlow({
   signUp?: boolean;
   error?: string;
 }) {
-  const [sent, setSent] = useState<{ email: string; result: SendResult } | null>(null);
+  const [sent, setSent] = useState<{ email: string; code: SentCode } | null>(null);
   // Fills in the email form again after going back.
   const [lastEmail, setLastEmail] = useState("");
   const { toast, showToast, closeToast } = useToast(error && callbackErrorMessage(error));
@@ -42,9 +42,9 @@ export function AuthFlow({
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  function handleSent(email: string, result: SendResult) {
+  function handleSent(email: string, code: SentCode) {
     setLastEmail(email);
-    setSent({ email, result });
+    setSent({ email, code });
     // Same URL. Next.js copies its own state into the entry, so going back to it doesn't reload.
     window.history.pushState(null, "");
   }
@@ -69,13 +69,18 @@ export function AuthFlow({
             </>
           }
         >
-          <CodeForm email={sent.email} sent={sent.result} />
+          <CodeForm email={sent.email} sent={sent.code} />
         </AuthPanel>
       ) : (
         <AuthPanel heading={heading} description={description}>
           <div className="flex flex-col gap-3">
             <ProviderButtons onError={showToast} />
-            <EmailForm defaultEmail={lastEmail} autoFocus={lastEmail !== ""} onSent={handleSent} />
+            <EmailForm
+              defaultEmail={lastEmail}
+              autoFocus={lastEmail !== ""}
+              onSent={handleSent}
+              onError={showToast}
+            />
           </div>
         </AuthPanel>
       )}

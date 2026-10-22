@@ -4,6 +4,7 @@ import { APIError } from "better-auth/api";
 // Better Auth without Kysely, which the Drizzle adapter doesn't need.
 import { betterAuth } from "better-auth/minimal";
 import { github as builtInGithub, type GithubOptions } from "better-auth/social-providers";
+import { emailSignIn } from "./email-sign-in";
 
 // Served by the web app from apps/web/public. Given to accounts created without a picture (email).
 const DEFAULT_AVATAR = "/avatars/default.svg";
@@ -16,17 +17,25 @@ const MAX_NAME_LENGTH = 100;
  * app, which forwards /api/* here, so BETTER_AUTH_URL is the web app's origin.
  */
 export function createAuth(db: Database) {
+  const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
   const google = googleProvider();
   const github = githubProvider();
 
   return betterAuth({
-    baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+    baseURL,
     // BETTER_AUTH_SECRET is read by Better Auth. Development falls back to a default (with a
     // warning); production refuses to start without it.
     database: drizzleAdapter(db, { provider: "pg", schema }),
     // A provider that isn't listed makes sign-in fail with PROVIDER_NOT_FOUND, which the web app
     // shows as "not set up".
     socialProviders: { ...(google && { google }), ...(github && { github }) },
+    // Sign-in with a code sent by email, and its limits (email-sign-in.ts).
+    plugins: emailSignIn(db, baseURL),
+    rateLimit: {
+      // Better Auth's own per-IP limits (production only) would cap these below the .env
+      // settings; email-sign-in.ts limits them instead.
+      customRules: { "/email-otp/send-verification-otp": false, "/sign-in/email-otp": false },
+    },
     account: {
       // One account per email: signing in with another provider that has the same email signs in
       // to it and links that provider. The name and picture stay those of the first sign-in.

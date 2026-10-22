@@ -21,6 +21,8 @@ ENV NODE_ENV=production MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/packages/db/migrations ./migrations
+# Images in the emails (the bundle reads them from ../assets).
+COPY --from=build /repo/apps/api/assets ./assets
 USER node
 EXPOSE 4000
 # Bring the database up to date, then serve.

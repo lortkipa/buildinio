@@ -1,10 +1,14 @@
 import { createAuthClient } from "better-auth/client";
-import { inferAdditionalFields } from "better-auth/client/plugins";
+import { emailOTPClient, inferAdditionalFields } from "better-auth/client/plugins";
 
 // Calls the API's /api/auth/* (Better Auth, apps/api/src/auth.ts) on this origin, which
-// next.config.ts forwards. The plugin types the extra user fields the API adds.
+// next.config.ts forwards. The plugins add sign-in with an email code, and type the extra user
+// fields the API adds.
 export const authClient = createAuthClient({
-  plugins: [inferAdditionalFields({ user: { onboarded: { type: "boolean", required: false } } })],
+  plugins: [
+    emailOTPClient(),
+    inferAdditionalFields({ user: { onboarded: { type: "boolean", required: false } } }),
+  ],
 });
 
 export type Session = typeof authClient.$Infer.Session;

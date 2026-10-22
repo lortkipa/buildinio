@@ -1,5 +1,5 @@
 // Drizzle table definitions. After changing them, run `pnpm db:generate` and `pnpm db:migrate`.
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // Points in time, stored with their time zone (timestamptz).
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
@@ -69,7 +69,7 @@ export const account = pgTable(
   (table) => [index("account_user_id_idx").on(table.userId)],
 );
 
-// Short-lived values such as OAuth state and, later, email sign-in codes.
+// Short-lived values such as OAuth state and email sign-in codes.
 export const verification = pgTable(
   "verification",
   {
@@ -84,4 +84,19 @@ export const verification = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+// --- Limits (packages/db/src/rate-limit.ts) ---
+
+// How many times something happened in the current window, per key, e.g. codes sent to one email
+// in the last hour. A row's window starts over on the first hit after `resetAt`. Not named
+// rateLimit, which is the name of Better Auth's own (unused) model.
+export const rateLimitCounter = pgTable(
+  "rate_limit_counter",
+  {
+    key: text("key").primaryKey(),
+    count: integer("count").notNull(),
+    resetAt: timestamptz("reset_at").notNull(),
+  },
+  (table) => [index("rate_limit_counter_reset_at_idx").on(table.resetAt)],
 );

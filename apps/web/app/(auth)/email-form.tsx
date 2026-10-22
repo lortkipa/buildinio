@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { LoaderIcon } from "../icons";
 import { hasFinePointer } from "../pointer";
 import { revealForm } from "../reveal-form";
-import { type SendResult, sendCode } from "./mock-auth";
+import { type SentCode, sendCode } from "./email-code";
 
 // Something@something.something without spaces. Only a sign-in email can prove the address works.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,14 +16,17 @@ function emailError(email: string) {
 }
 
 // Passwordless email sign-in, used for both logging in and signing up. Sends a code to the email.
+// onError: why sending failed, for the toast.
 export function EmailForm({
   defaultEmail,
   autoFocus,
   onSent,
+  onError,
 }: {
   defaultEmail: string;
   autoFocus: boolean;
-  onSent: (email: string, result: SendResult) => void;
+  onSent: (email: string, sent: SentCode) => void;
+  onError: (message: string) => void;
 }) {
   const id = useId();
   const errorId = `${id}-error`;
@@ -72,7 +75,13 @@ export function EmailForm({
     }
     setSending(true);
     const result = await sendCode(address);
-    if (mounted.current) onSent(address, result);
+    if (!mounted.current) return;
+    if (result.ok) {
+      onSent(address, result);
+      return;
+    }
+    setSending(false);
+    onError(result.message);
   }
 
   return (

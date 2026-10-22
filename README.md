@@ -11,7 +11,7 @@
 
 Early development. Phase 1 generates frontend-only web apps (React, Vite, Tailwind CSS, shadcn/ui).
 
-The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input, and accounts: sign-in with Google and GitHub, a name step for new accounts, and Log out and Delete account on the home page. Sign-in with email, and generating apps, are not built yet.
+The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input, and accounts: sign-in with Google, GitHub or a code sent by email, a name step for new accounts, and Log out and Delete account on the home page. Generating apps is not built yet.
 
 ## Getting started
 
@@ -67,18 +67,35 @@ Without keys, "Continue with GitHub" says that it isn't set up. To turn it on:
 
 Like Google sign-in, it works from `http://localhost:3000` only in development. It signs in with the email GitHub has verified; a GitHub account without one is asked to verify it first.
 
+#### Email sign-in
+
+Works without any setup: "Continue with email" sends nothing in development and prints the code in the API's output instead (`Sign-in code for you@example.com: 123456`).
+
+To send real emails, set an SMTP provider in the root `.env` and restart `pnpm dev`. `.env.example` walks through [Brevo](https://www.brevo.com), whose free plan sends 300 emails a day:
+
+```sh
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_USER=...
+SMTP_PASSWORD=...
+EMAIL_FROM="Buildinio <no-reply@yourdomain.com>"
+```
+
+Codes expire after 10 minutes, allow 3 wrong tries, and a new one can be sent after 60 seconds. Codes per email, per IP and in total are limited too. Every rule can be changed in `.env` (see `.env.example`).
+
 ### Production
 
 The whole stack (Postgres, API, web) runs with Docker Compose:
 
 ```sh
-cp .env.example .env   # then set POSTGRES_PASSWORD and BETTER_AUTH_SECRET (see the file)
+cp .env.example .env   # then set POSTGRES_PASSWORD, BETTER_AUTH_SECRET and the SMTP settings (see the file)
 pnpm prod:up           # build images and start; the web app is on http://localhost:3000
 pnpm prod:logs         # follow logs
 pnpm prod:down         # stop (data stays in the postgres-data volume)
 ```
 
 Only the web app is published to the host; it forwards `/api/*` to the API. The API applies pending database migrations each time it starts. Set `WEB_PORT` in `.env` to use another port, and `BETTER_AUTH_URL` to the address people open the app at. For Google sign-in, register `<BETTER_AUTH_URL>/api/auth/callback/google` as a redirect URI too. For GitHub sign-in, create a production OAuth app with the callback URL `<BETTER_AUTH_URL>/api/auth/callback/github`.
+
+Email sign-in is required in production: the API doesn't start without `SMTP_HOST` and `EMAIL_FROM`. The per-IP limits on email codes need the visitor's IP in `X-Forwarded-For`, which the web app doesn't add on its own. Until a proxy in front of it sets that header to the visitor's IP, replacing any value the visitor sent (e.g. nginx with `proxy_set_header X-Forwarded-For $remote_addr;`), those limits are off. The per-email and total limits work either way.
 
 ### Other commands
 
