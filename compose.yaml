@@ -1,4 +1,5 @@
 # Development database. Start with `pnpm db:up`, stop with `pnpm db:down`.
+# Set DB_PORT in .env to publish it on another host port (see .env.example).
 name: buildinio-dev
 
 services:
@@ -9,7 +10,7 @@ services:
       POSTGRES_PASSWORD: buildinio
       POSTGRES_DB: buildinio
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres-dev:/var/lib/postgresql/data
     healthcheck:

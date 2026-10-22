@@ -1,5 +1,5 @@
 # Production stack. Start with `pnpm prod:up`, stop with `pnpm prod:down`.
-# Reads POSTGRES_PASSWORD and WEB_PORT from .env (see .env.example).
+# Reads POSTGRES_PASSWORD and WEB_PORT from .env (see .env.example); DB_PORT is not used here.
 name: buildinio-prod
 
 services:

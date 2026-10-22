@@ -82,7 +82,7 @@ Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Dock
 | Command | What it does |
 |---|---|
 | `pnpm install` | Install dependencies |
-| `pnpm db:up` / `pnpm db:down` | Start / stop the dev Postgres (`compose.yaml`, port 5432) |
+| `pnpm db:up` / `pnpm db:down` | Start / stop the dev Postgres (`compose.yaml`, host port `DB_PORT`, default 5432) |
 | `pnpm dev` | Run web (http://localhost:3000) and API (http://localhost:4000) with reload |
 | `pnpm build` | Build all apps |
 | `pnpm typecheck` | Type-check all packages |
@@ -96,7 +96,7 @@ Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Dock
 
 There are no tests yet. Add a `test` command here when the first tests land. Migrations are not run automatically in production yet; add that step when the first migration exists.
 
-Environment variables: the API reads `DATABASE_URL` and `PORT` (optional `apps/api/.env`); the web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files. See the `.env.example` files.
+Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`); the web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files. See the `.env.example` files.
 
 ## Working rules
 

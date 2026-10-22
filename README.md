@@ -27,7 +27,14 @@ pnpm dev       # web on http://localhost:3000, API on http://localhost:4000
 
 Open http://localhost:3000. Web, API and Database should all show **Connected**. Stop the database with `pnpm db:down`.
 
-The defaults need no configuration. To override them, copy `apps/api/.env.example` to `apps/api/.env` and `apps/web/.env.example` to `apps/web/.env.local`.
+Port 5432 already in use? Put another port in a root `.env` file. Compose, the API and Drizzle Kit all follow it:
+
+```sh
+echo "DB_PORT=5433" >> .env
+pnpm db:down && pnpm db:up
+```
+
+The defaults need no configuration. For other overrides, see `.env.example`, `apps/api/.env.example` (copy to `apps/api/.env`) and `apps/web/.env.example` (copy to `apps/web/.env.local`).
 
 ### Production
 
