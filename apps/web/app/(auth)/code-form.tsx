@@ -6,17 +6,9 @@ import { flushSync } from "react-dom";
 import { LoaderIcon } from "../icons";
 import { hasFinePointer } from "../pointer";
 import { revealForm } from "../reveal-form";
-import { CODE_LENGTH, type SendResult, sendCode, verifyCode } from "./mock-auth";
-
-// After signing in, the step that asks for the user's name.
-const NEXT_STEP = "/welcome";
+import { CODE_LENGTH, type SentCode, sendCode, triesLeftText, verifyCode } from "./email-code";
 
 const SLOTS = Array.from({ length: CODE_LENGTH }, (_, index) => index);
-
-const triesLeftText = (triesLeft: number) =>
-  triesLeft === 0
-    ? "No tries left. Request a new code."
-    : `${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left.`;
 
 // Puts the caret after the last digit, so typing always adds a digit and Backspace removes one.
 function caretToEnd(input: HTMLInputElement) {
@@ -25,7 +17,7 @@ function caretToEnd(input: HTMLInputElement) {
 }
 
 // The code from the sign-in email. It is checked as soon as all digits are in; there is no button.
-export function CodeForm({ email, sent }: { email: string; sent: SendResult }) {
+export function CodeForm({ email, sent }: { email: string; sent: SentCode }) {
   const id = useId();
   const messageId = `${id}-message`;
   const router = useRouter();
@@ -56,10 +48,6 @@ export function CodeForm({ email, sent }: { email: string; sent: SendResult }) {
       mounted.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    router.prefetch(NEXT_STEP);
-  }, [router]);
 
   // Tick once a second until resending is allowed.
   useEffect(() => {
@@ -93,13 +81,13 @@ export function CodeForm({ email, sent }: { email: string; sent: SendResult }) {
     if (!mounted.current) return;
     if (result.ok) {
       setPhase("signing-in");
-      router.replace(NEXT_STEP);
+      // A new account (or one that never confirmed its name) is asked for the name first.
+      router.replace(result.onboarded ? "/" : "/welcome");
       return;
     }
-    const left = result.error === "invalid" ? result.triesLeft : 0;
-    setTriesLeft(left);
+    if (result.triesLeft !== undefined) setTriesLeft(result.triesLeft);
     setCode("");
-    setError(`Incorrect code. ${triesLeftText(left)}`);
+    setError(result.message);
     setPhase("idle");
   }
 
@@ -109,6 +97,11 @@ export function CodeForm({ email, sent }: { email: string; sent: SendResult }) {
     setNotice(null);
     const result = await sendCode(email);
     if (!mounted.current) return;
+    if (!result.ok) {
+      setError(result.message);
+      setPhase("idle");
+      return;
+    }
     // Synchronously, so the input is enabled again before it gets the focus.
     flushSync(() => {
       setTriesLeft(result.triesLeft);

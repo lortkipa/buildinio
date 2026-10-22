@@ -1,5 +1,6 @@
 # Production stack. Start with `pnpm prod:up`, stop with `pnpm prod:down`.
-# Reads POSTGRES_PASSWORD and WEB_PORT from .env (see .env.example); DB_PORT is not used here.
+# Reads POSTGRES_PASSWORD, BETTER_AUTH_SECRET, BETTER_AUTH_URL, the Google and GitHub keys, the
+# email settings and WEB_PORT from .env (see .env.example); DB_PORT is not used here.
 name: buildinio-prod
 
 services:
@@ -26,6 +27,26 @@ services:
     environment:
       DATABASE_URL: postgres://buildinio:${POSTGRES_PASSWORD}@postgres:5432/buildinio
       PORT: "4000"
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
+      # Where people open the web app; Google and GitHub send them back to it after signing in.
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # Email sign-in: the codes are sent over SMTP. Empty settings use the API's defaults.
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env (email sign-in)}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM in .env (email sign-in)}
+      EMAIL_CODE_EXPIRES_MINUTES: ${EMAIL_CODE_EXPIRES_MINUTES:-}
+      EMAIL_CODE_MAX_TRIES: ${EMAIL_CODE_MAX_TRIES:-}
+      EMAIL_CODE_RESEND_SECONDS: ${EMAIL_CODE_RESEND_SECONDS:-}
+      EMAIL_CODE_LIMIT_PER_EMAIL: ${EMAIL_CODE_LIMIT_PER_EMAIL:-}
+      EMAIL_CODE_LIMIT_PER_IP: ${EMAIL_CODE_LIMIT_PER_IP:-}
+      EMAIL_CODE_CHECK_LIMIT_PER_IP: ${EMAIL_CODE_CHECK_LIMIT_PER_IP:-}
+      EMAIL_CODE_LIMIT_TOTAL: ${EMAIL_CODE_LIMIT_TOTAL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +63,10 @@ services:
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
+    # Serves /api/* from the API (API_URL is set in its Dockerfile).
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres-data:

@@ -1,36 +1,74 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { authClient, isUnreachable, settle } from "../auth-client";
 import { LoaderIcon } from "../icons";
-import { type Provider, signInWithProvider } from "./mock-auth";
 
-// Where Google and GitHub return to after signing in: the step that asks for the user's name.
-const NEXT_STEP = "/welcome";
+type Provider = "google" | "github";
 
-// Continue with Google and GitHub, mocked by signInWithProvider until auth (Better Auth) is set up.
-export function ProviderButtons() {
-  const router = useRouter();
+const PROVIDER_NAMES: Record<Provider, string> = { google: "Google", github: "GitHub" };
+
+// The .env keys the API needs for each provider.
+const PROVIDER_KEYS: Record<Provider, string> = {
+  google: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET",
+  github: "GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET",
+};
+
+// Why starting to sign in failed, for the toast.
+function signInErrorMessage(provider: Provider, error: { status: number; code?: string }) {
+  const name = PROVIDER_NAMES[provider];
+  // The API has no keys for this provider.
+  if (error.code === "PROVIDER_NOT_FOUND") {
+    if (process.env.NODE_ENV === "development") {
+      return `${name} sign-in isn’t set up. Add ${PROVIDER_KEYS[provider]} to .env and restart the API.`;
+    }
+    return `${name} sign-in isn’t available yet.`;
+  }
+  if (isUnreachable(error)) return "Couldn’t reach Buildinio. Check your connection and try again.";
+  return `Couldn’t sign in with ${name}. Try again.`;
+}
+
+// After a failed round trip to Google or GitHub, Better Auth comes back to the sign-in page with
+// ?error=<code>.
+export function callbackErrorMessage(code: string) {
+  if (code === "access_denied") return "Sign-in was cancelled.";
+  // Only from GitHub: the API refuses an email GitHub hasn't verified (apps/api/src/auth.ts).
+  if (code === "email_not_found") {
+    return "Couldn’t get a verified email from GitHub. Verify your email on GitHub, then try again.";
+  }
+  return "Couldn’t sign you in. Try again.";
+}
+
+// Continue with Google and GitHub. Each leaves for the provider and comes back signed in: to the
+// name step for a new account, else to the home page.
+export function ProviderButtons({ onError }: { onError: (message: string) => void }) {
   const [busy, setBusy] = useState<Provider | null>(null);
-  // False once the buttons are gone, e.g. after switching to the other auth page while connecting.
-  const mounted = useRef(false);
 
+  // Back from the provider's page can restore this page as it was left, still "Connecting…".
   useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setBusy(null);
     };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
-
-  useEffect(() => {
-    router.prefetch(NEXT_STEP);
-  }, [router]);
 
   async function signIn(provider: Provider) {
     if (busy) return;
     setBusy(provider);
-    await signInWithProvider(provider);
-    if (mounted.current) router.push(NEXT_STEP);
+    const { error } = await settle(
+      authClient.signIn.social({
+        provider,
+        callbackURL: "/",
+        newUserCallbackURL: "/welcome",
+        // Back to this page (/login or /signup), with ?error=.
+        errorCallbackURL: window.location.pathname,
+      }),
+    );
+    // On success the browser is on its way to the provider, so "Connecting…" stays.
+    if (!error) return;
+    setBusy(null);
+    onError(signInErrorMessage(provider, error));
   }
 
   return (
