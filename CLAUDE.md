@@ -44,7 +44,7 @@ Generated apps run in **self-hosted containers** (Docker). Still open: the produ
 
 ## Brand
 
-The logo is a rounded triangle with a five-stop gradient (`#FFB21E` `#FF4F6D` `#E23FA8` `#7A5BFF` `#2E9BFF`). The wordmark is "Buildinio" in Gabarito Bold. Files and usage are listed in `README.md`. Use these files as they are. Don't redraw or recolor the logo.
+The logo is a rounded triangle with a five-stop gradient (`#FFB21E` `#FF4F6D` `#E23FA8` `#7A5BFF` `#2E9BFF`). The wordmark is "Buildinio" in Gabarito Bold. The files are in `assets/brand/`: the logo with the name for light and dark backgrounds, the triangle mark on its own, and 512×512 GitHub avatars. Use these files as they are. Don't redraw or recolor the logo.
 
 ## Repository layout (planned)
 
