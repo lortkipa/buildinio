@@ -2,23 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { authClient, settle } from "../auth-client";
 import { LoaderIcon } from "../icons";
 import { hasFinePointer } from "../pointer";
 import { revealForm } from "../reveal-form";
-import { saveName } from "./mock-auth";
+import { Toast, useToast } from "../toast";
 
 // There is no workspace yet, so after the name comes the landing page.
 const NEXT_STEP = "/";
 
-// Asked after every sign-in. The button stays disabled until a name is typed.
-export function NameForm() {
+// Asked once, right after the account is created. defaultName: the name from Google or GitHub,
+// which the user can change; empty for email sign-ups. The button stays disabled while empty.
+export function NameForm({ defaultName }: { defaultName: string }) {
   const id = useId();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
   const [saving, setSaving] = useState(false);
-  // False once the form is gone, e.g. after going back while saving.
+  const { toast, showToast, closeToast } = useToast();
+  // False once the form is gone, e.g. after leaving the page while saving.
   const mounted = useRef(false);
 
   const empty = name.trim() === "";
@@ -31,10 +34,6 @@ export function NameForm() {
       mounted.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    router.prefetch(NEXT_STEP);
-  }, [router]);
 
   // Keep the whole form, button included, above the phone keyboard (see revealForm).
   useEffect(() => {
@@ -50,8 +49,15 @@ export function NameForm() {
     event.preventDefault();
     if (saving || empty) return;
     setSaving(true);
-    await saveName(name.trim());
-    if (mounted.current) router.replace(NEXT_STEP);
+    // onboarded: the name is confirmed, so it isn't asked again.
+    const { error } = await settle(authClient.updateUser({ name: name.trim(), onboarded: true }));
+    if (!mounted.current) return;
+    if (error) {
+      setSaving(false);
+      showToast("Couldn’t save your name. Try again.");
+      return;
+    }
+    router.replace(NEXT_STEP);
   }
 
   return (
@@ -97,6 +103,8 @@ export function NameForm() {
           "Continue"
         )}
       </button>
+
+      <Toast toast={toast} onClose={closeToast} />
     </form>
   );
 }

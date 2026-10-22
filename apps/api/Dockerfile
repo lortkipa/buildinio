@@ -17,9 +17,11 @@ RUN pnpm turbo run build --filter=@buildinio/api
 
 # tsup bundles all dependencies, so the runtime image needs no node_modules.
 FROM node:22-alpine AS runtime
-ENV NODE_ENV=production
+ENV NODE_ENV=production MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 COPY --from=build /repo/apps/api/dist ./dist
+COPY --from=build /repo/packages/db/migrations ./migrations
 USER node
 EXPOSE 4000
-CMD ["node", "dist/index.js"]
+# Bring the database up to date, then serve.
+CMD ["sh", "-c", "node dist/migrate.js && exec node dist/index.js"]

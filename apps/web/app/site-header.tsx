@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ArrowLeftIcon } from "./icons";
 
-// The landing page shows both account links; each auth page links only to the other one. With
-// onBack (the code and name steps of signing in), there is only a Back button.
+// The landing page shows both account links when signed out; each auth page links only to the
+// other one. With onBack (the code step of signing in), there is only a Back button. With nothing,
+// only the logo (signed in, and the name step).
 export function SiteHeader({
   logIn = false,
   signUp = false,

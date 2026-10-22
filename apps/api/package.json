@@ -10,9 +10,11 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.10",
     "@buildinio/db": "workspace:*",
     "@buildinio/shared": "workspace:*",
     "@hono/node-server": "^1.19.0",
+    "better-auth": "^1.7.10",
     "hono": "^4.9.0"
   },
   "devDependencies": {

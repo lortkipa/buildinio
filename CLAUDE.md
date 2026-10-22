@@ -15,16 +15,18 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Scaffolded. The monorepo, web app, API and database are wired together. The web app has four pages, all frontend only:
+Scaffolded, with real accounts for Google sign-in. The monorepo, web app, API and database are wired together. The web app has four pages:
 
-- `/`: the landing page, a headline and a prompt input. Submitting a prompt and the plus and mic buttons all go to `/signup`; the prompt itself is not kept yet. The header links to `/login` and `/signup`.
-- `/login` and `/signup`: the same two-step sign-in (`AuthFlow`) with different text above the buttons, and a header linking to the other page. Sign-in is mocked by `app/(auth)/mock-auth.ts`, which Better Auth will replace. It waits like a server would and sends nothing:
-  - Continue with Google or GitHub: the button shows "Connecting…", then `/welcome` opens.
-  - Email step: an empty or invalid address shows an error. A valid one "sends" a code and opens the code step on the same page.
-  - Code step ("Check your email"): six digits, checked as soon as all are in (the code is always `123456`). Each sent code allows 3 tries, and every error says how many are left. A new code can be sent once per 60 s, and going back and resending the same email can't skip that. A correct code goes to `/welcome`. The header shows only Back. It, and the browser's or phone's Back, return to the email step (the step has its own history entry).
-- `/welcome`: asked after every sign-in, "What should we call you?" with a name field. Continue stays disabled until a name is typed; the mock saves nothing, then goes to `/`. The header shows only Back, which returns to the login or signup email step that led there (`/login` when there is no history). The page is not guarded yet, since there are no sessions.
+- `/`: the landing page, a headline and a prompt input. Submitting a prompt and the plus and mic buttons all go to `/signup` (which sends signed-in users back home); the prompt itself is not kept yet. Signed out, the header links to `/login` and `/signup`. Signed in, the header shows only the logo and an account card (`app/account-card.tsx`) sits above the headline: avatar, name, email, Log out, and Delete account, which asks to confirm in a dialog. Better Auth only deletes after a sign-in within the last day; otherwise the dialog asks the user to log in again. A signed-in user who hasn't confirmed a name yet is sent to `/welcome`.
+- `/login` and `/signup`: the same two-step sign-in (`AuthFlow`) with different text above the buttons, and a header linking to the other page. Signed-in users are sent to `/`. Errors show as a toast at the bottom of the screen (`app/toast.tsx`).
+  - Continue with Google: real sign-in through Better Auth. The button shows "Connecting…" and the browser goes to Google. It comes back to `/welcome` for a new account, else to `/`. Without `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, the toast says Google sign-in isn't set up (in development, naming the keys). A cancelled or failed round trip comes back with `?error=`, shown as a toast.
+  - Continue with GitHub: the same real call, but no GitHub provider is configured yet, so it shows "GitHub sign-in isn't available yet."
+  - Email and code steps: still mocked by `app/(auth)/mock-auth.ts`, which waits like a server would and sends nothing. Email step: an empty or invalid address shows an error. A valid one "sends" a code and opens the code step on the same page. Code step ("Check your email"): six digits, checked as soon as all are in (the code is always `123456`). Each sent code allows 3 tries, and every error says how many are left. A new code can be sent once per 60 s, and going back and resending the same email can't skip that. The header shows only Back. It, and the browser's or phone's Back, return to the email step (the step has its own history entry). A correct code goes to `/welcome`, which sends visitors without a session on to `/login`: the mock signs no one in.
+- `/welcome`: asked once, right after an account is created: "What should we call you?" The name field is prefilled with the name from Google (empty for future email accounts) and can be changed. Continue stays disabled while it is empty. Saving sets the name and `onboarded`, then goes to `/`. The header shows only the logo. Signed out, it redirects to `/login`; already named, to `/`.
 
-The API serves `GET /health` and `GET /status` (API and database reachability), but the web app does not call it yet. There are no tables, migrations, auth or tests yet, and no generated-app template.
+Accounts are keyed by email: signing in with another provider that has the same email signs in to the same account and links that provider. The avatar is Google's (later GitHub's) picture when the account was created that way, else `/avatars/default.svg` (`apps/web/public/avatars/`, a Facebook-style silhouette). The name and avatar don't change when another provider is linked.
+
+The API serves Better Auth under `/api/auth/*` (`apps/api/src/auth.ts`), plus `GET /health` and `GET /status` (API and database reachability), which the web app doesn't call. The database has Better Auth's tables (`user` with an extra `onboarded` flag, `session`, `account`, `verification`). There are no tests yet, and no generated-app template.
 
 ## Tech stack
 
@@ -37,7 +39,7 @@ The API serves `GET /health` and `GET /status` (API and database reachability), 
 | Web app | Next.js (App Router) |
 | API | Hono |
 | Database | PostgreSQL + Drizzle ORM |
-| Auth | Better Auth (not set up yet) |
+| Auth | Better Auth (in the API; Google sign-in so far) |
 | DB driver | postgres (postgres.js) |
 | Styling | Tailwind CSS |
 | Lint / format | Biome |
@@ -69,19 +71,21 @@ In the web app, the five colors are Tailwind theme colors (`brand-amber`, `brand
 ```
 assets/brand        Logo files (SVG and PNG), source of truth
 apps/web            Next.js platform frontend (landing page at /, auth pages and /welcome in app/(auth))
-apps/api            Hono API server (GET /health, GET /status)
-packages/db         Drizzle client, schema, health check, drizzle.config.ts
+apps/api            Hono API server (Better Auth at /api/auth/*, GET /health, GET /status, migrate entry)
+packages/db         Drizzle client, schema, migrations, health check, drizzle.config.ts
 packages/shared     Types shared across apps and packages (e.g. StatusResponse)
 packages/tsconfig   Shared TypeScript config (@buildinio/tsconfig/base.json)
 compose.yaml        Dev database (Postgres)
 compose.prod.yaml   Production stack (Postgres + API + web)
-.claude/launch.json Web dev server for the Claude desktop app's browser preview
+.claude/launch.json Web and API dev servers for the Claude desktop app's browser preview
 ```
 
 Planned, not created yet: `templates/` for the generated-app base template(s), and more `packages/*` (UI, config) as they are needed.
 
 Notes:
 
+- Browsers only talk to the web app. `apps/web/next.config.ts` rewrites `/api/*` to the API at `API_URL` (`apps/web/api-url.ts`, default `http://localhost:4000`), so sign-in cookies are first-party and there is no CORS. Better Auth's `BETTER_AUTH_URL` is therefore the web app's origin. Rewrites are fixed at build time: the web Dockerfile sets `API_URL=http://api:4000`, and `turbo.json` lists `API_URL` for the build task (Turborepo passes only declared variables).
+- Auth in the web app: `app/auth-client.ts` (Better Auth's browser client, plus `settle` so a request that gets no answer fails like any other) and `app/session.ts` (`getSession()` for server components, which asks the API with the request's cookies). Pages guard themselves by calling `getSession()` and redirecting.
 - Workspace packages export TypeScript source (no build step). The API bundles them with tsup. When the web app starts using one, add it to `transpilePackages` in `apps/web/next.config.ts` so Next.js compiles it.
 - `next dev` serves its scripts only to localhost and to the origins in `allowedDevOrigins` (`apps/web/next.config.ts`, currently `192.168.*.*` and `10.*.*.*`). Opening the dev server from another hostname (another LAN range, a tunnel) needs an entry there, or the page won't hydrate.
 - Icons are Lucide's, copied into `apps/web/app/icons.tsx`. `apps/web/app/pointer.ts` has `hasFinePointer`: fields focus themselves only with a mouse or trackpad, since on phones that would pop up the keyboard.
@@ -105,12 +109,12 @@ Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Dock
 | `pnpm db:generate` | Generate a migration from `packages/db/src/schema.ts` |
 | `pnpm db:migrate` | Apply migrations to `DATABASE_URL` (default: dev database) |
 | `pnpm db:studio` | Open Drizzle Studio |
-| `pnpm prod:up` | Build and start the production stack (needs `.env` with `POSTGRES_PASSWORD`) |
+| `pnpm prod:up` | Build and start the production stack (needs `.env` with `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`) |
 | `pnpm prod:down` / `pnpm prod:logs` | Stop the production stack / follow its logs |
 
-There are no tests yet. Add a `test` command here when the first tests land. Migrations are not run automatically in production yet; add that step when the first migration exists.
+There are no tests yet. Add a `test` command here when the first tests land. In development, run `pnpm db:migrate` after creating or pulling a migration. In production, the API image applies pending migrations each time it starts (`apps/api/src/migrate.ts`, with the migrations copied to `MIGRATIONS_DIR`), before serving.
 
-Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`). Dev defaults work without any env files. See the `.env.example` files.
+Environment variables: the root `.env` holds `DB_PORT` (dev database host port, read by `compose.yaml`, the API dev server and Drizzle Kit), the sign-in settings (`BETTER_AUTH_SECRET`, optional in dev and required in production; `BETTER_AUTH_URL`, the web app's public origin, default `http://localhost:3000`; `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, Google sign-in is off without both) and `POSTGRES_PASSWORD` / `WEB_PORT` (production). The API reads `DATABASE_URL` (overrides the URL built from `DB_PORT`) and `PORT` (optional `apps/api/.env`). The web app reads `API_URL` (optional `apps/web/.env.local`). Dev defaults work without any env files, except for Google sign-in. See the `.env.example` files.
 
 ## Working rules
 

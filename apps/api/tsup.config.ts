@@ -1,7 +1,8 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  // The server, and the migration step the production image runs before it.
+  entry: ["src/index.ts", "src/migrate.ts"],
   format: "esm",
   platform: "node",
   target: "node22",
