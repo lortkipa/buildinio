@@ -16,10 +16,60 @@ const EXAMPLES = [
 
 const hasFinePointer = () => window.matchMedia("(pointer: fine)").matches;
 
-// Grow with the content; max-h-60 on the textarea caps it, after which it scrolls.
+// Grow with the content up to the max height (see fitTextarea), after which it scrolls.
 function autosize(textarea: HTMLTextAreaElement) {
   textarea.style.height = "auto";
   textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+/*
+ * Phone keyboards cover the page instead of resizing it (only the visual viewport shrinks), and
+ * browsers scroll just the caret into view, so the rest of the form can end up under the keyboard.
+ * fitTextarea and revealForm keep the whole form, send button included, in the visible area.
+ */
+
+// Space kept between the form and the keyboard or the screen edge. Same as scroll-my-4 on the form.
+const VIEWPORT_GAP = 16;
+// One line (text-base/6) plus the textarea's pt-3 and pb-2.
+const MIN_TEXTAREA_HEIGHT = 44;
+
+// Cap the textarea so the form fits in the visible area, then fit the textarea to its content.
+function fitTextarea(textarea: HTMLTextAreaElement) {
+  const viewport = window.visualViewport;
+  const form = textarea.form;
+  // Pinch zoom shrinks the visual viewport too; keep the last cap while zoomed.
+  if (viewport && form && viewport.scale === 1) {
+    const room = viewport.height - (form.offsetHeight - textarea.offsetHeight) - 2 * VIEWPORT_GAP;
+    // 15rem is max-h-60, the cap before this runs and on roomy screens.
+    textarea.style.maxHeight = `min(15rem, ${Math.max(room, MIN_TEXTAREA_HEIGHT)}px)`;
+  }
+  autosize(textarea);
+}
+
+// How far the form's bottom (positive) or top (negative) sticks out of the visible area, else 0.
+function formOverflow(form: HTMLFormElement, viewport: VisualViewport) {
+  const { top, bottom } = form.getBoundingClientRect();
+  const below = bottom - (viewport.offsetTop + viewport.height - VIEWPORT_GAP);
+  const above = viewport.offsetTop + VIEWPORT_GAP - top;
+  // If the form can't fit, the bottom wins: it has the send button, and the caret is usually there.
+  if (below > 0) return below;
+  if (above > 0) return -above;
+  return 0;
+}
+
+// Scroll the page by the least amount that shows the whole form.
+function revealForm(form: HTMLFormElement) {
+  const viewport = window.visualViewport;
+  if (viewport?.scale !== 1) return;
+  const overflow = formOverflow(form, viewport);
+  if (overflow === 0) return;
+  // Not window.scrollBy: Chrome on Android applies it to the layout viewport only, which the
+  // keyboard doesn't shrink, so a page that fits the screen can't scroll. scrollIntoView also
+  // pans the visual viewport.
+  form.scrollIntoView({ block: overflow > 0 ? "end" : "start" });
+  // A browser whose scrollIntoView ignores the keyboard leaves the rest to window scrolling.
+  const rest = formOverflow(form, viewport);
+  if (Math.abs(rest) >= 1) window.scrollBy(0, rest);
 }
 
 export function PromptInput() {
@@ -34,10 +84,14 @@ export function PromptInput() {
     if (!textarea) return;
     // Let desktop users type right away; on phones this would pop up the keyboard.
     if (hasFinePointer()) textarea.focus();
-    // A new width changes the line wrapping, and with it the height.
-    const onResize = () => autosize(textarea);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    // The visual viewport resizes when the keyboard opens or closes, and on any window resize
+    // (a new width changes the line wrapping, and with it the height).
+    const onResize = () => {
+      fitTextarea(textarea);
+      if (document.activeElement === textarea && textarea.form) revealForm(textarea.form);
+    };
+    window.visualViewport?.addEventListener("resize", onResize);
+    return () => window.visualViewport?.removeEventListener("resize", onResize);
   }, []);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -57,7 +111,7 @@ export function PromptInput() {
     <div className="w-full text-left">
       <form
         onSubmit={handleSubmit}
-        className="relative rounded-3xl border border-zinc-950/10 bg-white/80 shadow-xl shadow-zinc-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/75 dark:shadow-black/30"
+        className="relative scroll-my-4 rounded-3xl border border-zinc-950/10 bg-white/80 shadow-xl shadow-zinc-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/75 dark:shadow-black/30"
       >
         <div className="relative mx-2 mt-2">
           <label htmlFor={id} className="sr-only">
@@ -80,7 +134,8 @@ export function PromptInput() {
             value={value}
             onChange={(event) => {
               setValue(event.target.value);
-              autosize(event.target);
+              fitTextarea(event.target);
+              if (event.target.form) revealForm(event.target.form);
             }}
             onKeyDown={handleKeyDown}
             onMouseMove={(event) => {
