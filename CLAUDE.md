@@ -66,6 +66,7 @@ packages/shared     Types shared across apps and packages (e.g. StatusResponse)
 packages/tsconfig   Shared TypeScript config (@buildinio/tsconfig/base.json)
 compose.yaml        Dev database (Postgres)
 compose.prod.yaml   Production stack (Postgres + API + web)
+.claude/launch.json Web dev server for the Claude desktop app's browser preview
 ```
 
 Planned, not created yet: `templates/` for the generated-app base template(s), and more `packages/*` (UI, config) as they are needed.
