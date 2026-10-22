@@ -15,7 +15,7 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Pre-code. The repo holds only `LICENSE`. Fill in the **Repository layout** and **Commands** sections as soon as the project is scaffolded.
+Pre-code. The repo holds `README.md`, `LICENSE` and the brand assets in `assets/brand/`. Fill in the **Repository layout** and **Commands** sections as soon as the project is scaffolded.
 
 ## Tech stack
 
@@ -42,11 +42,16 @@ Pre-code. The repo holds only `LICENSE`. Fill in the **Repository layout** and *
 
 Generated apps run in **self-hosted containers** (Docker). Still open: the production isolation layer (e.g. gVisor or Firecracker) and the hosting choice.
 
+## Brand
+
+The logo is a rounded triangle with a five-stop gradient (`#FFB21E` `#FF4F6D` `#E23FA8` `#7A5BFF` `#2E9BFF`). The wordmark is "Buildinio" in Gabarito Bold. Files and usage are listed in `README.md`. Use these files as they are. Don't redraw or recolor the logo.
+
 ## Repository layout (planned)
 
-Not created yet. Update this section when the layout exists or changes.
+Only `assets/brand/` exists so far. Update this section when the layout exists or changes.
 
 ```
+assets/brand   Logo files (SVG and PNG)
 apps/web       Next.js platform frontend
 apps/api       Hono API server
 packages/db    Drizzle schema and migrations
