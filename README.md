@@ -11,7 +11,7 @@
 
 Early development. Phase 1 generates frontend-only web apps (React, Vite, Tailwind CSS, shadcn/ui).
 
-The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app shows a status page that checks the connection to the API and the database.
+The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app is a landing page with the prompt input; generating apps is not built yet.
 
 ## Getting started
 
@@ -25,7 +25,7 @@ pnpm db:up     # start Postgres in Docker
 pnpm dev       # web on http://localhost:3000, API on http://localhost:4000
 ```
 
-`pnpm dev` opens http://localhost:3000 in your browser once the app is ready (run `BROWSER=none pnpm dev` to skip that). Web, API and Database should all show **Connected**. Stop the database with `pnpm db:down`.
+`pnpm dev` opens http://localhost:3000 in your browser once the app is ready (run `BROWSER=none pnpm dev` to skip that). To check that the API and the database are connected, run `curl http://localhost:4000/status`. Stop the database with `pnpm db:down`.
 
 Port 5432 already in use? Put another port in a root `.env` file. Compose, the API and Drizzle Kit all follow it:
 
