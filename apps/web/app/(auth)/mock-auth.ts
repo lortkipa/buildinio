@@ -1,8 +1,9 @@
 /*
- * Stands in for the auth server until auth (Better Auth's email OTP) is set up, so the sign-in
- * flow can be built and tried. Like a server, it waits a moment before answering and keeps the
- * rules per email: a code is sent at most once per RESEND_COOLDOWN_MS and allows MAX_TRIES checks.
- * The state lives in memory, so a reload starts fresh. Every code is MOCK_CODE.
+ * Stands in for the auth server until auth (Better Auth) is set up, so the sign-in flow can be
+ * built and tried. Like a server, it waits a moment before answering. For email sign-in it keeps
+ * the rules per email: a code is sent at most once per RESEND_COOLDOWN_MS and allows MAX_TRIES
+ * checks. The state lives in memory, so a reload starts fresh. Every code is MOCK_CODE. Google and
+ * GitHub sign-in always succeed, and the name is not stored anywhere.
  */
 
 export const CODE_LENGTH = 6;
@@ -12,6 +13,8 @@ export const RESEND_COOLDOWN_MS = 60_000;
 const MOCK_CODE = "123456";
 const SEND_DELAY_MS = 1200;
 const VERIFY_DELAY_MS = 900;
+const PROVIDER_DELAY_MS = 1000;
+const SAVE_NAME_DELAY_MS = 800;
 
 // The latest code sent to each email (lowercased).
 const sentCodes = new Map<string, { sentAt: number; triesLeft: number }>();
@@ -49,4 +52,15 @@ export async function verifyCode(email: string, code: string): Promise<VerifyRes
   sent.triesLeft -= 1;
   if (sent.triesLeft === 0) return { ok: false, error: "too-many-tries" };
   return { ok: false, error: "invalid", triesLeft: sent.triesLeft };
+}
+
+export type Provider = "google" | "github";
+
+// Stands in for the round trip to Google or GitHub and back.
+export async function signInWithProvider(_provider: Provider): Promise<void> {
+  await wait(PROVIDER_DELAY_MS);
+}
+
+export async function saveName(_name: string): Promise<void> {
+  await wait(SAVE_NAME_DELAY_MS);
 }

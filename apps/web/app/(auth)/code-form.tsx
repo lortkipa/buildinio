@@ -8,8 +8,8 @@ import { hasFinePointer } from "../pointer";
 import { revealForm } from "../reveal-form";
 import { CODE_LENGTH, type SendResult, sendCode, verifyCode } from "./mock-auth";
 
-// There is no workspace yet, so signing in leads back to the landing page.
-const NEXT_STEP = "/";
+// After signing in, the step that asks for the user's name.
+const NEXT_STEP = "/welcome";
 
 const SLOTS = Array.from({ length: CODE_LENGTH }, (_, index) => index);
 

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { SiteHeader } from "../site-header";
-import { AuthPanel, ProviderButtons } from "./auth-panel";
+import { AuthPanel } from "./auth-panel";
 import { CodeForm } from "./code-form";
 import { EmailForm } from "./email-form";
 import { CODE_LENGTH, type SendResult } from "./mock-auth";
+import { ProviderButtons } from "./provider-buttons";
 
 // /login and /signup: the email step, then, on the same page, the step for the code sent to it.
 export function AuthFlow({
