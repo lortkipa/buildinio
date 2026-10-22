@@ -83,7 +83,7 @@ Run from the repo root. Requires Node 22+, pnpm (via `corepack enable`) and Dock
 |---|---|
 | `pnpm install` | Install dependencies |
 | `pnpm db:up` / `pnpm db:down` | Start / stop the dev Postgres (`compose.yaml`, host port `DB_PORT`, default 5432) |
-| `pnpm dev` | Run web (http://localhost:3000) and API (http://localhost:4000) with reload |
+| `pnpm dev` | Run web (http://localhost:3000) and API (http://localhost:4000) with reload, and open the web app in the browser once it responds (`BROWSER=none` skips that; see `apps/web/scripts/open-browser.mjs`) |
 | `pnpm build` | Build all apps |
 | `pnpm typecheck` | Type-check all packages |
 | `pnpm lint` | Lint and check formatting (Biome) |

@@ -25,7 +25,7 @@ pnpm db:up     # start Postgres in Docker
 pnpm dev       # web on http://localhost:3000, API on http://localhost:4000
 ```
 
-Open http://localhost:3000. Web, API and Database should all show **Connected**. Stop the database with `pnpm db:down`.
+`pnpm dev` opens http://localhost:3000 in your browser once the app is ready (run `BROWSER=none pnpm dev` to skip that). Web, API and Database should all show **Connected**. Stop the database with `pnpm db:down`.
 
 Port 5432 already in use? Put another port in a root `.env` file. Compose, the API and Drizzle Kit all follow it:
 

@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run dev dev:open",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "biome check .",
