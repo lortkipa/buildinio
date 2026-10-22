@@ -6,7 +6,8 @@ import "./globals.css";
 const gabarito = Gabarito({ subsets: ["latin"], variable: "--font-gabarito" });
 
 export const metadata: Metadata = {
-  title: "Buildinio",
+  // Pages set only their own name, e.g. "Log in · Buildinio".
+  title: { default: "Buildinio", template: "%s · Buildinio" },
   description: "An AI app builder for non-technical people.",
 };
 

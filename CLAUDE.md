@@ -15,7 +15,12 @@ Build only what the current phase needs. For example, don't add backend, databas
 
 ## Status
 
-Scaffolded. The monorepo, web app, API and database are wired together. The only feature is the landing page at `/` in the web app: a headline and a prompt input. Submitting a prompt does nothing yet, and the plus and mic buttons and the header's Log in and Sign up buttons are placeholders. The API serves `GET /health` and `GET /status` (API and database reachability), but the web app does not call it yet. There are no tables, migrations, auth or tests yet, and no generated-app template.
+Scaffolded. The monorepo, web app, API and database are wired together. The web app has three pages, all frontend only:
+
+- `/`: the landing page, a headline and a prompt input. Submitting a prompt and the plus and mic buttons all go to `/signup`; the prompt itself is not kept yet. The header links to `/login` and `/signup`.
+- `/login` and `/signup`: the same main part (`AuthPanel`) with different text above the buttons, and a header linking to the other page. The Continue with Google and GitHub buttons are placeholders. The passwordless email form only checks the address (empty or invalid shows an error) and clears it; no email is sent yet.
+
+The API serves `GET /health` and `GET /status` (API and database reachability), but the web app does not call it yet. There are no tables, migrations, auth or tests yet, and no generated-app template.
 
 ## Tech stack
 
@@ -59,7 +64,7 @@ In the web app, the five colors are Tailwind theme colors (`brand-amber`, `brand
 
 ```
 assets/brand        Logo files (SVG and PNG), source of truth
-apps/web            Next.js platform frontend (landing page at /)
+apps/web            Next.js platform frontend (landing page at /, auth pages in app/(auth))
 apps/api            Hono API server (GET /health, GET /status)
 packages/db         Drizzle client, schema, health check, drizzle.config.ts
 packages/shared     Types shared across apps and packages (e.g. StatusResponse)
@@ -75,6 +80,7 @@ Notes:
 
 - Workspace packages export TypeScript source (no build step). The API bundles them with tsup. When the web app starts using one, add it to `transpilePackages` in `apps/web/next.config.ts` so Next.js compiles it.
 - `next dev` serves its scripts only to localhost and to the origins in `allowedDevOrigins` (`apps/web/next.config.ts`, currently `192.168.*.*` and `10.*.*.*`). Opening the dev server from another hostname (another LAN range, a tunnel) needs an entry there, or the page won't hydrate.
+- Phone keyboards cover the page instead of resizing it. Forms in the web app call `revealForm` (`apps/web/app/reveal-form.ts`) on the visual viewport's `resize` event while a field is focused, so the submit button stays above the keyboard. Use it for new forms too.
 - `apps/web/AGENTS.md` is written and kept up to date by `next dev`. Keep it committed and don't edit its managed block.
 - Each app's Dockerfile uses `turbo prune`, so anything an app needs at build time must live in a workspace package, not at the repo root.
 

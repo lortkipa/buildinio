@@ -82,7 +82,7 @@
 }
 
 /* Soft glows of the logo colors behind the whole page, drifting slowly. */
-@utility landing-bg {
+@utility glow-bg {
   position: fixed;
   inset: -20%;
   z-index: -1;
@@ -114,14 +114,14 @@
       transparent
     );
   will-change: transform;
-  animation: landing-drift 30s ease-in-out infinite alternate;
+  animation: glow-drift 30s ease-in-out infinite alternate;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
 }
 
-@keyframes landing-drift {
+@keyframes glow-drift {
   to {
     transform: translate3d(3%, -2%, 0) rotate(6deg) scale(1.06);
   }
