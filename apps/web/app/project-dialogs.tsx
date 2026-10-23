@@ -222,7 +222,8 @@ function RenameForm({ project, titleId, onDone }: FormProps) {
         placeholder="Project name"
         value={name}
         onChange={(event) => setName(event.target.value)}
-        className="mt-4 h-12 w-full rounded-2xl border border-zinc-950/10 bg-white px-4 text-base outline-none transition-colors placeholder:text-zinc-500 focus:border-brand-violet dark:border-white/10 dark:bg-zinc-950/40 dark:placeholder:text-zinc-400 dark:focus:border-brand-violet"
+        style={projectColorStyle(project.color)}
+        className="mt-4 h-12 w-full rounded-2xl border border-zinc-950/10 bg-white px-4 text-base outline-none transition-colors placeholder:text-zinc-500 focus:border-(--project) dark:border-white/10 dark:bg-zinc-950/40 dark:placeholder:text-zinc-400 dark:focus:border-(--project)"
       />
       <Buttons onCancel={onDone}>
         <button type="submit" disabled={!canSave} className={PRIMARY}>
@@ -346,7 +347,8 @@ function DeleteForm({ project, titleId, onDone }: FormProps) {
       <h2 id={titleId} className={TITLE}>
         Delete project?
       </h2>
-      <p className="mt-2 text-sm text-pretty text-zinc-600 dark:text-zinc-300">
+      {/* wrap-anywhere: a long name without spaces wraps instead of widening the dialog. */}
+      <p className="mt-2 text-sm text-pretty wrap-anywhere text-zinc-600 dark:text-zinc-300">
         <span className="font-medium text-zinc-950 dark:text-white">
           {project.name ?? "This project"}
         </span>{" "}
