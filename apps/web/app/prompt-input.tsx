@@ -2,9 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import { AttachmentTile } from "./attachment-tile";
+import { ACCEPT, type Attachment, attachFiles, revokeAttachments } from "./attachments";
+import { FileDrop } from "./file-drop";
 import { ArrowUpIcon, MicIcon, PlusIcon } from "./icons";
+import { ImageViewer } from "./image-viewer";
 import { hasFinePointer } from "./pointer";
 import { revealForm, VIEWPORT_GAP } from "./reveal-form";
+import { useScrollFade } from "./scroll-fade";
+import { Toast, useToast } from "./toast";
 
 // Shown one after another as the placeholder. Keep them frontend-only (Phase 1).
 const EXAMPLES = [
@@ -43,8 +49,11 @@ function fitTextarea(textarea: HTMLTextAreaElement) {
 
 /*
  * nextStep: where sending the prompt and every button lead, e.g. signing up first. onSend: gets the
- * prompt instead, and the box empties. Without either, they do nothing yet. placeholder: shown
- * instead of the cycling examples. busy: the prompt can't be sent yet, e.g. while the AI replies.
+ * prompt and the attached files instead, and the box empties; the plus attaches files (see
+ * attachments.ts), as does dropping them anywhere on the page, shown as tiles above the text, and
+ * files alone can be sent too. Without either,
+ * they do nothing yet. placeholder: shown instead of the cycling examples. busy: the prompt can't be
+ * sent yet, e.g. while the AI replies.
  */
 export function PromptInput({
   nextStep,
@@ -53,16 +62,23 @@ export function PromptInput({
   busy = false,
 }: {
   nextStep?: string;
-  onSend?: (prompt: string) => void;
+  onSend?: (prompt: string, attachments: Attachment[]) => void;
   placeholder?: string;
   busy?: boolean;
 }) {
   const id = useId();
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   const [exampleIndex, setExampleIndex] = useState(0);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [viewing, setViewing] = useState<Attachment | null>(null);
+  const { toast, showToast, closeToast } = useToast();
   const hasText = value.trim() !== "";
+  const canSend = hasText || attachments.length > 0;
+  // The files not sent yet, freed if the box goes away with them. Sent ones belong to the message.
+  const unsent = useRef<Attachment[]>([]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -79,6 +95,19 @@ export function PromptInput({
     return () => window.visualViewport?.removeEventListener("resize", onResize);
   }, []);
 
+  useEffect(() => {
+    unsent.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => () => revokeAttachments(unsent.current), []);
+
+  // The row of files above the text changes the form's height, and with it the room for the text.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when files come or go
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) fitTextarea(textarea);
+  }, [attachments.length]);
+
   // Every button and sending the prompt lead to the next step, so have it ready.
   useEffect(() => {
     if (nextStep) router.prefetch(nextStep);
@@ -88,14 +117,46 @@ export function PromptInput({
     if (nextStep) router.push(nextStep);
   }
 
+  // Back to the text after picking or removing files, on desktops (phones would pop up the keyboard).
+  function refocus() {
+    const textarea = textareaRef.current;
+    if (!textarea || !hasFinePointer()) return;
+    textarea.focus();
+    if (textarea.form) revealForm(textarea.form);
+  }
+
+  // Picked or dropped files: those that fit are added, and a toast says why the rest weren't.
+  function addFiles(files: Iterable<File>) {
+    const { added, error } = attachFiles(attachments, files);
+    if (added.length) setAttachments((current) => [...current, ...added]);
+    if (error) showToast(error);
+    refocus();
+  }
+
+  function handleFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    if (event.target.files?.length) addFiles(event.target.files);
+    else refocus();
+    // So picking the same file again still counts as a change.
+    event.target.value = "";
+  }
+
+  function removeAttachment(attachment: Attachment) {
+    setAttachments((current) => current.filter((other) => other.id !== attachment.id));
+    URL.revokeObjectURL(attachment.url);
+    refocus();
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!onSend) {
       goNext();
       return;
     }
-    if (!hasText || busy) return;
-    onSend(value.trim());
+    if (!canSend || busy) return;
+    onSend(value.trim(), attachments);
+    // Set at once: sending from the home page navigates away, which would free them.
+    unsent.current = [];
+    setAttachments([]);
     setValue("");
     // Shrink back to one line once the text is gone.
     requestAnimationFrame(() => {
@@ -108,7 +169,7 @@ export function PromptInput({
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     if (!hasFinePointer()) return;
     event.preventDefault();
-    if (hasText) event.currentTarget.form?.requestSubmit();
+    if (canSend) event.currentTarget.form?.requestSubmit();
   }
 
   return (
@@ -117,7 +178,15 @@ export function PromptInput({
         onSubmit={handleSubmit}
         className="relative scroll-my-4 rounded-3xl border border-zinc-950/10 bg-white/80 shadow-xl shadow-zinc-950/5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/75 dark:shadow-black/30"
       >
-        <div className="relative mx-2 mt-2">
+        {attachments.length > 0 && (
+          <AttachmentRow
+            attachments={attachments}
+            onView={setViewing}
+            onRemove={removeAttachment}
+          />
+        )}
+
+        <div className={`relative mx-2 ${attachments.length > 0 ? "" : "mt-2"}`}>
           <label htmlFor={id} className="sr-only">
             Describe the app you want to build
           </label>
@@ -154,29 +223,42 @@ export function PromptInput({
         </div>
 
         <div className="flex items-center justify-between p-3 pt-1">
+          {onSend && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPT}
+              tabIndex={-1}
+              aria-hidden
+              onChange={handleFiles}
+              className="hidden"
+            />
+          )}
           <button
             type="button"
             aria-label="Add files"
-            onClick={goNext}
+            data-tooltip={onSend ? "Add files" : undefined}
+            onClick={onSend ? () => fileInputRef.current?.click() : goNext}
             className="grid size-9 place-items-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <PlusIcon className="size-5" />
           </button>
 
-          {/* One button: a mic while the box is empty, morphing into send once there is text. */}
+          {/* One button: a mic while the box is empty, morphing into send once there is text or a file. */}
           <button
-            type={hasText ? "submit" : "button"}
-            aria-label={hasText ? "Send" : "Voice input"}
-            aria-disabled={hasText && busy}
-            data-tooltip={hasText ? "Send" : undefined}
+            type={canSend ? "submit" : "button"}
+            aria-label={canSend ? "Send" : "Voice input"}
+            aria-disabled={canSend && busy}
+            data-tooltip={canSend ? "Send" : undefined}
             // With text it submits the form instead, and handleSubmit navigates.
-            onClick={hasText ? undefined : goNext}
+            onClick={canSend ? undefined : goNext}
             className="group/send relative size-9 rounded-full text-zinc-600 transition-colors aria-disabled:cursor-default hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <span
               aria-hidden
               className={`absolute inset-0 rounded-full bg-brand-gradient shadow-md shadow-brand-magenta/30 transition duration-300 ease-spring motion-reduce:transition-none ${
-                hasText
+                canSend
                   ? busy
                     ? "scale-100 opacity-40"
                     : "scale-100 opacity-100 group-hover/send:brightness-110"
@@ -185,17 +267,86 @@ export function PromptInput({
             />
             <MicIcon
               className={`absolute inset-0 m-auto size-5 transition duration-300 ease-spring motion-reduce:transition-none ${
-                hasText ? "scale-50 -rotate-90 opacity-0" : ""
+                canSend ? "scale-50 -rotate-90 opacity-0" : ""
               }`}
             />
             <ArrowUpIcon
               className={`absolute inset-0 m-auto size-5 text-white transition duration-300 ease-spring motion-reduce:transition-none ${
-                hasText ? "" : "translate-y-2 scale-50 opacity-0"
+                canSend ? "" : "translate-y-2 scale-50 opacity-0"
               }`}
             />
           </button>
         </div>
       </form>
+
+      {onSend && <FileDrop onFiles={addFiles} />}
+      <ImageViewer image={viewing} onClose={() => setViewing(null)} />
+      <Toast toast={toast} onClose={closeToast} />
+    </div>
+  );
+}
+
+/*
+ * The attached files, in a row above the text that scrolls sideways once they don't fit, fading out
+ * at an edge with more beyond it. A mouse wheel scrolls it too, and newly added files scroll into view.
+ */
+function AttachmentRow({
+  attachments,
+  onView,
+  onRemove,
+}: {
+  attachments: Attachment[];
+  onView: (attachment: Attachment) => void;
+  onRemove: (attachment: Attachment) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const count = useRef(attachments.length);
+  useScrollFade(ref, "x");
+
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.shiftKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      const max = box.scrollWidth - box.clientWidth;
+      // Past either end, the wheel scrolls the page as usual.
+      if (
+        (event.deltaY < 0 && box.scrollLeft <= 0) ||
+        (event.deltaY > 0 && box.scrollLeft >= max - 1)
+      )
+        return;
+      event.preventDefault();
+      // Firefox can count in lines.
+      box.scrollLeft += event.deltaY * (event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1);
+    };
+    box.addEventListener("wheel", onWheel, { passive: false });
+    return () => box.removeEventListener("wheel", onWheel);
+  }, []);
+
+  useEffect(() => {
+    const box = ref.current;
+    if (box && attachments.length > count.current)
+      box.scrollTo({ left: box.scrollWidth, behavior: "smooth" });
+    count.current = attachments.length;
+  }, [attachments.length]);
+
+  return (
+    <div
+      ref={ref}
+      className="prompt-scrollbar scroll-fade-x mx-2 mt-2 overflow-x-auto overscroll-x-contain [--fade-size:2rem]"
+    >
+      {/* One element that is always there, which useScrollFade watches as files come and go. */}
+      <ul aria-label="Attached files" className="flex w-max gap-2 px-3 pt-3 pb-1">
+        {attachments.map((attachment) => (
+          <li key={attachment.id} className="animate-tile-in motion-reduce:animate-none">
+            <AttachmentTile
+              attachment={attachment}
+              onView={() => onView(attachment)}
+              onRemove={() => onRemove(attachment)}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

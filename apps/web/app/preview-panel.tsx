@@ -82,7 +82,10 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
   const [faded, setFaded] = useState(false);
 
   const name = project.name ?? "";
-  const prompt = project.messages.find((message) => message.role === "user")?.text ?? "";
+  // A project started with files alone gets a stock line.
+  const prompt =
+    project.messages.find((message) => message.role === "user")?.text ||
+    "A new app, made with Buildinio.";
   // Until the first reply, the app is still being built.
   const building = !project.messages.some((message) => message.role === "ai");
 

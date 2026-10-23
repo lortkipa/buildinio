@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
+import { type Attachment, revokeAttachments } from "./attachments";
 import { FOLLOW_UP_REPLIES, firstReply, SEED_PROJECTS } from "./mock-projects";
+import { newId } from "./new-id";
 import { COLOR_NAMES, ICON_NAMES, type ProjectColor, type ProjectIconName } from "./project-icon";
 
 /*
@@ -16,7 +18,9 @@ export type Reaction = "like" | "dislike";
 export type Message = {
   id: string;
   role: "user" | "ai";
+  // Empty when the user sent only files.
   text: string;
+  attachments?: Attachment[];
   // How the user rated an AI message.
   reaction?: Reaction;
 };
@@ -71,16 +75,6 @@ export function useProjects() {
 // The project, or undefined when there's none with this id.
 export function useProject(id: string | undefined) {
   return useProjects().find((project) => project.id === id);
-}
-
-/*
- * A short random id. Not crypto.randomUUID: browsers have it only on secure origins, and the dev
- * server is also opened over plain http from phones on the local network.
- */
-function newId() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(10)), (byte) =>
-    (byte % 36).toString(36),
-  ).join("");
 }
 
 function pick<T>(items: readonly T[]): T {
@@ -139,7 +133,7 @@ function addReply(id: string, text: (project: Project) => string) {
 }
 
 // Starts a project from the prompt and returns its id. The AI names it and replies shortly after.
-export function createProject(prompt: string) {
+export function createProject(prompt: string, attachments: Attachment[] = []) {
   const id = newId();
   setProjects([
     {
@@ -147,7 +141,7 @@ export function createProject(prompt: string) {
       name: null,
       icon: pick(ICON_NAMES),
       color: pick(COLOR_NAMES),
-      messages: [{ id: newId(), role: "user", text: prompt }],
+      messages: [{ id: newId(), role: "user", text: prompt, attachments }],
       replying: true,
     },
     ...projects,
@@ -162,11 +156,11 @@ export function createProject(prompt: string) {
   return id;
 }
 
-export function sendMessage(id: string, text: string) {
+export function sendMessage(id: string, text: string, attachments: Attachment[] = []) {
   updateProject(id, (project) => ({
     ...project,
     replying: true,
-    messages: [...project.messages, { id: newId(), role: "user", text }],
+    messages: [...project.messages, { id: newId(), role: "user", text, attachments }],
   }));
   const reply = FOLLOW_UP_REPLIES[followUps++ % FOLLOW_UP_REPLIES.length] ?? "";
   setTimeout(() => addReply(id, () => reply), REPLY_DELAY);
@@ -181,6 +175,8 @@ export function restyleProject(id: string, icon: ProjectIconName, color: Project
 }
 
 export function deleteProject(id: string) {
+  const project = projects.find((project) => project.id === id);
+  for (const message of project?.messages ?? []) revokeAttachments(message.attachments ?? []);
   setProjects(projects.filter((project) => project.id !== id));
 }
 

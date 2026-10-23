@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AttachmentTile } from "./attachment-tile";
+import type { Attachment } from "./attachments";
+import { ImageViewer } from "./image-viewer";
 import { MessageActions } from "./message-actions";
 import { projectColorStyle } from "./project-icon";
 import { type Message, sendMessage, useProject } from "./projects";
@@ -28,6 +31,7 @@ export function ProjectChat({ id }: { id: string }) {
   const [shownCount] = useState(project?.name === null ? 0 : count);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolled = useRef(false);
+  const [viewing, setViewing] = useState<Attachment | null>(null);
   useScrollFade(scrollRef);
 
   useEffect(() => {
@@ -59,6 +63,7 @@ export function ProjectChat({ id }: { id: string }) {
               projectId={project.id}
               message={message}
               animate={index >= shownCount}
+              onView={setViewing}
               onCopyFailed={() => showToast("Couldn’t copy the message. Try again.")}
             />
           ))}
@@ -83,13 +88,14 @@ export function ProjectChat({ id }: { id: string }) {
       <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-3xl">
           <PromptInput
-            onSend={(text) => sendMessage(project.id, text)}
+            onSend={(text, attachments) => sendMessage(project.id, text, attachments)}
             placeholder="Ask Buildinio for a change…"
             busy={replying}
           />
         </div>
       </div>
 
+      <ImageViewer image={viewing} onClose={() => setViewing(null)} />
       <Toast toast={toast} onClose={closeToast} />
     </main>
   );
@@ -99,25 +105,42 @@ function ChatMessage({
   projectId,
   message,
   animate,
+  onView,
   onCopyFailed,
 }: {
   projectId: string;
   message: Message;
   animate: boolean;
+  onView: (attachment: Attachment) => void;
   onCopyFailed: () => void;
 }) {
   const fromUser = message.role === "user";
+  const attachments = message.attachments ?? [];
   return (
     <li
       className={`group/message flex flex-col ${fromUser ? "items-end" : "items-start"} ${
         animate ? "animate-message-in motion-reduce:animate-none" : ""
       }`}
     >
+      {attachments.length > 0 && (
+        <ul
+          aria-label={message.text ? "Attached files" : "You sent files"}
+          className="mb-2 flex max-w-[85%] flex-wrap justify-end gap-2"
+        >
+          {attachments.map((attachment) => (
+            <li key={attachment.id}>
+              <AttachmentTile attachment={attachment} onView={() => onView(attachment)} />
+            </li>
+          ))}
+        </ul>
+      )}
       {fromUser ? (
-        <p className="max-w-[85%] rounded-3xl px-4 py-2.5 text-base/7 whitespace-pre-wrap wrap-break-word project-tint">
-          <span className="sr-only">You: </span>
-          {message.text}
-        </p>
+        message.text && (
+          <p className="max-w-[85%] rounded-3xl px-4 py-2.5 text-base/7 whitespace-pre-wrap wrap-break-word project-tint">
+            <span className="sr-only">You: </span>
+            {message.text}
+          </p>
+        )
       ) : (
         <p className="w-full text-base/7 whitespace-pre-wrap wrap-break-word">
           <span className="sr-only">Buildinio: </span>

@@ -24,6 +24,8 @@ export function MessageActions({
   message: Message;
   onCopyFailed: () => void;
 }) {
+  // Nothing to copy when the user sent only files.
+  if (message.role === "user" && !message.text) return null;
   return (
     <div
       className={`mt-1 flex items-center gap-0.5 ${

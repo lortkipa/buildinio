@@ -563,3 +563,88 @@ export function StarIcon({ className }: { className?: string }) {
     </Icon>
   );
 }
+
+const FILE_OUTLINE =
+  "M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z";
+const FILE_FOLD = "M14 2v5a1 1 0 0 0 1 1h5";
+
+export function FileTextIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+    </Icon>
+  );
+}
+
+export function FileTypeIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <path d="M11 18h2" />
+      <path d="M12 12v6" />
+      <path d="M9 13v-.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v.5" />
+    </Icon>
+  );
+}
+
+export function FileSpreadsheetIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <path d="M8 13h2" />
+      <path d="M14 13h2" />
+      <path d="M8 17h2" />
+      <path d="M14 17h2" />
+    </Icon>
+  );
+}
+
+export function FileChartPieIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M15.941 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.704l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v3.512" />
+      <path d={FILE_FOLD} />
+      <path d="M4.017 11.512a6 6 0 1 0 8.466 8.475" />
+      <path d="M9 16a1 1 0 0 1-1-1v-4c0-.552.45-1.008.995-.917a6 6 0 0 1 4.922 4.922c.091.544-.365.995-.917.995z" />
+    </Icon>
+  );
+}
+
+export function FileCodeIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <path d="M10 12.5 8 15l2 2.5" />
+      <path d="m14 12.5 2 2.5-2 2.5" />
+    </Icon>
+  );
+}
+
+export function FileImageIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <circle cx="10" cy="12" r="2" />
+      <path d="m20 17-1.296-1.296a2.41 2.41 0 0 0-3.408 0L9 22" />
+    </Icon>
+  );
+}
+
+export function FileUpIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <path d="M12 12v6" />
+      <path d="m15 15-3-3-3 3" />
+    </Icon>
+  );
+}
