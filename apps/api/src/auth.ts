@@ -5,9 +5,15 @@ import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { github as builtInGithub, type GithubOptions } from "better-auth/social-providers";
 import { emailSignIn } from "./email-sign-in";
+import { isProduction } from "./env";
 
 // Served by the web app from apps/web/public. Given to accounts created without a picture (email).
 const DEFAULT_AVATAR = "/avatars/default.svg";
+
+// In development, the web app is also opened from other devices on the local network (e.g. a phone
+// at http://192.168.x.x:3000), the same ranges as allowedDevOrigins in apps/web/next.config.ts.
+// Better Auth otherwise refuses requests from any origin but BETTER_AUTH_URL (INVALID_ORIGIN).
+const LAN_DEV_ORIGINS = ["http://192.168.*.*:3000", "http://10.*.*.*:3000"];
 
 // Same limit as the name field on /welcome.
 const MAX_NAME_LENGTH = 100;
@@ -23,6 +29,7 @@ export function createAuth(db: Database) {
 
   return betterAuth({
     baseURL,
+    trustedOrigins: isProduction ? [] : LAN_DEV_ORIGINS,
     // BETTER_AUTH_SECRET is read by Better Auth. Development falls back to a default (with a
     // warning); production refuses to start without it.
     database: drizzleAdapter(db, { provider: "pg", schema }),
