@@ -54,7 +54,7 @@ export function SidebarNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const label = collapsed ? "sr-only" : "truncate";
+  const label = collapsed ? "sr-only" : "flex-1 truncate-fade text-left";
 
   return (
     <nav aria-label="Main" className="px-2">
@@ -92,7 +92,7 @@ export function ProjectsSection() {
       <h2 id={id} className="px-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
         Projects
       </h2>
-      <p className="mt-2 truncate px-2.5 text-sm text-zinc-600 dark:text-zinc-300">
+      <p className="mt-2 truncate-fade px-2.5 text-sm text-zinc-600 dark:text-zinc-300">
         No projects yet.
       </p>
     </section>

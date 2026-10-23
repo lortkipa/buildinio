@@ -218,3 +218,13 @@
     transparent
   );
 }
+
+/*
+ * Text too long for its box fades out at the end, instead of ending in an ellipsis. The box has to
+ * fill the space it has, or text that fits exactly would fade too.
+ */
+@utility truncate-fade {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}

@@ -130,8 +130,8 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
         <Avatar image={user.image} />
         {placement === "card" && (
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">{user.name}</span>
-            <span className="block truncate text-xs text-zinc-600 dark:text-zinc-300">
+            <span className="block truncate-fade text-sm font-medium">{user.name}</span>
+            <span className="block truncate-fade text-xs text-zinc-600 dark:text-zinc-300">
               {user.email}
             </span>
           </span>
@@ -160,9 +160,9 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
         {placement !== "card" && (
           <div className="mb-1.5 flex items-center gap-3 border-b border-zinc-950/10 px-2 pt-1 pb-2.5 dark:border-white/10">
             <Avatar image={user.image} />
-            <div className="min-w-0">
-              <p className="truncate font-medium">{user.name}</p>
-              <p className="truncate text-xs text-zinc-600 dark:text-zinc-300">{user.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate-fade font-medium">{user.name}</p>
+              <p className="truncate-fade text-xs text-zinc-600 dark:text-zinc-300">{user.email}</p>
             </div>
           </div>
         )}

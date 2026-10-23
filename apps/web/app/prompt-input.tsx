@@ -103,7 +103,7 @@ export function PromptInput({ nextStep }: { nextStep?: string }) {
               key={exampleIndex}
               aria-hidden
               onAnimationEnd={() => setExampleIndex((index) => (index + 1) % EXAMPLES.length)}
-              className="pointer-events-none absolute inset-x-0 top-0 truncate px-3 pt-3 text-base/6 text-zinc-500 animate-placeholder-cycle motion-reduce:animate-placeholder-fade dark:text-zinc-400"
+              className="pointer-events-none absolute inset-x-0 top-0 truncate-fade px-3 pt-3 text-base/6 text-zinc-500 animate-placeholder-cycle motion-reduce:animate-placeholder-fade dark:text-zinc-400"
             >
               {EXAMPLES[exampleIndex]}
             </span>
