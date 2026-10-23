@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ICON_BUTTON } from "./icon-button";
 import { ExternalLinkIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from "./icons";
 import { mockPreviewDocument } from "./mock-preview";
+import { projectColorStyle } from "./project-icon";
 import type { Project } from "./projects";
 import { revealForm } from "./reveal-form";
 import { useLarge, useWide } from "./wide";
@@ -222,7 +223,8 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
                 justFocused.current = false;
                 setDraft(null);
               }}
-              className="h-10 w-full rounded-xl border border-zinc-950/10 bg-white/70 px-3.5 text-base text-zinc-700 transition-colors outline-none focus:border-brand-violet/60 focus:bg-white focus:text-zinc-950 disabled:opacity-60 md:text-sm dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white"
+              style={projectColorStyle(project.color)}
+              className="h-10 w-full rounded-xl border border-zinc-950/10 bg-white/70 px-3.5 text-base text-zinc-700 transition-colors outline-none focus:border-(--project) focus:bg-white focus:text-zinc-950 disabled:opacity-60 md:text-sm dark:border-white/10 dark:bg-zinc-900/70 dark:text-zinc-300 dark:focus:bg-zinc-900 dark:focus:text-white"
             />
           </form>
 
