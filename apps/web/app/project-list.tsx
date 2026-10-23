@@ -111,8 +111,9 @@ function ProjectItem({
         onClick={onNavigate}
         onContextMenu={openAtPointer}
         aria-current={current ? "page" : undefined}
-        // Stays highlighted while its menu is open.
-        className={`${SIDEBAR_ITEM} pr-10 ${menuOpen ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/10 dark:text-white" : ""}`}
+        // Stays highlighted while its menu is open. The name runs to the end of the row, and makes
+        // room for the three dots only while they show.
+        className={`${SIDEBAR_ITEM} pr-10 ${menuOpen ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/10 dark:text-white" : "pointer-fine:not-group-hover/project:not-group-focus-within/project:pr-2.5"}`}
       >
         {naming ? (
           <>
