@@ -19,29 +19,33 @@ export const MENU_GAP = 8;
 const EDGE = 8;
 
 /*
- * Places a menu of the given width next to rect: below it with their left edges lined up, or above
- * it when there's less room below, and moved left as far as needed to stay on screen. rect can be
- * a point, e.g. where the user right-clicked. Call it before the menu opens.
+ * Places a menu of the given width next to rect: below it, or above it when there's less room below,
+ * with their left edges lined up (align "start") or centered on each other (align "center"), and
+ * moved sideways as far as needed to stay on screen. rect can be a point, e.g. where the user
+ * right-clicked. Call it before the menu opens.
  */
 export function placeMenu(
   menu: HTMLElement,
-  rect: { top: number; bottom: number; left: number },
+  rect: { top: number; bottom: number; left: number; right?: number },
   width: number,
-  gap = MENU_GAP,
+  { gap = MENU_GAP, align = "start" }: { gap?: number; align?: "start" | "center" } = {},
 ) {
   // The viewport without scrollbars, which fixed positions are measured in.
   const { clientWidth, clientHeight } = document.documentElement;
   const { style } = menu;
-  const left = Math.max(EDGE, Math.min(rect.left, clientWidth - width - EDGE));
+  const wanted =
+    align === "center" ? (rect.left + (rect.right ?? rect.left) - width) / 2 : rect.left;
+  const left = Math.max(EDGE, Math.min(wanted, clientWidth - width - EDGE));
+  const originX = align === "center" ? "center" : "left";
   style.left = `${left}px`;
   if (clientHeight - rect.bottom >= rect.top) {
     style.top = `${rect.bottom + gap}px`;
     style.bottom = "auto";
-    style.transformOrigin = "top left";
+    style.transformOrigin = `top ${originX}`;
   } else {
     style.top = "auto";
     style.bottom = `${clientHeight - rect.top + gap}px`;
-    style.transformOrigin = "bottom left";
+    style.transformOrigin = `bottom ${originX}`;
   }
   return left;
 }

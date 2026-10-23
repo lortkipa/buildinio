@@ -27,8 +27,10 @@ type Mode = "flyout" | "slide";
 export type MenuAnchor = { point: { x: number; y: number } | null };
 
 /*
- * A project's menu in the sidebar: Edit (its icon or name) and Delete, each opening a dialog. A
- * popover, toggled by the trigger (popoverTarget) or shown at the pointer on right-click.
+ * A project's menu, in the sidebar and from the project's name in the chat's top bar: Edit (its icon
+ * or name) and Delete, each opening a dialog. A popover, toggled by the trigger (popoverTarget) or
+ * shown at the pointer on right-click. align: lined up with the trigger's left edge or centered under
+ * it.
  */
 export function ProjectMenu({
   project,
@@ -36,6 +38,7 @@ export function ProjectMenu({
   menuRef,
   triggerRef,
   anchor,
+  align = "start",
   onOpenChange,
 }: {
   project: Project;
@@ -43,6 +46,7 @@ export function ProjectMenu({
   menuRef: React.RefObject<HTMLDivElement | null>;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   anchor: React.RefObject<MenuAnchor>;
+  align?: "start" | "center";
   onOpenChange: (open: boolean) => void;
 }) {
   const openDialog = useProjectDialogs();
@@ -113,8 +117,10 @@ export function ProjectMenu({
         const point = anchor.current.point;
         const trigger = triggerRef.current;
         const left = point
-          ? placeMenu(menu, { top: point.y, bottom: point.y, left: point.x }, MENU_WIDTH, 2)
-          : trigger && placeMenu(menu, trigger.getBoundingClientRect(), MENU_WIDTH);
+          ? placeMenu(menu, { top: point.y, bottom: point.y, left: point.x }, MENU_WIDTH, {
+              gap: 2,
+            })
+          : trigger && placeMenu(menu, trigger.getBoundingClientRect(), MENU_WIDTH, { align });
         anchor.current.point = null;
         const roomRight =
           document.documentElement.clientWidth - ((left || 0) + MENU_WIDTH + MENU_GAP);

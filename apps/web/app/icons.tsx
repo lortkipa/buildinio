@@ -164,6 +164,14 @@ export function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
+export function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
 export function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <Icon className={className}>
