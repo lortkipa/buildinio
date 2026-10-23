@@ -22,10 +22,142 @@
   /* A toast rising into view at the bottom of the screen. */
   --animate-toast-in: toast-in 300ms var(--ease-spring) both;
 
+  /* A new chat message, a new project in the sidebar, and a project's name once the AI picked it. */
+  --animate-message-in: message-in 400ms var(--ease-spring) both;
+  --animate-item-in: item-in 350ms var(--ease-spring) both;
+  --animate-name-in: name-in 500ms ease-out both;
+
+  /* The project menu's panels sliding over on touch screens: Edit's options in, and back out. */
+  --animate-panel-forward: panel-forward 250ms var(--ease-spring) both;
+  --animate-panel-back: panel-back 250ms var(--ease-spring) both;
+
+  /* An option picked in the icon dialog. */
+  --animate-pick: pick 350ms var(--ease-spring);
+
+  /* The AI writing a reply: three dots bouncing in turn. */
+  --animate-thinking: thinking 1.2s ease-in-out infinite;
+
+  /* Like, Dislike and Copy under chat messages (message-actions.tsx). */
+  --animate-like-pop: like-pop 600ms var(--ease-spring);
+  --animate-dislike-drop: dislike-drop 600ms ease-out;
+  --animate-burst: burst 600ms ease-out both;
+  --animate-copied: copied 1500ms ease-out both;
+
   @keyframes toast-in {
     from {
       opacity: 0;
       translate: 0 1rem;
+    }
+  }
+
+  @keyframes message-in {
+    from {
+      opacity: 0;
+      translate: 0 0.75rem;
+    }
+  }
+
+  @keyframes item-in {
+    from {
+      opacity: 0;
+      translate: 0 -0.5rem;
+      scale: 0.96;
+    }
+  }
+
+  @keyframes name-in {
+    from {
+      opacity: 0;
+      filter: blur(4px);
+    }
+  }
+
+  @keyframes panel-forward {
+    from {
+      opacity: 0;
+      translate: 1.5rem 0;
+    }
+  }
+
+  @keyframes panel-back {
+    from {
+      opacity: 0;
+      translate: -1.5rem 0;
+    }
+  }
+
+  @keyframes pick {
+    40% {
+      scale: 1.15;
+    }
+  }
+
+  @keyframes thinking {
+    0%,
+    60%,
+    100% {
+      opacity: 0.35;
+      translate: 0 0;
+    }
+    30% {
+      opacity: 1;
+      translate: 0 -0.3rem;
+    }
+  }
+
+  @keyframes like-pop {
+    0% {
+      scale: 0.6;
+    }
+    40% {
+      scale: 1.35;
+      rotate: -15deg;
+    }
+    70% {
+      rotate: 6deg;
+    }
+  }
+
+  @keyframes dislike-drop {
+    25% {
+      translate: 0 0.2rem;
+      rotate: -14deg;
+    }
+    50% {
+      rotate: 10deg;
+    }
+    75% {
+      rotate: -5deg;
+    }
+  }
+
+  /* A dot flying out from the middle at --angle. */
+  @keyframes burst {
+    from {
+      opacity: 1;
+      transform: rotate(var(--angle)) translateY(-0.25rem) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: rotate(var(--angle)) translateY(-1.1rem) scale(0.3);
+    }
+  }
+
+  @keyframes copied {
+    0% {
+      opacity: 0;
+      translate: -50% 0.25rem;
+      scale: 0.8;
+    }
+    15%,
+    80% {
+      opacity: 1;
+      translate: -50% 0;
+      scale: 1;
+    }
+    100% {
+      opacity: 0;
+      translate: -50% -0.25rem;
     }
   }
 
@@ -227,4 +359,102 @@
   overflow: hidden;
   white-space: nowrap;
   mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+
+/*
+ * A scrolling list fades out at an edge with more to scroll to, instead of cutting off there.
+ * useScrollFade (scroll-fade.ts) sets the data attributes. The fades are registered lengths, so they
+ * ease in and out.
+ */
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@utility scroll-fade-edges {
+  /* The middle stops ease the fades in, so they don't start with a visible edge. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / var(--fade-top-ease, 0.3)) calc(var(--fade-top) * 0.5),
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    rgb(0 0 0 / 0.3) calc(100% - var(--fade-bottom) * 0.4),
+    transparent
+  );
+  transition:
+    --fade-top 200ms ease-out,
+    --fade-bottom 200ms ease-out;
+
+  /*
+   * A box can set --fade-size for longer or shorter fades, and --fade-top-size for the top alone.
+   * --fade-top-ease: how much shows halfway through the top fade (0 to 1).
+   */
+  &[data-fade-top] {
+    --fade-top: var(--fade-top-size, var(--fade-size, 2.5rem));
+  }
+  &[data-fade-bottom] {
+    --fade-bottom: var(--fade-size, 2.5rem);
+  }
+}
+
+/*
+ * A project's color (--project, see project-icon.tsx): a light tint of it behind its icon and its
+ * user's messages, and the icon itself, a little darker on light backgrounds and lighter on dark.
+ */
+@utility project-tint {
+  background-color: color-mix(in oklab, var(--project) 16%, transparent);
+
+  @media (prefers-color-scheme: dark) {
+    background-color: color-mix(in oklab, var(--project) 24%, transparent);
+  }
+}
+
+@utility project-glyph {
+  color: color-mix(in oklab, var(--project) 82%, black);
+
+  @media (prefers-color-scheme: dark) {
+    color: color-mix(in oklab, var(--project) 80%, white);
+  }
+}
+
+/* Stands in for something the AI is still working on, e.g. a new project's name. */
+@utility skeleton {
+  --skeleton-base: rgb(24 24 27 / 0.08);
+  --skeleton-shine: 18%;
+  background-image: linear-gradient(
+    100deg,
+    var(--skeleton-base) 30%,
+    color-mix(in oklab, var(--color-brand-magenta) var(--skeleton-shine), var(--skeleton-base)) 42%,
+    color-mix(in oklab, var(--color-brand-violet) var(--skeleton-shine), var(--skeleton-base)) 50%,
+    color-mix(in oklab, var(--color-brand-blue) var(--skeleton-shine), var(--skeleton-base)) 58%,
+    var(--skeleton-base) 70%
+  );
+  background-size: 300% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+
+  @media (prefers-color-scheme: dark) {
+    --skeleton-base: rgb(255 255 255 / 0.08);
+    --skeleton-shine: 30%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
 }

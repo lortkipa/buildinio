@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon, SearchIcon, SquarePenIcon } from "./icons";
+import { ProjectsSection } from "./project-list";
+import { SIDEBAR_ITEM } from "./sidebar-item";
 import {
   COLLAPSE_BELOW,
   clampWidth,
@@ -25,9 +27,6 @@ function saveSidebarState(state: SidebarState) {
   // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is missing in older Safari
   document.cookie = `${SIDEBAR_COOKIE}=${serializeSidebarState(state)}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
 }
-
-const ITEM =
-  "peer flex h-10 w-full items-center gap-3 overflow-hidden rounded-xl px-2.5 text-sm font-medium whitespace-nowrap text-zinc-700 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet aria-[current=page]:bg-zinc-950/5 aria-[current=page]:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white dark:aria-[current=page]:bg-white/10 dark:aria-[current=page]:text-white";
 
 // The name of an icon-only item, shown to its right on hover or keyboard focus. Comes right after
 // the item (the peer), outside it, so the item's overflow-hidden doesn't clip it.
@@ -64,7 +63,7 @@ export function SidebarNav({
             href="/"
             onClick={onNavigate}
             aria-current={pathname === "/" ? "page" : undefined}
-            className={ITEM}
+            className={SIDEBAR_ITEM}
           >
             <SquarePenIcon className="size-5 shrink-0" />
             <span className={label}>New</span>
@@ -73,7 +72,7 @@ export function SidebarNav({
         </li>
         <li className="relative">
           {/* Not built yet. */}
-          <button type="button" className={ITEM}>
+          <button type="button" className={SIDEBAR_ITEM}>
             <SearchIcon className="size-5 shrink-0" />
             <span className={label}>Search</span>
           </button>
@@ -81,21 +80,6 @@ export function SidebarNav({
         </li>
       </ul>
     </nav>
-  );
-}
-
-// The user's projects. There are none yet: generating apps is not built.
-export function ProjectsSection() {
-  const id = useId();
-  return (
-    <section aria-labelledby={id} className="mt-6 px-2 whitespace-nowrap">
-      <h2 id={id} className="px-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-        Projects
-      </h2>
-      <p className="mt-2 truncate-fade px-2.5 text-sm text-zinc-600 dark:text-zinc-300">
-        No projects yet.
-      </p>
-    </section>
   );
 }
 
@@ -221,13 +205,7 @@ export function Sidebar({
 
       <SidebarNav collapsed={collapsed} />
 
-      {collapsed ? (
-        <div className="flex-1" />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ProjectsSection />
-        </div>
-      )}
+      {collapsed ? <div className="flex-1" /> : <ProjectsSection />}
 
       <div className="p-2">
         <UserMenu account={account} placement={collapsed ? "rail" : "card"} />

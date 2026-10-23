@@ -41,9 +41,22 @@ function fitTextarea(textarea: HTMLTextAreaElement) {
   autosize(textarea);
 }
 
-// nextStep: where sending the prompt and every button lead, e.g. signing up first. Without it they
-// do nothing yet: generating apps is not built.
-export function PromptInput({ nextStep }: { nextStep?: string }) {
+/*
+ * nextStep: where sending the prompt and every button lead, e.g. signing up first. onSend: gets the
+ * prompt instead, and the box empties. Without either, they do nothing yet. placeholder: shown
+ * instead of the cycling examples. busy: the prompt can't be sent yet, e.g. while the AI replies.
+ */
+export function PromptInput({
+  nextStep,
+  onSend,
+  placeholder,
+  busy = false,
+}: {
+  nextStep?: string;
+  onSend?: (prompt: string) => void;
+  placeholder?: string;
+  busy?: boolean;
+}) {
   const id = useId();
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -77,7 +90,17 @@ export function PromptInput({ nextStep }: { nextStep?: string }) {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    goNext();
+    if (!onSend) {
+      goNext();
+      return;
+    }
+    if (!hasText || busy) return;
+    onSend(value.trim());
+    setValue("");
+    // Shrink back to one line once the text is gone.
+    requestAnimationFrame(() => {
+      if (textareaRef.current) fitTextarea(textareaRef.current);
+    });
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -98,7 +121,7 @@ export function PromptInput({ nextStep }: { nextStep?: string }) {
           <label htmlFor={id} className="sr-only">
             Describe the app you want to build
           </label>
-          {value === "" && (
+          {value === "" && !placeholder && (
             <span
               key={exampleIndex}
               aria-hidden
@@ -112,6 +135,7 @@ export function PromptInput({ nextStep }: { nextStep?: string }) {
             ref={textareaRef}
             id={id}
             rows={1}
+            placeholder={placeholder}
             value={value}
             onChange={(event) => {
               setValue(event.target.value);
@@ -125,7 +149,7 @@ export function PromptInput({ nextStep }: { nextStep?: string }) {
               textarea.style.cursor =
                 event.nativeEvent.offsetX > textarea.clientWidth ? "default" : "";
             }}
-            className="prompt-scrollbar scroll-fade-y block max-h-60 w-full resize-none overflow-y-auto bg-transparent px-3 pt-3 pb-2 text-base/6 outline-none"
+            className="prompt-scrollbar scroll-fade-y block max-h-60 w-full resize-none overflow-y-auto bg-transparent px-3 pt-3 pb-2 text-base/6 outline-none placeholder:text-zinc-500 dark:placeholder:text-zinc-400"
           />
         </div>
 
@@ -143,16 +167,19 @@ export function PromptInput({ nextStep }: { nextStep?: string }) {
           <button
             type={hasText ? "submit" : "button"}
             aria-label={hasText ? "Send" : "Voice input"}
+            aria-disabled={hasText && busy}
             title={hasText ? "Send" : undefined}
             // With text it submits the form instead, and handleSubmit navigates.
             onClick={hasText ? undefined : goNext}
-            className="group/send relative size-9 rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
+            className="group/send relative size-9 rounded-full text-zinc-600 transition-colors aria-disabled:cursor-default hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <span
               aria-hidden
               className={`absolute inset-0 rounded-full bg-brand-gradient shadow-md shadow-brand-magenta/30 transition duration-300 ease-spring motion-reduce:transition-none ${
                 hasText
-                  ? "scale-100 opacity-100 group-hover/send:brightness-110"
+                  ? busy
+                    ? "scale-100 opacity-40"
+                    : "scale-100 opacity-100 group-hover/send:brightness-110"
                   : "scale-50 opacity-0"
               }`}
             />

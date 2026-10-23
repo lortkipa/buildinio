@@ -2,13 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { LoaderIcon, LogOutIcon, MessageSquareIcon, SettingsIcon } from "./icons";
+import { handleMenuKeyDown, MENU_GAP, MENU_SURFACE, MenuItem } from "./menu";
 
 // For an account without a picture. The API stores the same path on new email accounts
 // (DEFAULT_AVATAR in apps/api/src/auth.ts).
 const DEFAULT_AVATAR = "/avatars/default.svg";
-
-// Between the menu and what opened it.
-const GAP = 8;
 
 // The signed-in user, and logging out. AppShell runs the logging out, so its toast sits outside the
 // sidebar (whose backdrop blur would pin the fixed-position toast to it).
@@ -41,15 +39,15 @@ function placeMenu(menu: HTMLElement, trigger: HTMLElement, placement: Placement
   if (placement === "card") {
     // Above the card, as wide as it.
     style.left = `${rect.left}px`;
-    style.bottom = `${clientHeight - rect.top + GAP}px`;
+    style.bottom = `${clientHeight - rect.top + MENU_GAP}px`;
     style.width = `${rect.width}px`;
   } else if (placement === "rail") {
     // To the right of the avatar, level with its bottom.
-    style.left = `${rect.right + GAP}px`;
+    style.left = `${rect.right + MENU_GAP}px`;
     style.bottom = `${clientHeight - rect.bottom}px`;
   } else {
     // Below the avatar, level with its right edge.
-    style.top = `${rect.bottom + GAP}px`;
+    style.top = `${rect.bottom + MENU_GAP}px`;
     style.right = `${clientWidth - rect.right}px`;
   }
 }
@@ -92,23 +90,6 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
     window.addEventListener("resize", close);
     return () => window.removeEventListener("resize", close);
   }, [open]);
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    const items = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')];
-    const index = items.indexOf(document.activeElement as HTMLElement);
-    let next: number;
-    if (event.key === "ArrowDown") next = (index + 1) % items.length;
-    else if (event.key === "ArrowUp") next = index <= 0 ? items.length - 1 : index - 1;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = items.length - 1;
-    else {
-      // Tab leaves the menu: close it, which puts focus back on the trigger, and Tab goes on from there.
-      if (event.key === "Tab") menuRef.current?.hidePopover();
-      return;
-    }
-    event.preventDefault();
-    items[next]?.focus();
-  }
 
   const close = () => menuRef.current?.hidePopover();
 
@@ -154,8 +135,8 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
           setOpen(isOpen);
           if (isOpen) event.currentTarget.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
         }}
-        onKeyDown={handleKeyDown}
-        className={`${MENU_PLACEMENT[placement]} inset-auto m-0 rounded-2xl border border-zinc-950/10 bg-white/90 p-1.5 text-sm text-zinc-950 shadow-xl shadow-zinc-950/10 backdrop-blur-xl transition-[opacity,scale] duration-150 ease-out starting:open:scale-95 starting:open:opacity-0 motion-reduce:transition-none dark:border-white/10 dark:bg-zinc-900/90 dark:text-zinc-50 dark:shadow-black/40`}
+        onKeyDown={(event) => handleMenuKeyDown(event, close)}
+        className={`${MENU_PLACEMENT[placement]} ${MENU_SURFACE}`}
       >
         {placement !== "card" && (
           <div className="mb-1.5 flex items-center gap-3 border-b border-zinc-950/10 px-2 pt-1 pb-2.5 dark:border-white/10">
@@ -183,30 +164,5 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
         </MenuItem>
       </div>
     </>
-  );
-}
-
-function MenuItem({
-  icon,
-  onClick,
-  busy = false,
-  children,
-}: {
-  icon: React.ReactNode;
-  onClick: () => void;
-  busy?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      aria-disabled={busy}
-      className="flex h-9 w-full items-center gap-3 rounded-lg px-2.5 text-left text-zinc-700 outline-none transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:bg-zinc-950/5 focus-visible:text-zinc-950 aria-disabled:cursor-default dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white dark:focus-visible:bg-white/10 dark:focus-visible:text-white"
-    >
-      {icon}
-      {children}
-    </button>
   );
 }
