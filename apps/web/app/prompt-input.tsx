@@ -168,7 +168,7 @@ export function PromptInput({
             type={hasText ? "submit" : "button"}
             aria-label={hasText ? "Send" : "Voice input"}
             aria-disabled={hasText && busy}
-            title={hasText ? "Send" : undefined}
+            data-tooltip={hasText ? "Send" : undefined}
             // With text it submits the form instead, and handleSubmit navigates.
             onClick={hasText ? undefined : goNext}
             className="group/send relative size-9 rounded-full text-zinc-600 transition-colors aria-disabled:cursor-default hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"

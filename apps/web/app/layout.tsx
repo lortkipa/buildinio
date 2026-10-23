@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Gabarito } from "next/font/google";
 import "./globals.css";
+import { Tooltips } from "./tooltips";
 
 // The wordmark's typeface, used for display headings (font-display).
 const gabarito = Gabarito({ subsets: ["latin"], variable: "--font-gabarito" });
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={gabarito.variable}>
       <body className="min-h-dvh bg-page text-zinc-950 antialiased dark:text-zinc-50">
         {children}
+        <Tooltips />
       </body>
     </html>
   );

@@ -177,7 +177,7 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
             type="button"
             onClick={pickNextDevice}
             aria-label={`${current.name} view. Switch to ${DEVICES[nextDevice].name.toLowerCase()}`}
-            title={`${current.name} view`}
+            data-tooltip={`${current.name} view`}
             // Not on phones: the preview fills the screen.
             className={`${ICON_BUTTON} shrink-0 max-md:hidden`}
           >
@@ -230,7 +230,7 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
           <button
             type="button"
             aria-label="Open in a new tab"
-            title="Open in a new tab"
+            data-tooltip="Open in a new tab"
             className={`${ICON_BUTTON} shrink-0`}
           >
             <ExternalLinkIcon className="size-4.5" />

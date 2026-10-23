@@ -20,19 +20,6 @@ import {
 } from "./sidebar-state";
 import { type Account, UserMenu } from "./user-menu";
 
-// The name of an icon-only item, shown to its right on hover or keyboard focus. Comes right after
-// the item (the peer), outside it, so the item's overflow-hidden doesn't clip it.
-function Tooltip({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute top-1/2 left-full z-10 ml-3 -translate-y-1/2 rounded-lg bg-zinc-950 px-2 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-md transition-opacity peer-hover:opacity-100 peer-focus-visible:opacity-100 dark:bg-white dark:text-zinc-950"
-    >
-      {children}
-    </span>
-  );
-}
-
 /*
  * New and Search. Collapsed, only their icons, named by a tooltip. Also in the phone sheet, where
  * onNavigate closes it. Only New works yet: home is where a new project starts.
@@ -46,29 +33,31 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const label = collapsed ? "sr-only" : "flex-1 truncate-fade text-left";
+  // Collapsed, the name shows to the right of the icon (see tooltips.tsx).
+  const tooltip = (name: string) =>
+    collapsed ? { "data-tooltip": name, "data-tooltip-side": "right" } : {};
 
   return (
     <nav aria-label="Main" className="px-2">
       <ul className="flex flex-col gap-0.5">
-        <li className="relative">
+        <li>
           <Link
             href="/"
             onClick={onNavigate}
             aria-current={pathname === "/" ? "page" : undefined}
+            {...tooltip("New")}
             className={SIDEBAR_ITEM}
           >
             <SquarePenIcon className="size-5 shrink-0" />
             <span className={label}>New</span>
           </Link>
-          {collapsed && <Tooltip>New</Tooltip>}
         </li>
-        <li className="relative">
+        <li>
           {/* Not built yet. */}
-          <button type="button" className={SIDEBAR_ITEM}>
+          <button type="button" {...tooltip("Search")} className={SIDEBAR_ITEM}>
             <SearchIcon className="size-5 shrink-0" />
             <span className={label}>Search</span>
           </button>
-          {collapsed && <Tooltip>Search</Tooltip>}
         </li>
       </ul>
     </nav>

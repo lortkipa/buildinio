@@ -78,7 +78,7 @@ function LikeButton({ projectId, message }: { projectId: string; message: Messag
       type="button"
       aria-label="Like"
       aria-pressed={liked}
-      title="Like"
+      data-tooltip="Like"
       onClick={() => {
         setReaction(projectId, message.id, liked ? undefined : "like");
         if (!liked) setPlays((count) => count + 1);
@@ -108,7 +108,7 @@ function DislikeButton({ projectId, message }: { projectId: string; message: Mes
       type="button"
       aria-label="Dislike"
       aria-pressed={disliked}
-      title="Dislike"
+      data-tooltip="Dislike"
       onClick={() => {
         setReaction(projectId, message.id, disliked ? undefined : "dislike");
         if (!disliked) setPlays((count) => count + 1);
@@ -148,7 +148,7 @@ function CopyButton({ text, onFailed }: { text: string; onFailed: () => void }) 
   }
 
   return (
-    <button type="button" aria-label="Copy" title="Copy" onClick={copy} className={ACTION}>
+    <button type="button" aria-label="Copy" data-tooltip="Copy" onClick={copy} className={ACTION}>
       <CopyIcon
         className={`absolute inset-0 m-auto size-4 transition duration-300 ease-spring motion-reduce:transition-none ${
           copied ? "scale-50 -rotate-90 opacity-0" : ""
