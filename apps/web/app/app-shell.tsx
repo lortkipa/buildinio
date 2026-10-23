@@ -9,6 +9,7 @@ import type { PreviewState } from "./preview-state";
 import { ProjectDialogsProvider } from "./project-dialogs";
 import { ProjectsSection } from "./project-list";
 import { ProjectWorkspace } from "./project-workspace";
+import { SearchDialog } from "./search-dialog";
 import { Sidebar, SidebarNav } from "./sidebar";
 import type { SidebarState } from "./sidebar-state";
 import { Toast, useToast } from "./toast";
@@ -20,7 +21,8 @@ const UNREACHABLE = "Couldn’t reach Buildinio. Check your connection and try a
 /*
  * The signed-in pages around their main content: the sidebar from md up (sidebar.tsx). On phones, a
  * top bar instead, with a button opening the sidebar's contents as a full-screen sheet, and the
- * user's avatar opening the account menu (also at the sheet's bottom right). A project's page has its own top bar and its preview
+ * user's avatar opening the account menu (also at the sheet's bottom right). Search opens from
+ * either, and with Ctrl+K or ⌘K (search-dialog.tsx). A project's page has its own top bar and its preview
  * (project-workspace.tsx); the preview's width and whether it shows are kept here, so the next
  * project opens with them as the user left them.
  */
@@ -40,6 +42,8 @@ export function AppShell({
   const sheetRef = useRef<HTMLDialogElement>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [preview, setPreview] = useState(initialPreview);
+  // Whether search is open, and a new session each time it opens, for a fresh search.
+  const [search, setSearch] = useState({ open: false, session: 0 });
   const { toast, showToast, closeToast } = useToast();
 
   // Server components read the session but can't pass on a refreshed session cookie. Asking once
@@ -59,6 +63,28 @@ export function AppShell({
     return () => wide.removeEventListener("change", onChange);
   }, []);
 
+  // Ctrl+K or ⌘K opens search, also over the phone sheet, but not over a project's dialog. With
+  // search open, it selects the field again.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey)) return;
+      if (event.altKey || event.shiftKey) return;
+      if (search.open) {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>("dialog[open] input[role=combobox]")?.select();
+        return;
+      }
+      const otherModal = Array.from(document.querySelectorAll("dialog")).some(
+        (dialog) => dialog !== sheetRef.current && dialog.matches(":modal"),
+      );
+      if (otherModal) return;
+      event.preventDefault();
+      setSearch(({ session }) => ({ open: true, session: session + 1 }));
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [search.open]);
+
   async function logOut() {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -75,13 +101,15 @@ export function AppShell({
   const account: Account = { user, loggingOut, onLogOut: logOut };
   const openSheet = () => sheetRef.current?.showModal();
   const closeSheet = () => sheetRef.current?.close();
+  const openSearch = () => setSearch(({ session }) => ({ open: true, session: session + 1 }));
+  const closeSearch = () => setSearch(({ session }) => ({ open: false, session }));
 
   return (
     <ProjectDialogsProvider>
       <div className="relative isolate flex min-h-dvh">
         <div aria-hidden className="glow-bg" />
 
-        <Sidebar initialState={sidebar} account={account} />
+        <Sidebar initialState={sidebar} account={account} onSearch={openSearch} />
 
         {projectId ? (
           // A project's page fills the screen exactly; its chat scrolls inside (ProjectChat).
@@ -144,13 +172,21 @@ export function AppShell({
               <PanelLeftCloseIcon className="size-5" />
             </button>
           </div>
-          <SidebarNav onNavigate={closeSheet} />
+          <SidebarNav onNavigate={closeSheet} onSearch={openSearch} />
           <ProjectsSection onNavigate={closeSheet} endGap />
           {/* Over the projects, so it moves nothing. The dialog is fixed, so this sits in its corner. */}
           <div className="absolute right-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))]">
             <UserMenu account={account} placement="sheet" />
           </div>
         </dialog>
+
+        {/* After the sheet, so it opens above it. */}
+        <SearchDialog
+          open={search.open}
+          session={search.session}
+          onClose={closeSearch}
+          onNavigate={closeSheet}
+        />
 
         <Toast toast={toast} onClose={closeToast} />
       </div>

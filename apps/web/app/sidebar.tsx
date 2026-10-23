@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon, SearchIcon, SquarePenIcon } from "./icons";
 import { ProjectsSection } from "./project-list";
 import { KEY_STEP, ResizeHandle } from "./resize-handle";
@@ -20,18 +20,31 @@ import {
 } from "./sidebar-state";
 import { type Account, UserMenu } from "./user-menu";
 
+// Search's keyboard shortcut, as the platform writes it. The server can't know, so none there.
+const noChange = () => () => {};
+const useSearchShortcut = () =>
+  useSyncExternalStore(
+    noChange,
+    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"),
+    () => null,
+  );
+
 /*
  * New and Search. Collapsed, only their icons, named by a tooltip. Also in the phone sheet, where
- * onNavigate closes it. Only New works yet: home is where a new project starts.
+ * onNavigate closes it. New goes home, where a new project starts; Search opens the search dialog
+ * (onSearch, see search-dialog.tsx), its shortcut showing on hover with a mouse or trackpad.
  */
 export function SidebarNav({
   collapsed = false,
   onNavigate,
+  onSearch,
 }: {
   collapsed?: boolean;
   onNavigate?: () => void;
+  onSearch: () => void;
 }) {
   const pathname = usePathname();
+  const shortcut = useSearchShortcut();
   const label = collapsed ? "sr-only" : "flex-1 truncate-fade text-left";
   // Collapsed, the name shows to the right of the icon (see tooltips.tsx).
   const tooltip = (name: string) =>
@@ -53,10 +66,24 @@ export function SidebarNav({
           </Link>
         </li>
         <li>
-          {/* Not built yet. */}
-          <button type="button" {...tooltip("Search")} className={SIDEBAR_ITEM}>
+          <button
+            type="button"
+            onClick={onSearch}
+            aria-haspopup="dialog"
+            aria-keyshortcuts="Control+K Meta+K"
+            {...tooltip("Search")}
+            className={`group/search ${SIDEBAR_ITEM}`}
+          >
             <SearchIcon className="size-5 shrink-0" />
             <span className={label}>Search</span>
+            {shortcut && !collapsed && (
+              <kbd
+                aria-hidden
+                className="hidden font-sans text-xs text-zinc-500 opacity-0 transition-opacity group-hover/search:opacity-100 group-focus-visible/search:opacity-100 pointer-fine:inline dark:text-zinc-400"
+              >
+                {shortcut}
+              </kbd>
+            )}
           </button>
         </li>
       </ul>
@@ -73,9 +100,11 @@ export function SidebarNav({
 export function Sidebar({
   initialState,
   account,
+  onSearch,
 }: {
   initialState: SidebarState;
   account: Account;
+  onSearch: () => void;
 }) {
   const id = useId();
   const [state, setState] = useState(initialState);
@@ -170,7 +199,7 @@ export function Sidebar({
         </button>
       </div>
 
-      <SidebarNav collapsed={collapsed} />
+      <SidebarNav collapsed={collapsed} onSearch={onSearch} />
 
       {collapsed ? <div className="flex-1" /> : <ProjectsSection />}
 
