@@ -5,14 +5,19 @@ import type { Message, Project } from "./projects";
  * the AI's canned replies. Only frontend apps, as in Phase 1.
  */
 
+// What the first version of every app has, as the AI lists it and the mock preview shows it.
+export const FIRST_VERSION = [
+  "A clean layout that works on phones and computers",
+  "The main screens from your description, with sample content to try",
+  "Light and dark mode that follow your device",
+];
+
 // The AI's reply to the prompt that started a project.
 export const firstReply = (
   name: string,
 ) => `I’ve started building ${name}. Here’s the first version:
 
-• A clean layout that works on phones and computers
-• The main screens from your description, with sample content to try
-• Light and dark mode that follow your device
+${FIRST_VERSION.map((feature) => `• ${feature}`).join("\n")}
 
 Tell me what to change, add or remove next.`;
 

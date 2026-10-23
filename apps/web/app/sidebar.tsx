@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon, SearchIcon, SquarePenIcon } from "./icons";
 import { ProjectsSection } from "./project-list";
+import { KEY_STEP, ResizeHandle } from "./resize-handle";
+import { saveCookie } from "./save-cookie";
 import { SIDEBAR_ITEM } from "./sidebar-item";
 import {
   COLLAPSE_BELOW,
@@ -17,16 +19,6 @@ import {
   serializeSidebarState,
 } from "./sidebar-state";
 import { type Account, UserMenu } from "./user-menu";
-
-// How far one arrow key press moves the resize handle.
-const KEY_STEP = 16;
-
-const ONE_YEAR = 60 * 60 * 24 * 365;
-
-function saveSidebarState(state: SidebarState) {
-  // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is missing in older Safari
-  document.cookie = `${SIDEBAR_COOKIE}=${serializeSidebarState(state)}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
-}
 
 // The name of an icon-only item, shown to its right on hover or keyboard focus. Comes right after
 // the item (the peer), outside it, so the item's overflow-hidden doesn't clip it.
@@ -105,22 +97,8 @@ export function Sidebar({
 
   // Remember it for the next page load. While dragging, only once the drag ends.
   useEffect(() => {
-    if (!dragging) saveSidebarState(state);
+    if (!dragging) saveCookie(SIDEBAR_COOKIE, serializeSidebarState(state));
   }, [state, dragging]);
-
-  // While dragging, keep the resize cursor and select nothing, wherever the pointer goes.
-  useEffect(() => {
-    if (!dragging) return;
-    const { style } = document.body;
-    style.cursor = "col-resize";
-    style.userSelect = "none";
-    style.webkitUserSelect = "none";
-    return () => {
-      style.cursor = "";
-      style.userSelect = "";
-      style.webkitUserSelect = "";
-    };
-  }, [dragging]);
 
   const toggle = () => setState({ width, collapsed: !collapsed });
 
@@ -211,27 +189,19 @@ export function Sidebar({
         <UserMenu account={account} placement={collapsed ? "rail" : "card"} />
       </div>
 
-      {/* Straddles the right border; a line shows on hover and while dragging. */}
-      {/* biome-ignore lint/a11y/useSemanticElements: an <hr> can't hold the line inside */}
-      <div
-        role="separator"
-        tabIndex={0}
-        aria-label="Resize sidebar"
-        aria-orientation="vertical"
-        aria-controls={id}
-        aria-valuemin={RAIL_WIDTH}
-        aria-valuemax={MAX_WIDTH}
-        aria-valuenow={collapsed ? RAIL_WIDTH : width}
-        data-dragging={dragging || undefined}
+      <ResizeHandle
+        label="Resize sidebar"
+        controls={id}
+        min={RAIL_WIDTH}
+        max={MAX_WIDTH}
+        now={collapsed ? RAIL_WIDTH : width}
+        dragging={dragging}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onLostPointerCapture={endDrag}
+        onDragEnd={endDrag}
         onKeyDown={handleKeyDown}
-        className="group/handle absolute inset-y-0 -right-1.5 w-3 cursor-col-resize touch-none outline-none"
-      >
-        <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-brand-violet opacity-0 transition-opacity group-hover/handle:opacity-60 group-focus-visible/handle:opacity-100 group-data-dragging/handle:opacity-100" />
-      </div>
+        className="-right-1.5"
+      />
     </aside>
   );
 }
