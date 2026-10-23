@@ -30,6 +30,9 @@ const TABLET_DEVICES: Device[] = ["tablet", "mobile"];
 // How long the frame takes to change width after a device is picked.
 const SWITCH_MS = 300;
 
+// How long the app takes to start once it exists, standing in for its container starting.
+const START_MS = 1200;
+
 /*
  * What the route field makes of what was typed: a path from the root, e.g. "about/" → "/about". A
  * whole address pasted in keeps only its path, query and hash.
@@ -47,8 +50,8 @@ export function normalizeRoute(input: string) {
  * (ProjectWorkspace). A toolbar, on top from md up and at the bottom on phones: the device to
  * preview on (not on phones, where the preview fills the screen), the page the app is on (which can be typed over to go to another), and opening the app
  * in a tab of its own. Under it, the app in a sandboxed iframe: the mock app (mock-preview.ts),
- * or a shimmer until the AI's first reply. dragging: the panel is being resized, so the iframe
- * mustn't catch the pointer.
+ * under a shimmer until the AI's first reply and then while the app starts, which fades into it.
+ * dragging: the panel is being resized, so the iframe mustn't catch the pointer.
  */
 export function PreviewPanel({ project, dragging }: { project: Project; dragging: boolean }) {
   const id = useId();
@@ -69,6 +72,14 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
   const [draft, setDraft] = useState<string | null>(null);
   const routeRef = useRef(route);
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
+  // The app is starting: its frame is rendered, on the client only, since one the server rendered
+  // could load before hydration and its load would be missed. Once it has been there for START_MS
+  // and its frame has loaded, the shimmer fades out (and is then removed). These stay true, so a
+  // rebuild (a rename or a new color) doesn't start it again.
+  const [starting, setStarting] = useState(false);
+  const [waited, setWaited] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [faded, setFaded] = useState(false);
 
   const name = project.name ?? "";
   const prompt = project.messages.find((message) => message.role === "user")?.text ?? "";
@@ -92,6 +103,17 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
           }),
     [building, name, project.color, prompt],
   );
+
+  const hasApp = appDocument !== null;
+  const started = waited && loaded;
+
+  // The app starts when it first exists here: when the project opens, or after a new one's first reply.
+  useEffect(() => {
+    if (!hasApp) return;
+    setStarting(true);
+    const timer = setTimeout(() => setWaited(true), START_MS);
+    return () => clearTimeout(timer);
+  }, [hasApp]);
 
   // The app tells which page it is on. Only this frame's messages count.
   useEffect(() => {
@@ -203,7 +225,7 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              disabled={building}
+              disabled={!started}
               value={draft ?? route}
               onChange={(event) => setDraft(event.target.value)}
               onFocus={(event) => {
@@ -246,20 +268,20 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
       >
         <div
           style={{ width: current.width ? current.width * scale : "100%" }}
-          className={`h-full max-w-full overflow-hidden rounded-xl border border-zinc-950/10 bg-white shadow-lg shadow-zinc-950/5 dark:border-white/10 dark:bg-zinc-950 dark:shadow-black/30 ${
+          className={`relative h-full max-w-full overflow-hidden rounded-xl border border-zinc-950/10 bg-white shadow-lg shadow-zinc-950/5 dark:border-white/10 dark:bg-zinc-950 dark:shadow-black/30 ${
             switching
               ? "transition-[width] duration-300 ease-out motion-reduce:transition-none"
               : ""
           }`}
         >
-          {appDocument === null ? (
-            <Building />
-          ) : (
+          {starting && appDocument !== null && (
             <iframe
               ref={iframeRef}
               title={`Preview of ${name}`}
               srcDoc={appDocument}
               sandbox="allow-scripts"
+              onLoad={() => setLoaded(true)}
+              inert={!started}
               style={
                 current.width
                   ? {
@@ -273,14 +295,29 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
               className={`block border-0 ${current.width ? "" : "size-full"} ${dragging ? "pointer-events-none" : ""}`}
             />
           )}
+          {/* Over the frame, so it loads underneath and doesn't flash white before it paints. */}
+          {!faded && (
+            <div
+              aria-hidden={started}
+              onTransitionEnd={(event) => {
+                if (event.target === event.currentTarget) setFaded(true);
+              }}
+              className={`absolute inset-0 bg-white transition-opacity duration-300 ease-out dark:bg-zinc-950 ${
+                started ? "pointer-events-none opacity-0 motion-reduce:hidden" : ""
+              }`}
+            >
+              <PreviewSkeleton label={building ? "Building your app…" : "Starting your app…"} />
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// A page-shaped shimmer while the AI builds the first version.
-function Building() {
+// A page-shaped shimmer while the AI builds the first version and while the app starts. Not shaped
+// like the app, which isn't known yet.
+function PreviewSkeleton({ label }: { label: string }) {
   return (
     <div role="status" className="flex size-full flex-col gap-4 overflow-hidden p-6">
       <div className="flex items-center justify-between gap-4">
@@ -294,9 +331,7 @@ function Building() {
         <span className="h-28 skeleton rounded-2xl" />
         <span className="h-28 skeleton rounded-2xl" />
       </div>
-      <p className="mt-auto text-center text-sm text-zinc-500 dark:text-zinc-400">
-        Building your app…
-      </p>
+      <p className="mt-auto text-center text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
     </div>
   );
 }
