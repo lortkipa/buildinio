@@ -5,7 +5,7 @@ import type { Session } from "./auth-client";
 /*
  * The signed-in user's session, for server components, or null when signed out. Asks the API with
  * the request's cookies. A server component can't set cookies, so when the API refreshes the
- * session cookie the browser has to ask too (AccountCard does).
+ * session cookie the browser has to ask too (AppShell does).
  */
 export async function getSession(): Promise<Session | null> {
   const cookie = (await headers()).get("cookie");

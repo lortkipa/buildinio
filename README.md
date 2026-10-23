@@ -11,7 +11,7 @@
 
 Early development. Phase 1 generates frontend-only web apps (React, Vite, Tailwind CSS, shadcn/ui).
 
-The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input, and accounts: sign-in with Google, GitHub or a code sent by email, a name step for new accounts, and Log out and Delete account on the home page. Generating apps is not built yet.
+The platform is scaffolded: a Next.js web app, a Hono API and a PostgreSQL database. For now the web app has a landing page with the prompt input, and accounts: sign-in with Google, GitHub or a code sent by email, and a name step for new accounts. Signed in, the home page has the prompt input, a resizable sidebar (New, Search, Projects) and an account menu with Log out; on phones, the sidebar opens as a full-screen sheet. Generating apps is not built yet.
 
 ## Getting started
 

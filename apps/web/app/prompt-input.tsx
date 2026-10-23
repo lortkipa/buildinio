@@ -41,10 +41,9 @@ function fitTextarea(textarea: HTMLTextAreaElement) {
   autosize(textarea);
 }
 
-// Signing up comes first; generating apps is not built yet.
-const NEXT_STEP = "/signup";
-
-export function PromptInput() {
+// nextStep: where sending the prompt and every button lead, e.g. signing up first. Without it they
+// do nothing yet: generating apps is not built.
+export function PromptInput({ nextStep }: { nextStep?: string }) {
   const id = useId();
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -69,12 +68,16 @@ export function PromptInput() {
 
   // Every button and sending the prompt lead to the next step, so have it ready.
   useEffect(() => {
-    router.prefetch(NEXT_STEP);
-  }, [router]);
+    if (nextStep) router.prefetch(nextStep);
+  }, [router, nextStep]);
+
+  function goNext() {
+    if (nextStep) router.push(nextStep);
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push(NEXT_STEP);
+    goNext();
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -130,7 +133,7 @@ export function PromptInput() {
           <button
             type="button"
             aria-label="Add files"
-            onClick={() => router.push(NEXT_STEP)}
+            onClick={goNext}
             className="grid size-9 place-items-center rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <PlusIcon className="size-5" />
@@ -142,7 +145,7 @@ export function PromptInput() {
             aria-label={hasText ? "Send" : "Voice input"}
             title={hasText ? "Send" : undefined}
             // With text it submits the form instead, and handleSubmit navigates.
-            onClick={hasText ? undefined : () => router.push(NEXT_STEP)}
+            onClick={hasText ? undefined : goNext}
             className="group/send relative size-9 rounded-full text-zinc-600 transition-colors hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <span
