@@ -20,7 +20,7 @@ const UNREACHABLE = "Couldn’t reach Buildinio. Check your connection and try a
 /*
  * The signed-in pages around their main content: the sidebar from md up (sidebar.tsx). On phones, a
  * top bar instead, with a button opening the sidebar's contents as a full-screen sheet, and the
- * user's avatar opening the account menu. A project's page has its own top bar and its preview
+ * user's avatar opening the account menu (also at the sheet's bottom right). A project's page has its own top bar and its preview
  * (project-workspace.tsx); the preview's width and whether it shows are kept here, so the next
  * project opens with them as the user left them.
  */
@@ -145,7 +145,11 @@ export function AppShell({
             </button>
           </div>
           <SidebarNav onNavigate={closeSheet} />
-          <ProjectsSection onNavigate={closeSheet} />
+          <ProjectsSection onNavigate={closeSheet} endGap />
+          {/* Over the projects, so it moves nothing. The dialog is fixed, so this sits in its corner. */}
+          <div className="absolute right-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))]">
+            <UserMenu account={account} placement="sheet" />
+          </div>
         </dialog>
 
         <Toast toast={toast} onClose={closeToast} />

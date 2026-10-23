@@ -14,7 +14,17 @@ import { SIDEBAR_ITEM } from "./sidebar-item";
  * The user's projects, newest first, in the sidebar and the phone sheet, where onNavigate closes the
  * sheet. The heading stays put while the list scrolls, fading out at the edges.
  */
-export function ProjectsSection({ onNavigate }: { onNavigate?: () => void }) {
+/*
+ * endGap: room after the last project, for the phone sheet, whose avatar floats over the list's
+ * bottom right. A long list can then scroll its last project clear of it.
+ */
+export function ProjectsSection({
+  onNavigate,
+  endGap = false,
+}: {
+  onNavigate?: () => void;
+  endGap?: boolean;
+}) {
   const id = useId();
   const projects = useProjects();
   const pathname = usePathname();
@@ -28,7 +38,7 @@ export function ProjectsSection({ onNavigate }: { onNavigate?: () => void }) {
       </h2>
       <div
         ref={listRef}
-        className="prompt-scrollbar scroll-fade-edges mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2"
+        className={`prompt-scrollbar scroll-fade-edges mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 ${endGap ? "pb-16" : "pb-2"}`}
       >
         {projects.length === 0 ? (
           <p className="truncate-fade px-2.5 text-sm text-zinc-600 dark:text-zinc-300">

@@ -18,15 +18,17 @@ export type Account = {
 
 /*
  * Where the menu opens from: the user card at the bottom of the expanded sidebar (the menu opens
- * above it), the avatar at the bottom of the collapsed sidebar (to its right), or the avatar in the
- * phone top bar (below it). Without the card, the menu starts with the name and email.
+ * above it), the avatar at the bottom of the collapsed sidebar (to its right), the avatar in the
+ * phone top bar (below it), or the avatar at the bottom right of the phone sheet (above it). Without
+ * the card, the menu starts with the name and email.
  */
-type Placement = "card" | "rail" | "bar";
+type Placement = "card" | "rail" | "bar" | "sheet";
 
 const MENU_PLACEMENT: Record<Placement, string> = {
   card: "min-w-56 origin-bottom",
   rail: "w-60 origin-bottom-left",
   bar: "w-60 max-w-[calc(100vw-2rem)] origin-top-right",
+  sheet: "w-60 max-w-[calc(100vw-2rem)] origin-bottom-right",
 };
 
 // The menu is a popover, drawn above everything at a fixed position, so nothing in the sidebar
@@ -45,6 +47,10 @@ function placeMenu(menu: HTMLElement, trigger: HTMLElement, placement: Placement
     // To the right of the avatar, level with its bottom.
     style.left = `${rect.right + MENU_GAP}px`;
     style.bottom = `${clientHeight - rect.bottom}px`;
+  } else if (placement === "sheet") {
+    // Above the avatar, level with its right edge.
+    style.bottom = `${clientHeight - rect.top + MENU_GAP}px`;
+    style.right = `${clientWidth - rect.right}px`;
   } else {
     // Below the avatar, level with its right edge.
     style.top = `${rect.bottom + MENU_GAP}px`;
@@ -53,7 +59,7 @@ function placeMenu(menu: HTMLElement, trigger: HTMLElement, placement: Placement
 }
 
 // The user's picture: Google's or GitHub's, else the default silhouette.
-function Avatar({ image, className = "" }: { image?: string | null; className?: string }) {
+function Avatar({ image, size = "size-8" }: { image?: string | null; size?: string }) {
   return (
     <>
       {/*
@@ -65,10 +71,10 @@ function Avatar({ image, className = "" }: { image?: string | null; className?: 
       <img
         src={image || DEFAULT_AVATAR}
         alt=""
-        width={32}
-        height={32}
+        width={40}
+        height={40}
         referrerPolicy="no-referrer"
-        className={`size-8 shrink-0 rounded-full bg-zinc-200 object-cover dark:bg-zinc-800 ${className}`}
+        className={`${size} shrink-0 rounded-full bg-zinc-200 object-cover dark:bg-zinc-800`}
       />
     </>
   );
@@ -104,11 +110,14 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
         aria-label={placement === "card" ? undefined : "Your account"}
         className={`${
           placement === "card"
-            ? "flex w-full items-center gap-3 p-1 text-left"
-            : "grid size-10 place-items-center"
-        } rounded-xl transition-colors hover:bg-zinc-950/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet aria-expanded:bg-zinc-950/5 dark:hover:bg-white/10 dark:aria-expanded:bg-white/10`}
+            ? "flex w-full items-center gap-3 rounded-xl p-1 text-left"
+            : placement === "sheet"
+              ? // Floats over the projects, so round, like the avatar.
+                "grid size-12 place-items-center rounded-full"
+              : "grid size-10 place-items-center rounded-xl"
+        } transition-colors hover:bg-zinc-950/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet aria-expanded:bg-zinc-950/5 dark:hover:bg-white/10 dark:aria-expanded:bg-white/10`}
       >
-        <Avatar image={user.image} />
+        <Avatar image={user.image} size={placement === "sheet" ? "size-10" : undefined} />
         {placement === "card" && (
           <span className="min-w-0 flex-1">
             <span className="block truncate-fade text-sm font-medium">{user.name}</span>
