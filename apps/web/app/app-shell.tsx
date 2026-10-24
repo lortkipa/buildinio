@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { authClient, isUnreachable, settle, UNREACHABLE } from "./auth-client";
+import { FeedbackDialog } from "./feedback-dialog";
 import { ICON_BUTTON } from "./icon-button";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "./icons";
 import type { PreviewState } from "./preview-state";
@@ -21,7 +22,8 @@ import { WIDE } from "./wide";
  * The signed-in pages around their main content: the sidebar from md up (sidebar.tsx). On phones, a
  * top bar instead, with a button opening the sidebar's contents as a full-screen sheet, and the
  * user's avatar opening the account menu (also at the sheet's bottom right), whose Settings opens
- * the settings dialog (settings-dialog.tsx). Search opens from either, and with Ctrl+K or ⌘K
+ * the settings dialog (settings-dialog.tsx) and Send feedback the feedback dialog
+ * (feedback-dialog.tsx). Search opens from either, and with Ctrl+K or ⌘K
  * (search-dialog.tsx). A project's page has its own top bar and its preview
  * (project-workspace.tsx); the preview's width and whether it shows are kept here, so the next
  * project opens with them as the user left them.
@@ -46,6 +48,8 @@ export function AppShell({
   const [search, setSearch] = useState({ open: false, session: 0 });
   // The same for settings, which open on their first tab with nothing changed.
   const [settings, setSettings] = useState({ open: false, session: 0 });
+  // And for feedback, which opens with an empty message.
+  const [feedback, setFeedback] = useState({ open: false, session: 0 });
   const { toast, showToast, closeToast } = useToast();
 
   // Server components read the session but can't pass on a refreshed session cookie. Asking once
@@ -102,7 +106,15 @@ export function AppShell({
 
   const openSettings = () => setSettings(({ session }) => ({ open: true, session: session + 1 }));
   const closeSettings = () => setSettings(({ session }) => ({ open: false, session }));
-  const account: Account = { user, loggingOut, onLogOut: logOut, onOpenSettings: openSettings };
+  const openFeedback = () => setFeedback(({ session }) => ({ open: true, session: session + 1 }));
+  const closeFeedback = () => setFeedback(({ session }) => ({ open: false, session }));
+  const account: Account = {
+    user,
+    loggingOut,
+    onLogOut: logOut,
+    onOpenSettings: openSettings,
+    onOpenFeedback: openFeedback,
+  };
   const openSheet = () => sheetRef.current?.showModal();
   const closeSheet = () => sheetRef.current?.close();
   const openSearch = () => setSearch(({ session }) => ({ open: true, session: session + 1 }));
@@ -197,6 +209,7 @@ export function AppShell({
           user={user}
           onClose={closeSettings}
         />
+        <FeedbackDialog open={feedback.open} session={feedback.session} onClose={closeFeedback} />
 
         <Toast toast={toast} onClose={closeToast} />
       </div>

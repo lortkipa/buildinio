@@ -8,14 +8,15 @@ import { handleMenuKeyDown, MENU_GAP, MENU_SURFACE, MenuItem } from "./menu";
 // (DEFAULT_AVATAR in apps/api/src/auth.ts).
 export const DEFAULT_AVATAR = "/avatars/default.svg";
 
-// The signed-in user, logging out and opening Settings. AppShell runs the logging out, so its toast
-// sits outside the sidebar (whose backdrop blur would pin the fixed-position toast to it), and
-// renders the settings dialog.
+// The signed-in user, logging out and opening Settings or Send feedback. AppShell runs the logging
+// out, so its toast sits outside the sidebar (whose backdrop blur would pin the fixed-position toast
+// to it), and renders the settings and feedback dialogs.
 export type Account = {
   user: { name: string; email: string; image?: string | null };
   loggingOut: boolean;
   onLogOut: () => void;
   onOpenSettings: () => void;
+  onOpenFeedback: () => void;
 };
 
 /*
@@ -82,14 +83,13 @@ export function Avatar({ image, size = "size-8" }: { image?: string | null; size
   );
 }
 
-// The signed-in user, opening a menu with Settings, Send feedback and Log out. Send feedback does
-// nothing yet.
+// The signed-in user, opening a menu with Settings, Send feedback and Log out.
 export function UserMenu({ account, placement }: { account: Account; placement: Placement }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const { user, loggingOut, onLogOut, onOpenSettings } = account;
+  const { user, loggingOut, onLogOut, onOpenSettings, onOpenFeedback } = account;
 
   // The menu stays where it opened, so close it when the window resizes rather than leave it
   // floating away from its trigger (which may even be hidden by then).
@@ -169,8 +169,14 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
         >
           Settings
         </MenuItem>
-        {/* Not built yet. */}
-        <MenuItem icon={<MessageSquareIcon className="size-4" />} onClick={close}>
+        <MenuItem
+          icon={<MessageSquareIcon className="size-4" />}
+          aria-haspopup="dialog"
+          onClick={() => {
+            close();
+            onOpenFeedback();
+          }}
+        >
           Send feedback
         </MenuItem>
         {/* Stays open while logging out; the page then reloads signed out. */}
