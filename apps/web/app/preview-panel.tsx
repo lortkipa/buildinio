@@ -50,7 +50,8 @@ export function normalizeRoute(input: string) {
  * (ProjectWorkspace). A toolbar, on top from md up and at the bottom on phones: the device to
  * preview on (not on phones, where the preview fills the screen), the page the app is on (which can be typed over to go to another), and opening the app
  * in a tab of its own. Under it, the app in a sandboxed iframe: the mock app (mock-preview.ts),
- * under a shimmer until the AI's first reply and then while the app starts, which fades into it.
+ * under a shimmer until the AI has built it and then while the app starts, which fades into it. A
+ * build the user stopped leaves the shimmer saying so.
  * dragging: the panel is being resized, so the iframe mustn't catch the pointer.
  */
 export function PreviewPanel({ project, dragging }: { project: Project; dragging: boolean }) {
@@ -86,8 +87,8 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
   const prompt =
     project.messages.find((message) => message.role === "user")?.text ||
     "A new app, made with Buildinio.";
-  // Until the first reply, the app is still being built.
-  const building = !project.messages.some((message) => message.role === "ai");
+  // Until a build finishes, there's no app.
+  const building = !project.built;
 
   useEffect(() => {
     routeRef.current = route;
@@ -309,7 +310,15 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
                 started ? "pointer-events-none opacity-0 motion-reduce:hidden" : ""
               }`}
             >
-              <PreviewSkeleton label={building ? "Building your app…" : "Starting your app…"} />
+              <PreviewSkeleton
+                label={
+                  !building
+                    ? "Starting your app…"
+                    : project.replying
+                      ? "Building your app…"
+                      : "Stopped. Send a message to build your app."
+                }
+              />
             </div>
           )}
         </div>
@@ -318,8 +327,8 @@ export function PreviewPanel({ project, dragging }: { project: Project; dragging
   );
 }
 
-// A page-shaped shimmer while the AI builds the first version and while the app starts. Not shaped
-// like the app, which isn't known yet.
+// A page-shaped shimmer while the AI builds the first version (or after the user stopped it) and
+// while the app starts. Not shaped like the app, which isn't known yet.
 function PreviewSkeleton({ label }: { label: string }) {
   return (
     <div role="status" className="flex size-full flex-col gap-4 overflow-hidden p-6">

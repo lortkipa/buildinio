@@ -736,3 +736,33 @@ export function FileUpIcon({ className }: { className?: string }) {
     </Icon>
   );
 }
+
+export function FilePlusIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d={FILE_OUTLINE} />
+      <path d={FILE_FOLD} />
+      <path d="M9 15h6" />
+      <path d="M12 18v-6" />
+    </Icon>
+  );
+}
+
+export function SquareTerminalIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m7 11 2-2-2-2" />
+      <path d="M11 13h4" />
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+    </Icon>
+  );
+}
+
+// Filled with fill-current, it is a stop button's square.
+export function SquareIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+    </Icon>
+  );
+}

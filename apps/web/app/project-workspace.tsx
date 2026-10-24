@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { type AppReady, AppReadyContext } from "./app-ready";
 import { ICON_BUTTON } from "./icon-button";
 import {
   AppWindowIcon,
@@ -39,6 +40,9 @@ const previewWidth = (share: number, width: number) =>
  *
  * On phones, the chat and the preview take turns filling the screen under the top bar. The preview
  * slides in from the right while the chat recedes to the left, and back.
+ *
+ * When the project's build finishes while it is open, the preview shows: from md up the panel opens,
+ * and on phones, where it would hide the chat, a pill over the chat offers it (app-ready.tsx).
  */
 export function ProjectWorkspace({
   id,
@@ -63,7 +67,38 @@ export function ProjectWorkspace({
   const drag = useRef<{ right: number; width: number; share: number } | null>(null);
   // Phones only: the preview fills the screen instead of the chat. Each project opens on its chat.
   const [showPreview, setShowPreview] = useState(false);
+  // Phones only: the app was just built, and the user hasn't looked at it yet.
+  const [readyPill, setReadyPill] = useState(false);
   const { share, open } = state;
+  const built = project?.built ?? false;
+  // Whether this project was built when last seen, to catch its build finishing.
+  const seen = useRef({ id, built });
+
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = { id, built };
+    if (before.id !== id) {
+      setReadyPill(false);
+      return;
+    }
+    if (before.built || !built) return;
+    if (window.matchMedia(WIDE).matches) setState((current) => ({ ...current, open: true }));
+    else setReadyPill(true);
+  }, [id, built]);
+
+  // Opening the preview any way takes the pill away, as does the screen getting wide.
+  useEffect(() => {
+    if (showPreview || wide) setReadyPill(false);
+  }, [showPreview, wide]);
+
+  const appReady = useMemo<AppReady>(
+    () => ({
+      shown: readyPill,
+      view: () => setShowPreview(true),
+      dismiss: () => setReadyPill(false),
+    }),
+    [readyPill],
+  );
 
   // Remember it for the next page load and the next project. While dragging, only once the drag ends.
   useEffect(() => {
@@ -199,7 +234,7 @@ export function ProjectWorkspace({
             showPreview ? "max-md:-translate-x-1/3 max-md:scale-[0.92] max-md:opacity-0" : ""
           }`}
         >
-          {children}
+          <AppReadyContext value={appReady}>{children}</AppReadyContext>
         </div>
       </div>
 

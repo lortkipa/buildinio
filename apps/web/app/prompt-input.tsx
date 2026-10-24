@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { AttachmentTile } from "./attachment-tile";
 import { ACCEPT, type Attachment, attachFiles, revokeAttachments } from "./attachments";
 import { FileDrop } from "./file-drop";
-import { ArrowUpIcon, MicIcon, PlusIcon } from "./icons";
+import { ArrowUpIcon, MicIcon, PlusIcon, SquareIcon } from "./icons";
 import { ImageViewer } from "./image-viewer";
 import { hasFinePointer } from "./pointer";
 import { revealForm, VIEWPORT_GAP } from "./reveal-form";
@@ -53,16 +53,19 @@ function fitTextarea(textarea: HTMLTextAreaElement) {
  * attachments.ts), as does dropping them anywhere on the page, shown as tiles above the text, and
  * files alone can be sent too. Without either,
  * they do nothing yet. placeholder: shown instead of the cycling examples. busy: the prompt can't be
- * sent yet, e.g. while the AI replies.
+ * sent yet, e.g. while the AI replies. onStop: while busy, the send button turns into Stop, which
+ * calls it.
  */
 export function PromptInput({
   nextStep,
   onSend,
+  onStop,
   placeholder,
   busy = false,
 }: {
   nextStep?: string;
   onSend?: (prompt: string, attachments: Attachment[]) => void;
+  onStop?: () => void;
   placeholder?: string;
   busy?: boolean;
 }) {
@@ -77,6 +80,7 @@ export function PromptInput({
   const { toast, showToast, closeToast } = useToast();
   const hasText = value.trim() !== "";
   const canSend = hasText || attachments.length > 0;
+  const canStop = busy && onStop !== undefined;
   // The files not sent yet, freed if the box goes away with them. Sent ones belong to the message.
   const unsent = useRef<Attachment[]>([]);
 
@@ -245,34 +249,40 @@ export function PromptInput({
             <PlusIcon className="size-5" />
           </button>
 
-          {/* One button: a mic while the box is empty, morphing into send once there is text or a file. */}
+          {/* One button: a mic while the box is empty, morphing into send once there is text or a
+              file, and into Stop while the AI works. */}
           <button
-            type={canSend ? "submit" : "button"}
-            aria-label={canSend ? "Send" : "Voice input"}
-            aria-disabled={canSend && busy}
-            data-tooltip={canSend ? "Send" : undefined}
+            type={canSend && !canStop ? "submit" : "button"}
+            aria-label={canStop ? "Stop" : canSend ? "Send" : "Voice input"}
+            aria-disabled={canSend && busy && !canStop}
+            data-tooltip={canStop ? "Stop" : canSend ? "Send" : undefined}
             // With text it submits the form instead, and handleSubmit navigates.
-            onClick={canSend ? undefined : goNext}
+            onClick={canStop ? onStop : canSend ? undefined : goNext}
             className="group/send relative size-9 rounded-full text-zinc-600 transition-colors aria-disabled:cursor-default hover:bg-zinc-950/5 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <span
               aria-hidden
               className={`absolute inset-0 rounded-full bg-brand-gradient shadow-md shadow-brand-magenta/30 transition duration-300 ease-spring motion-reduce:transition-none ${
-                canSend
-                  ? busy
+                canStop || (canSend && !busy)
+                  ? "scale-100 opacity-100 group-hover/send:brightness-110"
+                  : canSend
                     ? "scale-100 opacity-40"
-                    : "scale-100 opacity-100 group-hover/send:brightness-110"
-                  : "scale-50 opacity-0"
+                    : "scale-50 opacity-0"
               }`}
             />
             <MicIcon
               className={`absolute inset-0 m-auto size-5 transition duration-300 ease-spring motion-reduce:transition-none ${
-                canSend ? "scale-50 -rotate-90 opacity-0" : ""
+                canSend || canStop ? "scale-50 -rotate-90 opacity-0" : ""
               }`}
             />
             <ArrowUpIcon
               className={`absolute inset-0 m-auto size-5 text-white transition duration-300 ease-spring motion-reduce:transition-none ${
-                canSend ? "" : "translate-y-2 scale-50 opacity-0"
+                canSend && !canStop ? "" : "translate-y-2 scale-50 opacity-0"
+              }`}
+            />
+            <SquareIcon
+              className={`absolute inset-0 m-auto size-3.5 fill-current text-white transition duration-300 ease-spring motion-reduce:transition-none ${
+                canStop ? "" : "scale-50 opacity-0"
               }`}
             />
           </button>
