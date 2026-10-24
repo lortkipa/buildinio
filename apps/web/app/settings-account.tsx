@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 import { authClient, isUnreachable, settle, UNREACHABLE } from "./auth-client";
-import { CANCEL_BUTTON, DANGER_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "./buttons";
+import { CANCEL_BUTTON, DANGER_BUTTON, SECONDARY_BUTTON } from "./buttons";
 import { DIALOG_TITLE, Dialog } from "./dialog";
 import {
   CircleAlertIcon,
@@ -200,19 +200,9 @@ function DeleteAccountForm({
 }) {
   const fieldId = useId();
   const [typed, setTyped] = useState("");
-  // Deleting, or logging out to log in again.
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Without a password, Better Auth deletes an account only from a session started within the last
-  // day (its freshAge); an older one has to log in again first.
-  const [mustLogIn, setMustLogIn] = useState(false);
-  const submitRef = useRef<HTMLButtonElement>(null);
   const matches = typed.trim().toLowerCase() === email.toLowerCase();
-
-  // The field goes, which may have had the focus (Enter submits): Log in again takes it.
-  useEffect(() => {
-    if (mustLogIn) submitRef.current?.focus();
-  }, [mustLogIn]);
 
   async function deleteAccount() {
     setBusy(true);
@@ -220,9 +210,7 @@ function DeleteAccountForm({
     const { error } = await settle(authClient.deleteUser());
     if (error) {
       setBusy(false);
-      if (error.code === "SESSION_EXPIRED") setMustLogIn(true);
-      else
-        setError(isUnreachable(error) ? UNREACHABLE : "Couldn’t delete your account. Try again.");
+      setError(isUnreachable(error) ? UNREACHABLE : "Couldn’t delete your account. Try again.");
       return;
     }
     // A full page load: the landing page, signed out, without the deleted account's projects and
@@ -230,67 +218,42 @@ function DeleteAccountForm({
     window.location.replace("/");
   }
 
-  async function logInAgain() {
-    setBusy(true);
-    setError(null);
-    const { error } = await settle(authClient.signOut());
-    if (error) {
-      setBusy(false);
-      setError(isUnreachable(error) ? UNREACHABLE : "Couldn’t log out. Try again.");
-      return;
-    }
-    window.location.replace("/login");
-  }
-
   return (
     <form
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        if (busy) return;
-        if (mustLogIn) logInAgain();
-        else if (matches) deleteAccount();
+        if (!busy && matches) deleteAccount();
       }}
       className="p-5"
     >
       <h2 id={titleId} className={DIALOG_TITLE}>
         Delete your account?
       </h2>
-      {mustLogIn ? (
-        <p role="alert" className={`mt-2 ${HINT}`}>
-          For your security, log in again, then delete your account. You logged in more than a day
-          ago.
-        </p>
-      ) : (
-        <>
-          <p className={`mt-2 ${HINT}`}>
-            Your account, your projects and their chats will be deleted, and you’ll be logged out.
-            This can’t be undone.
-          </p>
-          <label htmlFor={fieldId} className="mt-4 block text-sm text-pretty">
-            To confirm, type{" "}
-            <span className="font-semibold wrap-anywhere text-zinc-950 dark:text-white">
-              {email}
-            </span>
-          </label>
-          <input
-            id={fieldId}
-            data-autofocus
-            type="text"
-            inputMode="email"
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="done"
-            value={typed}
-            // Not disabled: that would drop the focus and close the phone keyboard.
-            readOnly={busy}
-            onChange={(event) => setTyped(event.target.value)}
-            className={`mt-2 ${DANGER_FIELD}`}
-          />
-        </>
-      )}
+      <p className={`mt-2 ${HINT}`}>
+        Your account, your projects and their chats will be deleted, and you’ll be logged out. This
+        can’t be undone.
+      </p>
+      <label htmlFor={fieldId} className="mt-4 block text-sm text-pretty">
+        To confirm, type{" "}
+        <span className="font-semibold wrap-anywhere text-zinc-950 dark:text-white">{email}</span>
+      </label>
+      <input
+        id={fieldId}
+        data-autofocus
+        type="text"
+        inputMode="email"
+        autoComplete="off"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="done"
+        value={typed}
+        // Not disabled: that would drop the focus and close the phone keyboard.
+        readOnly={busy}
+        onChange={(event) => setTyped(event.target.value)}
+        className={`mt-2 ${DANGER_FIELD}`}
+      />
       {error && (
         <p
           role="alert"
@@ -304,24 +267,14 @@ function DeleteAccountForm({
         <button type="button" onClick={onCancel} disabled={busy} className={CANCEL_BUTTON}>
           Cancel
         </button>
-        {/* One button for both, so it keeps the focus when it turns into Log in again. */}
         <button
-          ref={submitRef}
           type="submit"
-          disabled={!mustLogIn && !matches}
+          disabled={!matches}
           aria-disabled={busy}
-          className={`flex items-center gap-2 aria-disabled:cursor-default ${
-            mustLogIn ? PRIMARY_BUTTON : DANGER_BUTTON
-          }`}
+          className={`flex items-center gap-2 aria-disabled:cursor-default ${DANGER_BUTTON}`}
         >
           {busy && <LoaderIcon className="size-4" />}
-          {mustLogIn
-            ? busy
-              ? "Logging out…"
-              : "Log in again"
-            : busy
-              ? "Deleting…"
-              : "Delete account"}
+          {busy ? "Deleting…" : "Delete account"}
         </button>
       </div>
     </form>
