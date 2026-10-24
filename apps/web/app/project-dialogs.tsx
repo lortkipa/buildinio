@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useId, useState } from "react";
-import { CANCEL_BUTTON, DANGER_BUTTON, DIALOG_TITLE, Dialog, PRIMARY_BUTTON } from "./dialog";
+import { CANCEL_BUTTON, DANGER_BUTTON, PRIMARY_BUTTON } from "./buttons";
+import { DIALOG_TITLE, Dialog } from "./dialog";
 import {
   COLOR_NAMES,
   ICON_NAMES,

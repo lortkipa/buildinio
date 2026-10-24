@@ -2,14 +2,8 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { authClient, isUnreachable, settle, UNREACHABLE } from "./auth-client";
-import {
-  CANCEL_BUTTON,
-  DANGER_BUTTON,
-  DIALOG_TITLE,
-  Dialog,
-  PRIMARY_BUTTON,
-  SECONDARY_BUTTON,
-} from "./dialog";
+import { CANCEL_BUTTON, DANGER_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from "./buttons";
+import { DIALOG_TITLE, Dialog } from "./dialog";
 import {
   CircleAlertIcon,
   LaptopIcon,

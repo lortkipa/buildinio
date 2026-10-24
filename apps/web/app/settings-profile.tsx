@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { CANCEL_BUTTON, SECONDARY_BUTTON } from "./dialog";
+import { CANCEL_BUTTON, SECONDARY_BUTTON } from "./buttons";
 import { CircleAlertIcon } from "./icons";
 import { FIELD, FormButtons, HINT, LABEL } from "./settings-parts";
 import { type Account, Avatar, DEFAULT_AVATAR } from "./user-menu";

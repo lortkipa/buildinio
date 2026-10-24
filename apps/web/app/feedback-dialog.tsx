@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { CANCEL_BUTTON, DIALOG_TITLE, Dialog, PRIMARY_BUTTON } from "./dialog";
+import { CANCEL_BUTTON, PRIMARY_BUTTON } from "./buttons";
+import { DIALOG_TITLE, Dialog } from "./dialog";
 import { CheckIcon, LoaderIcon } from "./icons";
 import { HINT } from "./settings-parts";
 

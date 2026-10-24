@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Gabarito } from "next/font/google";
+import { gabarito } from "./fonts";
 import "./globals.css";
 import { Tooltips } from "./tooltips";
-
-// The wordmark's typeface, used for display headings (font-display).
-const gabarito = Gabarito({ subsets: ["latin"], variable: "--font-gabarito" });
 
 export const metadata: Metadata = {
   // Pages set only their own name, e.g. "Log in · Buildinio".

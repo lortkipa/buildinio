@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { CANCEL_BUTTON, PRIMARY_BUTTON } from "./dialog";
+import { CANCEL_BUTTON, PRIMARY_BUTTON } from "./buttons";
 
 /*
  * Pieces shared by the settings tabs (settings-dialog.tsx).
