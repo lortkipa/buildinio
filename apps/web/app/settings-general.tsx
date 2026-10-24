@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useState } from "react";
-import { CheckIcon, ChevronDownIcon, MonitorIcon, MoonIcon, SunIcon } from "./icons";
-import { FIELD, SettingsGroup } from "./settings-parts";
+import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "./icons";
+import { Select } from "./select";
+import { SettingsGroup } from "./settings-parts";
 
 type Theme = "system" | "light" | "dark";
 
@@ -14,20 +15,20 @@ const THEMES: { id: Theme; label: string; Icon: typeof SunIcon }[] = [
 
 // Each in its own language, as someone looking for theirs would know it.
 const LANGUAGES = [
-  { code: "en", name: "English" },
-  { code: "ka", name: "ქართული" },
-  { code: "es", name: "Español" },
-  { code: "fr", name: "Français" },
-  { code: "de", name: "Deutsch" },
-  { code: "it", name: "Italiano" },
-  { code: "pt", name: "Português" },
-  { code: "ru", name: "Русский" },
-  { code: "uk", name: "Українська" },
-  { code: "tr", name: "Türkçe" },
-  { code: "pl", name: "Polski" },
-  { code: "ja", name: "日本語" },
-  { code: "ko", name: "한국어" },
-  { code: "zh-Hans", name: "简体中文" },
+  { value: "en", label: "English", lang: "en" },
+  { value: "ka", label: "ქართული", lang: "ka" },
+  { value: "es", label: "Español", lang: "es" },
+  { value: "fr", label: "Français", lang: "fr" },
+  { value: "de", label: "Deutsch", lang: "de" },
+  { value: "it", label: "Italiano", lang: "it" },
+  { value: "pt", label: "Português", lang: "pt" },
+  { value: "ru", label: "Русский", lang: "ru" },
+  { value: "uk", label: "Українська", lang: "uk" },
+  { value: "tr", label: "Türkçe", lang: "tr" },
+  { value: "pl", label: "Polski", lang: "pl" },
+  { value: "ja", label: "日本語", lang: "ja" },
+  { value: "ko", label: "한국어", lang: "ko" },
+  { value: "zh-Hans", label: "简体中文", lang: "zh-Hans" },
 ];
 
 /*
@@ -37,7 +38,6 @@ const LANGUAGES = [
  */
 export function GeneralTab() {
   const name = useId();
-  const languageId = useId();
   const [theme, setTheme] = useState<Theme>("system");
   const [language, setLanguage] = useState("en");
 
@@ -74,25 +74,13 @@ export function GeneralTab() {
         title="Language"
         description="Buildinio’s menus and messages. Your apps can be in any language."
       >
-        <label htmlFor={languageId} className="sr-only">
-          Language
-        </label>
-        <div className="relative sm:max-w-xs">
-          {/* A native select, so phones show their own picker. */}
-          <select
-            id={languageId}
-            value={language}
-            onChange={(event) => setLanguage(event.target.value)}
-            className={`${FIELD} cursor-pointer appearance-none pr-11 dark:[&_option]:bg-zinc-900`}
-          >
-            {LANGUAGES.map(({ code, name }) => (
-              <option key={code} value={code} lang={code}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
-        </div>
+        <Select
+          label="Language"
+          value={language}
+          options={LANGUAGES}
+          onChange={setLanguage}
+          className="sm:max-w-xs"
+        />
       </SettingsGroup>
     </>
   );
