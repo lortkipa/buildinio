@@ -1,13 +1,15 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { API_URL } from "../api-url";
 import type { Session } from "./auth-client";
 
 /*
  * The signed-in user's session, for server components, or null when signed out. Asks the API with
- * the request's cookies. A server component can't set cookies, so when the API refreshes the
- * session cookie the browser has to ask too (AccountCard does).
+ * the request's cookies, once per request however many layouts and pages ask. A server component
+ * can't set cookies, so when the API refreshes the session cookie the browser has to ask too
+ * (AppShell does).
  */
-export async function getSession(): Promise<Session | null> {
+export const getSession = cache(async (): Promise<Session | null> => {
   const cookie = (await headers()).get("cookie");
   if (!cookie) return null;
   try {
@@ -22,4 +24,4 @@ export async function getSession(): Promise<Session | null> {
     console.error("Couldn't read the session from the API:", error);
     return null;
   }
-}
+});

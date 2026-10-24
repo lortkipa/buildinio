@@ -27,3 +27,6 @@ export async function settle<T extends { error: unknown }>(request: Promise<T>) 
 // No answer, or the API (or the web app's forward to it) failed.
 export const isUnreachable = (error: { status: number }) =>
   error.status === 0 || error.status >= 500;
+
+// What to tell the user then.
+export const UNREACHABLE = "Couldn’t reach Buildinio. Check your connection and try again.";

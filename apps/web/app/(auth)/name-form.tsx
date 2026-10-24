@@ -8,7 +8,7 @@ import { hasFinePointer } from "../pointer";
 import { revealForm } from "../reveal-form";
 import { Toast, useToast } from "../toast";
 
-// There is no workspace yet, so after the name comes the landing page.
+// After the name comes the home page.
 const NEXT_STEP = "/";
 
 // Asked once, right after the account is created. defaultName: the name from Google or GitHub,

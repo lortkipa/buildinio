@@ -43,6 +43,12 @@ export function createAuth(db: Database) {
       // settings; email-sign-in.ts limits them instead.
       customRules: { "/email-otp/send-verification-otp": false, "/sign-in/email-otp": false },
     },
+    session: {
+      // No "fresh session" requirement (by default, signed in within the last day) for deleting the
+      // account and other sensitive actions: there are no passwords, so the only way to refresh it
+      // would be logging out and in again.
+      freshAge: 0,
+    },
     account: {
       // One account per email: signing in with another provider that has the same email signs in
       // to it and links that provider. The name and picture stay those of the first sign-in.
@@ -53,8 +59,7 @@ export function createAuth(db: Database) {
         // Whether the user has confirmed their name on /welcome, which is asked only once.
         onboarded: { type: "boolean", required: false, defaultValue: false },
       },
-      // Without a password, Better Auth only deletes with a fresh session (signed in within the
-      // last day); otherwise it answers SESSION_EXPIRED.
+      // Typing the account's email confirms it in the web app; there is no password to ask for.
       deleteUser: { enabled: true },
     },
     databaseHooks: {
