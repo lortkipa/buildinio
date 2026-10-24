@@ -6,14 +6,16 @@ import { handleMenuKeyDown, MENU_GAP, MENU_SURFACE, MenuItem } from "./menu";
 
 // For an account without a picture. The API stores the same path on new email accounts
 // (DEFAULT_AVATAR in apps/api/src/auth.ts).
-const DEFAULT_AVATAR = "/avatars/default.svg";
+export const DEFAULT_AVATAR = "/avatars/default.svg";
 
-// The signed-in user, and logging out. AppShell runs the logging out, so its toast sits outside the
-// sidebar (whose backdrop blur would pin the fixed-position toast to it).
+// The signed-in user, logging out and opening Settings. AppShell runs the logging out, so its toast
+// sits outside the sidebar (whose backdrop blur would pin the fixed-position toast to it), and
+// renders the settings dialog.
 export type Account = {
   user: { name: string; email: string; image?: string | null };
   loggingOut: boolean;
   onLogOut: () => void;
+  onOpenSettings: () => void;
 };
 
 /*
@@ -59,7 +61,7 @@ function placeMenu(menu: HTMLElement, trigger: HTMLElement, placement: Placement
 }
 
 // The user's picture: Google's or GitHub's, else the default silhouette.
-function Avatar({ image, size = "size-8" }: { image?: string | null; size?: string }) {
+export function Avatar({ image, size = "size-8" }: { image?: string | null; size?: string }) {
   return (
     <>
       {/*
@@ -80,13 +82,14 @@ function Avatar({ image, size = "size-8" }: { image?: string | null; size?: stri
   );
 }
 
-// The signed-in user, opening a menu with Settings, Send feedback and Log out. Only Log out works yet.
+// The signed-in user, opening a menu with Settings, Send feedback and Log out. Send feedback does
+// nothing yet.
 export function UserMenu({ account, placement }: { account: Account; placement: Placement }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const { user, loggingOut, onLogOut } = account;
+  const { user, loggingOut, onLogOut, onOpenSettings } = account;
 
   // The menu stays where it opened, so close it when the window resizes rather than leave it
   // floating away from its trigger (which may even be hidden by then).
@@ -156,10 +159,17 @@ export function UserMenu({ account, placement }: { account: Account; placement: 
             </div>
           </div>
         )}
-        {/* Settings and Send feedback are not built yet. */}
-        <MenuItem icon={<SettingsIcon className="size-4" />} onClick={close}>
+        <MenuItem
+          icon={<SettingsIcon className="size-4" />}
+          aria-haspopup="dialog"
+          onClick={() => {
+            close();
+            onOpenSettings();
+          }}
+        >
           Settings
         </MenuItem>
+        {/* Not built yet. */}
         <MenuItem icon={<MessageSquareIcon className="size-4" />} onClick={close}>
           Send feedback
         </MenuItem>

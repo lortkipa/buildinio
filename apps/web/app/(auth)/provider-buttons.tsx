@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { authClient, isUnreachable, settle } from "../auth-client";
+import { authClient, isUnreachable, settle, UNREACHABLE } from "../auth-client";
 import { LoaderIcon } from "../icons";
 
 type Provider = "google" | "github";
@@ -24,7 +24,7 @@ function signInErrorMessage(provider: Provider, error: { status: number; code?: 
     }
     return `${name} sign-in isn’t available yet.`;
   }
-  if (isUnreachable(error)) return "Couldn’t reach Buildinio. Check your connection and try again.";
+  if (isUnreachable(error)) return UNREACHABLE;
   return `Couldn’t sign in with ${name}. Try again.`;
 }
 

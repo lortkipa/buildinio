@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useId, useState } from "react";
-import { Dialog } from "./dialog";
+import { CANCEL_BUTTON, DANGER_BUTTON, DIALOG_TITLE, Dialog, PRIMARY_BUTTON } from "./dialog";
 import {
   COLOR_NAMES,
   ICON_NAMES,
@@ -94,17 +94,10 @@ export function ProjectDialogsProvider({ children }: { children: React.ReactNode
   );
 }
 
-const TITLE = "font-display text-xl font-bold tracking-tight";
-const BUTTON =
-  "h-10 rounded-full px-4 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet disabled:cursor-not-allowed disabled:opacity-40";
-const CANCEL = `${BUTTON} text-zinc-700 hover:bg-zinc-950/5 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white`;
-const PRIMARY = `${BUTTON} bg-zinc-950 text-white shadow-sm hover:bg-zinc-800 disabled:hover:bg-zinc-950 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 dark:disabled:hover:bg-white`;
-const DANGER = `${BUTTON} bg-red-600 text-white shadow-sm hover:bg-red-500`;
-
 function Buttons({ onCancel, children }: { onCancel: () => void; children: React.ReactNode }) {
   return (
     <div className="mt-6 flex justify-end gap-2">
-      <button type="button" onClick={onCancel} className={CANCEL}>
+      <button type="button" onClick={onCancel} className={CANCEL_BUTTON}>
         Cancel
       </button>
       {children}
@@ -131,7 +124,7 @@ function RenameForm({ project, titleId, onDone }: FormProps) {
       }}
       className="p-5"
     >
-      <h2 id={titleId} className={TITLE}>
+      <h2 id={titleId} className={DIALOG_TITLE}>
         Rename project
       </h2>
       <label htmlFor={id} className="sr-only">
@@ -152,7 +145,7 @@ function RenameForm({ project, titleId, onDone }: FormProps) {
         className="mt-4 h-12 w-full rounded-2xl border border-zinc-950/10 bg-white px-4 text-base outline-none transition-colors placeholder:text-zinc-500 focus:border-(--project) dark:border-white/10 dark:bg-zinc-950/40 dark:placeholder:text-zinc-400 dark:focus:border-(--project)"
       />
       <Buttons onCancel={onDone}>
-        <button type="submit" disabled={!canSave} className={PRIMARY}>
+        <button type="submit" disabled={!canSave} className={PRIMARY_BUTTON}>
           Save
         </button>
       </Buttons>
@@ -188,7 +181,7 @@ function IconForm({ project, titleId, onDone }: FormProps) {
         />
         {/* Fills the row, so the name fades out only when too long to fit. */}
         <div className="min-w-0 flex-1">
-          <h2 id={titleId} className={TITLE}>
+          <h2 id={titleId} className={DIALOG_TITLE}>
             Change icon
           </h2>
           <p className="truncate-fade text-sm text-zinc-600 dark:text-zinc-300">{project.name}</p>
@@ -250,7 +243,7 @@ function IconForm({ project, titleId, onDone }: FormProps) {
         <button
           type="submit"
           disabled={icon === project.icon && color === project.color}
-          className={PRIMARY}
+          className={PRIMARY_BUTTON}
         >
           Save
         </button>
@@ -270,7 +263,7 @@ function DeleteForm({ project, titleId, onDone }: FormProps) {
       }}
       className="p-5"
     >
-      <h2 id={titleId} className={TITLE}>
+      <h2 id={titleId} className={DIALOG_TITLE}>
         Delete project?
       </h2>
       {/* wrap-anywhere: a long name without spaces wraps instead of widening the dialog. */}
@@ -281,7 +274,7 @@ function DeleteForm({ project, titleId, onDone }: FormProps) {
         and its chat will be deleted. This can’t be undone.
       </p>
       <Buttons onCancel={onDone}>
-        <button type="submit" className={DANGER}>
+        <button type="submit" className={DANGER_BUTTON}>
           Delete
         </button>
       </Buttons>

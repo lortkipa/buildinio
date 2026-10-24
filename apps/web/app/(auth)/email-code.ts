@@ -1,4 +1,4 @@
-import { authClient, isUnreachable, settle } from "../auth-client";
+import { authClient, isUnreachable, settle, UNREACHABLE } from "../auth-client";
 
 /*
  * Signing in with a code sent by email (apps/api/src/email-sign-in.ts), turned into what the email
@@ -26,8 +26,6 @@ export const triesLeftText = (triesLeft: number) =>
   triesLeft === 0
     ? "No tries left. Request a new code."
     : `${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left.`;
-
-const UNREACHABLE = "Couldn’t reach Buildinio. Check your connection and try again.";
 
 // Sends a code to the email, or, within the resend cooldown, answers for the code already sent.
 export async function sendCode(email: string): Promise<SendResult> {

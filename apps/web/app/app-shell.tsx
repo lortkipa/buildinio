@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { authClient, isUnreachable, settle } from "./auth-client";
+import { authClient, isUnreachable, settle, UNREACHABLE } from "./auth-client";
 import { ICON_BUTTON } from "./icon-button";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "./icons";
 import type { PreviewState } from "./preview-state";
@@ -10,19 +10,19 @@ import { ProjectDialogsProvider } from "./project-dialogs";
 import { ProjectsSection } from "./project-list";
 import { ProjectWorkspace } from "./project-workspace";
 import { SearchDialog } from "./search-dialog";
+import { SettingsDialog } from "./settings-dialog";
 import { Sidebar, SidebarNav } from "./sidebar";
 import type { SidebarState } from "./sidebar-state";
 import { Toast, useToast } from "./toast";
 import { type Account, UserMenu } from "./user-menu";
 import { WIDE } from "./wide";
 
-const UNREACHABLE = "Couldn’t reach Buildinio. Check your connection and try again.";
-
 /*
  * The signed-in pages around their main content: the sidebar from md up (sidebar.tsx). On phones, a
  * top bar instead, with a button opening the sidebar's contents as a full-screen sheet, and the
- * user's avatar opening the account menu (also at the sheet's bottom right). Search opens from
- * either, and with Ctrl+K or ⌘K (search-dialog.tsx). A project's page has its own top bar and its preview
+ * user's avatar opening the account menu (also at the sheet's bottom right), whose Settings opens
+ * the settings dialog (settings-dialog.tsx). Search opens from either, and with Ctrl+K or ⌘K
+ * (search-dialog.tsx). A project's page has its own top bar and its preview
  * (project-workspace.tsx); the preview's width and whether it shows are kept here, so the next
  * project opens with them as the user left them.
  */
@@ -44,6 +44,8 @@ export function AppShell({
   const [preview, setPreview] = useState(initialPreview);
   // Whether search is open, and a new session each time it opens, for a fresh search.
   const [search, setSearch] = useState({ open: false, session: 0 });
+  // The same for settings, which open on their first tab with nothing changed.
+  const [settings, setSettings] = useState({ open: false, session: 0 });
   const { toast, showToast, closeToast } = useToast();
 
   // Server components read the session but can't pass on a refreshed session cookie. Asking once
@@ -98,7 +100,9 @@ export function AppShell({
     router.refresh();
   }
 
-  const account: Account = { user, loggingOut, onLogOut: logOut };
+  const openSettings = () => setSettings(({ session }) => ({ open: true, session: session + 1 }));
+  const closeSettings = () => setSettings(({ session }) => ({ open: false, session }));
+  const account: Account = { user, loggingOut, onLogOut: logOut, onOpenSettings: openSettings };
   const openSheet = () => sheetRef.current?.showModal();
   const closeSheet = () => sheetRef.current?.close();
   const openSearch = () => setSearch(({ session }) => ({ open: true, session: session + 1 }));
@@ -180,12 +184,18 @@ export function AppShell({
           </div>
         </dialog>
 
-        {/* After the sheet, so it opens above it. */}
+        {/* After the sheet, so they open above it. */}
         <SearchDialog
           open={search.open}
           session={search.session}
           onClose={closeSearch}
           onNavigate={closeSheet}
+        />
+        <SettingsDialog
+          open={settings.open}
+          session={settings.session}
+          user={user}
+          onClose={closeSettings}
         />
 
         <Toast toast={toast} onClose={closeToast} />
