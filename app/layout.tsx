@@ -25,6 +25,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Android Chrome: the keyboard shrinks the page instead of sliding over it,
+  // so the prompt box can sit right above it. iOS ignores this.
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
     { media: "(prefers-color-scheme: dark)", color: "#111113" },

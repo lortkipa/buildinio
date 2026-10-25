@@ -17,8 +17,8 @@ export type Dock = {
 
 /**
  * On phones, reports where the visible area is while `textareaRef` is focused and
- * the on-screen keyboard is open, or null otherwise. The keyboard only shrinks the
- * visual viewport (and the browser may scroll it), so positions come from that.
+ * the on-screen keyboard is open, or null otherwise. Positions come from the visual
+ * viewport, which is what's actually visible above the keyboard.
  */
 export function useKeyboardDock(
   textareaRef: RefObject<HTMLTextAreaElement | null>,
@@ -31,13 +31,24 @@ export function useKeyboardDock(
     const textarea = textareaRef.current;
     if (!viewport || !textarea || !window.matchMedia("(pointer: coarse)").matches) return;
 
+    // Tallest the page has been at this width, i.e. with the keyboard closed. The
+    // keyboard shrinks the page itself on Android (see layout.tsx) and only the
+    // visual viewport on iOS, so compare against this rather than the current size.
+    let fullHeight = 0;
+    let fullWidth = 0;
+
     let frame = 0;
     const update = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        const page = document.documentElement;
+        if (page.clientWidth !== fullWidth) {
+          fullWidth = page.clientWidth; // Rotated: start over.
+          fullHeight = 0;
+        }
+        fullHeight = Math.max(fullHeight, page.clientHeight);
         // Multiplying by scale keeps pinch-zoom from looking like a keyboard.
-        const keyboard =
-          document.documentElement.clientHeight - viewport.height * viewport.scale;
+        const keyboard = fullHeight - viewport.height * viewport.scale;
         if (document.activeElement !== textarea || keyboard < KEYBOARD_MIN) {
           setDock(null);
           return;
@@ -52,12 +63,15 @@ export function useKeyboardDock(
       });
     };
 
+    update(); // Record the full height while the keyboard is still closed.
+    window.addEventListener("resize", update);
     viewport.addEventListener("resize", update);
     viewport.addEventListener("scroll", update);
     textarea.addEventListener("focus", update);
     textarea.addEventListener("blur", update);
     return () => {
       cancelAnimationFrame(frame);
+      window.removeEventListener("resize", update);
       viewport.removeEventListener("resize", update);
       viewport.removeEventListener("scroll", update);
       textarea.removeEventListener("focus", update);
