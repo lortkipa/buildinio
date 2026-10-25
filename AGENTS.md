@@ -4,7 +4,11 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — early stage. No code, build, or test setup yet. Update this file as the stack is added.
+`buildinio` — an app builder for non-coders. Early stage: no code, build, or test setup yet. Update this file as the stack is added.
+
+## Brand
+
+- Logo files, colors and usage rules live in `brand/` (see `brand/README.md`). Use those files; don't redraw or recolor the logo.
 
 ## How to work
 
