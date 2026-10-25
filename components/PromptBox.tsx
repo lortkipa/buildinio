@@ -149,6 +149,8 @@ export function PromptBox({ className = "" }: { className?: string }) {
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // On phones Enter adds a new line; the send button is there to submit.
+    if (!window.matchMedia("(pointer: fine)").matches) return;
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       if (hasText) event.currentTarget.form?.requestSubmit();
@@ -195,6 +197,7 @@ export function PromptBox({ className = "" }: { className?: string }) {
             id="prompt"
             name="prompt"
             rows={2}
+            enterKeyHint="enter"
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
