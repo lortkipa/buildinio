@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* Brand colors: see brand/README.md */
+:root {
+  --background: #fafaf9;
+  --foreground: #1c1c1f;
+  --muted: #6b6b73;
+  --surface: #ffffff;
+  --border: rgb(28 28 31 / 0.1);
+  --dot: rgb(28 28 31 / 0.16);
+  --glow: rgb(239 68 68 / 0.1);
+  --glow-warm: rgb(251 146 60 / 0.07);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #111113;
+    --foreground: #ffffff;
+    --muted: #a1a1aa;
+    --surface: #1c1c1f;
+    --border: rgb(255 255 255 / 0.1);
+    --dot: rgb(255 255 255 / 0.12);
+    --glow: rgb(239 68 68 / 0.14);
+    --glow-warm: rgb(251 146 60 / 0.06);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+
+  --animate-rise: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+}
+
+/* Dot grid that fades out toward the edges of the screen. */
+.bg-dots {
+  background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.5px);
+  background-size: 24px 24px;
+  background-position: center;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 45%, #000 25%, transparent 100%);
+}
+
+/* Soft warm light behind the prompt box. */
+.bg-glow {
+  background: radial-gradient(
+    closest-side,
+    var(--glow),
+    var(--glow-warm) 55%,
+    transparent
+  );
+}
