@@ -73,8 +73,22 @@ const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full $
 const swap = "col-start-1 row-start-1 transition duration-200 ease-out motion-reduce:transition-none";
 const shown = "scale-100 rotate-0 opacity-100";
 
+// Keyboard docking on phones (px).
+const KEYBOARD_MIN = 120; // Viewport the keyboard must cover to count as open.
+const DOCK_GAP = 8; // Space between the box and the keyboard.
+const DOCK_SIDE = 12; // Space on the left and right.
+const DOCK_CHROME = 80; // Toolbar, padding and a top margin, kept out of the text's max height.
+
+type Dock = {
+  top: number; // Top edge of the keyboard, in layout viewport coordinates.
+  visibleHeight: number;
+  formHeight: number; // Height the box had in the page, kept so the layout doesn't jump.
+};
+
 export function PromptBox({ className = "" }: { className?: string }) {
   const [value, setValue] = useState("");
+  const [dock, setDock] = useState<Dock | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const placeholder = useTypingPlaceholder(value.length === 0);
   const hasText = value.trim().length > 0;
@@ -84,6 +98,46 @@ export function PromptBox({ className = "" }: { className?: string }) {
     if (window.matchMedia("(pointer: fine)").matches) {
       textareaRef.current?.focus();
     }
+  }, []);
+
+  // On phones, pin the box right above the on-screen keyboard while typing, so it
+  // grows upward instead of under the keyboard. The keyboard only shrinks the
+  // visual viewport, so the box is positioned against that.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const textarea = textareaRef.current;
+    if (!viewport || !textarea || !window.matchMedia("(pointer: coarse)").matches) return;
+
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        // Multiplying by scale keeps pinch-zoom from looking like a keyboard.
+        const keyboard =
+          document.documentElement.clientHeight - viewport.height * viewport.scale;
+        if (document.activeElement !== textarea || keyboard < KEYBOARD_MIN) {
+          setDock(null);
+          return;
+        }
+        setDock((current) => ({
+          top: viewport.offsetTop + viewport.height,
+          visibleHeight: viewport.height,
+          formHeight: current?.formHeight ?? formRef.current?.offsetHeight ?? 0,
+        }));
+      });
+    };
+
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    textarea.addEventListener("focus", update);
+    textarea.addEventListener("blur", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+      textarea.removeEventListener("focus", update);
+      textarea.removeEventListener("blur", update);
+    };
   }, []);
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
@@ -107,28 +161,59 @@ export function PromptBox({ className = "" }: { className?: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`relative isolate w-full max-w-2xl ${className}`}>
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      style={dock ? { height: dock.formHeight } : undefined}
+      className={`relative isolate w-full max-w-2xl ${className}`}
+    >
       <div
         aria-hidden
         className="bg-glow pointer-events-none absolute -inset-x-24 -inset-y-20 -z-10"
       />
-      <div className="rounded-3xl border border-border bg-surface text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.12)] transition focus-within:border-foreground/20 focus-within:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_16px_40px_-12px_rgb(0_0_0/0.18)]">
+      <div
+        style={
+          dock
+            ? {
+                position: "fixed",
+                left: DOCK_SIDE,
+                right: DOCK_SIDE,
+                top: dock.top - DOCK_GAP,
+                transform: "translateY(-100%)",
+                zIndex: 50,
+              }
+            : undefined
+        }
+        className="rounded-3xl border border-border bg-surface text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.12)] transition-[border-color,box-shadow] focus-within:border-foreground/20 focus-within:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_16px_40px_-12px_rgb(0_0_0/0.18)]">
         <label htmlFor="prompt" className="sr-only">
           Describe the app you want to build
         </label>
-        <textarea
-          ref={textareaRef}
-          id="prompt"
-          name="prompt"
-          rows={2}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="block max-h-48 w-full resize-none bg-transparent px-5 pt-4 pb-1 text-base leading-relaxed text-foreground outline-none placeholder:text-muted"
-        />
+        {/* Inset top-right so the scrollbar stays clear of the rounded corner. */}
+        <div className="pt-2 pr-2">
+          <textarea
+            ref={textareaRef}
+            id="prompt"
+            name="prompt"
+            rows={2}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            style={
+              dock
+                ? { maxHeight: Math.min(192, dock.visibleHeight - DOCK_CHROME) }
+                : undefined
+            }
+            className="scrollbar-thin block max-h-48 w-full resize-none bg-transparent pt-2 pr-3 pb-1 pl-5 text-base leading-relaxed text-foreground outline-none placeholder:text-muted"
+          />
+        </div>
 
-        <div className="flex items-center justify-between px-3 pb-3">
+        {/* preventDefault keeps focus in the text box, so tapping a button
+            doesn't close the phone keyboard. */}
+        <div
+          onMouseDown={(event) => event.preventDefault()}
+          className="flex items-center justify-between px-3 pb-3"
+        >
           {/* Not wired up yet. */}
           <button
             type="button"

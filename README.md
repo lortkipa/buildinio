@@ -16,6 +16,6 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. To try it on your phone, connect it to the same Wi-Fi and open `http://<your-computer's-IP>:3000`.
 
 Brand assets and usage rules are in [`brand/`](brand/).
