@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import { ArrowUp, Mic, Plus } from "lucide-react";
-import { DOCK_CHROME, DOCK_GAP, DOCK_SIDE } from "@/components/useKeyboardDock";
+import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
 
 const EXAMPLES = [
@@ -132,10 +132,9 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
           dock
             ? {
                 position: "fixed",
-                left: DOCK_SIDE,
-                right: DOCK_SIDE,
-                top: dock.keyboardTop - DOCK_GAP,
-                transform: "translateY(-100%)",
+                left: dock.boxLeft,
+                width: dock.boxWidth,
+                bottom: dock.keyboardInset + DOCK_GAP,
                 zIndex: 50,
               }
             : undefined

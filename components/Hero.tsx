@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { PromptBox } from "@/components/PromptBox";
-import { DOCK_SIDE, useKeyboardDock } from "@/components/useKeyboardDock";
+import { useKeyboardDock } from "@/components/useKeyboardDock";
 
 const TEXT_GAP = 12; // Space between the top of the visible area and the headline while docked.
 
@@ -24,8 +24,8 @@ export function Hero() {
           dock
             ? {
                 position: "fixed",
-                left: DOCK_SIDE,
-                right: DOCK_SIDE,
+                left: dock.boxLeft,
+                width: dock.boxWidth,
                 top: dock.visibleTop + TEXT_GAP,
               }
             : undefined

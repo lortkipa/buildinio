@@ -3,15 +3,16 @@ import type { RefObject } from "react";
 
 // Keyboard docking on phones (px).
 const KEYBOARD_MIN = 120; // Viewport the keyboard must cover to count as open.
-export const DOCK_GAP = 8; // Space between the box and the keyboard.
-export const DOCK_SIDE = 12; // Space on the left and right.
+export const DOCK_GAP = 12; // Space between the box and the keyboard.
 export const DOCK_CHROME = 80; // Toolbar, padding and a top margin, kept out of the text's max height.
 
 /** Where things go while the phone keyboard is open, in layout viewport coordinates. */
 export type Dock = {
-  keyboardTop: number; // Top edge of the keyboard.
+  keyboardInset: number; // Distance from the bottom of the page's viewport up to the keyboard.
   visibleTop: number; // Top of what's visible, below the header if it's on screen.
   visibleHeight: number;
+  boxLeft: number; // Where the prompt box sits in the page, so docking keeps its width.
+  boxWidth: number;
   keptHeight: number; // Height the hero had in the page, kept so the layout doesn't jump.
 };
 
@@ -54,10 +55,14 @@ export function useKeyboardDock(
           return;
         }
         const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+        // The form stays in the page while its box is docked, so it keeps the box's place.
+        const box = textarea.form?.getBoundingClientRect();
         setDock((current) => ({
-          keyboardTop: viewport.offsetTop + viewport.height,
+          keyboardInset: Math.max(0, window.innerHeight - viewport.offsetTop - viewport.height),
           visibleTop: Math.max(viewport.offsetTop, headerBottom),
           visibleHeight: viewport.height,
+          boxLeft: box?.left ?? 0,
+          boxWidth: box?.width ?? page.clientWidth,
           keptHeight: current?.keptHeight ?? keepRef.current?.offsetHeight ?? 0,
         }));
       });
