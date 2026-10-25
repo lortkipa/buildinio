@@ -21,7 +21,7 @@ Guidance for AI coding agents working in this repo.
 ## Layout
 
 - `app/` — routes (`layout.tsx`, `page.tsx`) and `globals.css` (color tokens, light/dark).
-- `components/` — React components (`Header`, `PromptBox`).
+- `components/` — React components (`Header`, `Hero`, `PromptBox`) and `useKeyboardDock` (keeps the prompt above the phone keyboard).
 - `brand/` — logo and icons, imported directly (e.g. `import logo from "@/brand/logo.svg"`); don't copy them into `public/`.
 
 ## Brand

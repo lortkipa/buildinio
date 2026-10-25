@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import { ArrowUp, Mic, Plus } from "lucide-react";
+import { DOCK_CHROME, DOCK_GAP, DOCK_SIDE } from "@/components/useKeyboardDock";
+import type { Dock } from "@/components/useKeyboardDock";
 
 const EXAMPLES = [
   "A booking app for my hair salon…",
@@ -73,23 +75,14 @@ const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full $
 const swap = "col-start-1 row-start-1 transition duration-200 ease-out motion-reduce:transition-none";
 const shown = "scale-100 rotate-0 opacity-100";
 
-// Keyboard docking on phones (px).
-const KEYBOARD_MIN = 120; // Viewport the keyboard must cover to count as open.
-const DOCK_GAP = 8; // Space between the box and the keyboard.
-const DOCK_SIDE = 12; // Space on the left and right.
-const DOCK_CHROME = 80; // Toolbar, padding and a top margin, kept out of the text's max height.
-
-type Dock = {
-  top: number; // Top edge of the keyboard, in layout viewport coordinates.
-  visibleHeight: number;
-  formHeight: number; // Height the box had in the page, kept so the layout doesn't jump.
+type PromptBoxProps = {
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  dock: Dock | null; // Set while the phone keyboard is open; see useKeyboardDock.
+  className?: string;
 };
 
-export function PromptBox({ className = "" }: { className?: string }) {
+export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps) {
   const [value, setValue] = useState("");
-  const [dock, setDock] = useState<Dock | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const placeholder = useTypingPlaceholder(value.length === 0);
   const hasText = value.trim().length > 0;
 
@@ -98,47 +91,7 @@ export function PromptBox({ className = "" }: { className?: string }) {
     if (window.matchMedia("(pointer: fine)").matches) {
       textareaRef.current?.focus();
     }
-  }, []);
-
-  // On phones, pin the box right above the on-screen keyboard while typing, so it
-  // grows upward instead of under the keyboard. The keyboard only shrinks the
-  // visual viewport, so the box is positioned against that.
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    const textarea = textareaRef.current;
-    if (!viewport || !textarea || !window.matchMedia("(pointer: coarse)").matches) return;
-
-    let frame = 0;
-    const update = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        // Multiplying by scale keeps pinch-zoom from looking like a keyboard.
-        const keyboard =
-          document.documentElement.clientHeight - viewport.height * viewport.scale;
-        if (document.activeElement !== textarea || keyboard < KEYBOARD_MIN) {
-          setDock(null);
-          return;
-        }
-        setDock((current) => ({
-          top: viewport.offsetTop + viewport.height,
-          visibleHeight: viewport.height,
-          formHeight: current?.formHeight ?? formRef.current?.offsetHeight ?? 0,
-        }));
-      });
-    };
-
-    viewport.addEventListener("resize", update);
-    viewport.addEventListener("scroll", update);
-    textarea.addEventListener("focus", update);
-    textarea.addEventListener("blur", update);
-    return () => {
-      cancelAnimationFrame(frame);
-      viewport.removeEventListener("resize", update);
-      viewport.removeEventListener("scroll", update);
-      textarea.removeEventListener("focus", update);
-      textarea.removeEventListener("blur", update);
-    };
-  }, []);
+  }, [textareaRef]);
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setValue(event.target.value);
@@ -164,15 +117,16 @@ export function PromptBox({ className = "" }: { className?: string }) {
 
   return (
     <form
-      ref={formRef}
       onSubmit={handleSubmit}
-      style={dock ? { height: dock.formHeight } : undefined}
       className={`relative isolate w-full max-w-2xl ${className}`}
     >
-      <div
-        aria-hidden
-        className="bg-glow pointer-events-none absolute -inset-x-24 -inset-y-20 -z-10"
-      />
+      {/* Hidden while docked: the box has moved, so the glow would float on its own. */}
+      {!dock && (
+        <div
+          aria-hidden
+          className="bg-glow pointer-events-none absolute -inset-x-24 -inset-y-20 -z-10"
+        />
+      )}
       <div
         style={
           dock
@@ -180,7 +134,7 @@ export function PromptBox({ className = "" }: { className?: string }) {
                 position: "fixed",
                 left: DOCK_SIDE,
                 right: DOCK_SIDE,
-                top: dock.top - DOCK_GAP,
+                top: dock.keyboardTop - DOCK_GAP,
                 transform: "translateY(-100%)",
                 zIndex: 50,
               }
