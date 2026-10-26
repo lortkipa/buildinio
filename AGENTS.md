@@ -27,7 +27,7 @@ Guidance for AI coding agents working in this repo.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations.
 - `lib/auth/` — sessions, Google/GitHub, email codes, sign-up, and `actions.ts` (the Server Actions the UI calls). `lib/email/` — the code email and sending.
 - `proxy.ts` — sends signed-in users from `/signup`, `/login` and `/welcome` to `/`.
-- `brand/` — logo and icons, imported directly (e.g. `import logo from "@/brand/logo.svg"`); don't copy them into `public/`. `logo-email.png` is `logo.svg` rendered at 3× for emails (email apps don't show SVG).
+- `brand/` — logo and icons, imported directly (e.g. `import logo from "@/brand/logo.svg"`); don't copy them into `public/`. `logo-email.png` (on a white badge, for apps that force dark mode) and `logo-email-dark.png` (white, for real dark mode) are the logos rendered at 3× for emails (email apps don't show SVG).
 - `public/avatars/default.svg` — the avatar for email sign-ups.
 
 ## Brand
