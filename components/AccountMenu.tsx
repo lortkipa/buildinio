@@ -9,7 +9,7 @@ import { deleteAccount, logOut } from "@/lib/auth/actions";
 import type { CurrentUser } from "@/lib/auth/session";
 
 const menuItem = `flex h-10 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
-const dialogButton = `flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
+const dialogButton = `flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1 ${focusRing}`;
 
 /** The signed-in user's avatar; opens a menu to log out or delete the account. */
 export function AccountMenu({ user }: { user: CurrentUser }) {
