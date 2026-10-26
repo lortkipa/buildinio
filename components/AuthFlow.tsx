@@ -94,7 +94,7 @@ export function AuthFlow({ mode }: { mode: "signup" | "login" }) {
 
 type StepHeadingProps = {
   title: string;
-  subtitle: ReactNode;
+  subtitle?: ReactNode;
   dock?: Dock | null; // Set while the phone keyboard is open; see useKeyboardDock.
 };
 
@@ -122,13 +122,15 @@ function StepHeading({ title, subtitle, dock = null }: StepHeadingProps) {
       >
         {title}
       </h1>
-      <p
-        className={`max-w-full text-base text-balance text-muted motion-safe:animate-rise motion-safe:[animation-delay:80ms] ${
-          dock ? "mt-2" : "mt-3"
-        }`}
-      >
-        {subtitle}
-      </p>
+      {subtitle && (
+        <p
+          className={`max-w-full text-base text-balance text-muted motion-safe:animate-rise motion-safe:[animation-delay:80ms] ${
+            dock ? "mt-2" : "mt-3"
+          }`}
+        >
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }
@@ -324,7 +326,7 @@ function NameStep({ initialName, onDone, onBack }: NameStepProps) {
       style={dock ? { height: dock.keptHeight } : undefined}
       className="flex w-full flex-col items-center"
     >
-      <StepHeading title="What should we call you?" subtitle="Your first name is fine." dock={dock} />
+      <StepHeading title="What should we call you?" dock={dock} />
       <form onSubmit={handleSubmit} className={stepBody}>
         {/* While the phone keyboard is open, sit right above it. */}
         <div
