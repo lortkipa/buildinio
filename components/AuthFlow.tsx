@@ -39,15 +39,13 @@ type Flow = { step: "start" } | { step: "code"; email: string } | { step: "name"
 export function AuthFlow({ mode }: { mode: "signup" | "login" }) {
   const router = useRouter();
   const [flow, setFlow] = useState<Flow>({ step: "start" });
-  const [visit, setVisit] = useState(0);
 
   // Next keeps this page alive, hidden, after you navigate away (cacheComponents).
-  // Start over when that happens, so every visit begins at the first step.
+  // Start over when that happens, so every visit begins at the first step. Dev mode
+  // also runs this right after the first render, so leave the first step untouched:
+  // replacing it would replay its fade-in and flicker.
   useLayoutEffect(() => {
-    return () => {
-      setFlow({ step: "start" });
-      setVisit((count) => count + 1);
-    };
+    return () => setFlow((current) => (current.step === "start" ? current : { step: "start" }));
   }, []);
 
   const startOver = () => setFlow({ step: "start" });
@@ -86,7 +84,7 @@ export function AuthFlow({ mode }: { mode: "signup" | "login" }) {
       />
       <main className="flex flex-1 flex-col items-center justify-center overflow-x-clip px-4 pt-10 pb-28 text-center sm:px-6">
         {/* Keyed so each step starts fresh and rises in. */}
-        <div key={`${visit}-${flow.step}`} className="flex w-full max-w-sm flex-col items-center">
+        <div key={flow.step} className="flex w-full max-w-sm flex-col items-center">
           {step}
         </div>
       </main>
@@ -166,6 +164,14 @@ function StartStep({ heading, onEmailSent, onProvider }: StartStepProps) {
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId(); // Hidden pages stay in the DOM, so fixed ids could clash.
+
+  // Clear the form when the page is hidden (see AuthFlow), so the next visit starts fresh.
+  useLayoutEffect(() => {
+    return () => {
+      setEmail("");
+      setError("");
+    };
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
