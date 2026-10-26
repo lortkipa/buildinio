@@ -3,6 +3,7 @@ import { Onest } from "next/font/google";
 import favicon from "@/brand/favicon.svg";
 import favicon32 from "@/brand/favicon-32.png";
 import appleTouchIcon from "@/brand/apple-touch-icon.png";
+import { Toaster } from "@/components/Toaster";
 import "./globals.css";
 
 // Onest is the brand wordmark font.
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${onest.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
         {children}
+        <Toaster />
       </body>
     </html>
   );

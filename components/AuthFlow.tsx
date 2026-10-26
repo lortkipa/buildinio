@@ -3,18 +3,27 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode, RefObject } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
 import { CodeInput } from "@/components/CodeInput";
 import { Header } from "@/components/Header";
 import { GitHubIcon, GoogleIcon } from "@/components/ProviderIcons";
 import { focusRing } from "@/components/styles";
 import { DOCK_GAP, DOCK_TEXT_GAP, useKeyboardDock } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
+import {
+  cancelSignup,
+  completeSignup,
+  sendEmailCode,
+  startOAuth,
+  verifyEmailCode,
+} from "@/lib/auth/actions";
 
-// Design mock only: nothing is sent or stored.
-const TEST_CODE = "123456"; // The only code that works.
-const PROVIDER_NAME = "Alex Morgan"; // Stands in for the name Google or GitHub would send.
+// Sign-up and log-in work the same way: the server logs in if the email
+// already has an account, and otherwise creates one after the name step.
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NAME = 80;
 
 const HEADINGS = {
   signup: {
@@ -27,37 +36,64 @@ const HEADINGS = {
   },
 };
 
+// Set by the Google/GitHub callback when signing in didn't work.
+const CALLBACK_ERRORS: Record<string, string> = {
+  google: "Couldn’t sign in with Google. Please try again.",
+  github: "Couldn’t sign in with GitHub. Please try again.",
+  unverified: "That account has no verified email. Verify it first, or use another way in.",
+};
+
 const stepBody = "mt-8 w-full motion-safe:animate-rise motion-safe:[animation-delay:160ms]";
 const pill = "flex h-11 w-full items-center justify-center rounded-full text-sm font-medium";
-const outlineButton = `${pill} cursor-pointer gap-3 border border-border bg-surface transition-colors hover:border-foreground/25 ${focusRing}`;
-const primaryButton = `${pill} cursor-pointer bg-foreground text-background transition-colors enabled:hover:bg-foreground/85 disabled:cursor-not-allowed disabled:border disabled:border-border disabled:bg-surface disabled:text-muted ${focusRing}`;
+const outlineButton = `${pill} cursor-pointer gap-3 border border-border bg-surface transition-colors enabled:hover:border-foreground/25 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
+const primaryButton = `${pill} cursor-pointer gap-2 bg-foreground text-background transition-colors enabled:hover:bg-foreground/85 disabled:cursor-not-allowed disabled:border disabled:border-border disabled:bg-surface disabled:text-muted ${focusRing}`;
 const textInput =
   "h-11 w-full rounded-full border border-border bg-surface px-5 text-left text-base text-foreground outline-none transition-colors placeholder:text-muted focus:border-foreground/40 aria-[invalid=true]:border-error";
 
 type Flow = { step: "start" } | { step: "code"; email: string } | { step: "name"; name: string };
 
-export function AuthFlow({ mode }: { mode: "signup" | "login" }) {
+type AuthFlowProps = {
+  mode: "signup" | "login";
+  initialFlow?: Flow; // /welcome starts at the name step, filled in from Google or GitHub.
+};
+
+export function AuthFlow({ mode, initialFlow }: AuthFlowProps) {
   const router = useRouter();
-  const [flow, setFlow] = useState<Flow>({ step: "start" });
+  const [initial] = useState<Flow>(initialFlow ?? { step: "start" });
+  const [flow, setFlow] = useState<Flow>(initial);
 
   // Next keeps this page alive, hidden, after you navigate away (cacheComponents).
   // Start over when that happens, so every visit begins at the first step. Dev mode
-  // also runs this right after the first render, so leave the first step untouched:
-  // replacing it would replay its fade-in and flicker.
+  // also runs this right after the first render; setting the same object again is
+  // a no-op, so the first step doesn't replay its fade-in and flicker.
   useLayoutEffect(() => {
-    return () => setFlow((current) => (current.step === "start" ? current : { step: "start" }));
+    return () => setFlow(initial);
+  }, [initial]);
+
+  // Show why signing in with Google or GitHub failed, then tidy the URL.
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (!error) return;
+    toast.error(CALLBACK_ERRORS[error] ?? "Something went wrong. Please try again.");
+    window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
-  const startOver = () => setFlow({ step: "start" });
+  function startOver() {
+    if (initialFlow) {
+      router.replace("/signup"); // /welcome has no first step of its own.
+    } else {
+      setFlow({ step: "start" });
+    }
+  }
+
   let step: ReactNode;
 
   switch (flow.step) {
     case "start":
       step = (
         <StartStep
-          heading={HEADINGS[mode]}
+          mode={mode}
           onEmailSent={(email) => setFlow({ step: "code", email })}
-          onProvider={() => setFlow({ step: "name", name: PROVIDER_NAME })}
         />
       );
       break;
@@ -65,15 +101,13 @@ export function AuthFlow({ mode }: { mode: "signup" | "login" }) {
       step = (
         <CodeStep
           email={flow.email}
-          onVerified={() => setFlow({ step: "name", name: "" })}
+          onNewAccount={() => setFlow({ step: "name", name: "" })}
           onBack={startOver}
         />
       );
       break;
     case "name":
-      step = (
-        <NameStep initialName={flow.name} onDone={() => router.push("/")} onBack={startOver} />
-      );
+      step = <NameStep initialName={flow.name} onBack={startOver} />;
       break;
   }
 
@@ -138,16 +172,18 @@ function StepHeading({ title, subtitle, dock = null }: StepHeadingProps) {
 type BackButtonProps = {
   onClick: () => void;
   buttonRef?: RefObject<HTMLButtonElement | null>;
+  disabled?: boolean;
   className?: string;
 };
 
-function BackButton({ onClick, buttonRef, className = "mt-6" }: BackButtonProps) {
+function BackButton({ onClick, buttonRef, disabled, className = "mt-6" }: BackButtonProps) {
   return (
     <button
       ref={buttonRef}
       type="button"
       onClick={onClick}
-      className={`mx-auto flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing} ${className}`}
+      disabled={disabled}
+      className={`mx-auto flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium text-muted transition-colors enabled:hover:bg-foreground/5 enabled:hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 ${focusRing} ${className}`}
     >
       <ArrowLeft size={16} />
       Use a different email
@@ -155,36 +191,71 @@ function BackButton({ onClick, buttonRef, className = "mt-6" }: BackButtonProps)
   );
 }
 
+function Spinner() {
+  return <LoaderCircle aria-hidden className="size-[18px] motion-safe:animate-spin" />;
+}
+
 type StartStepProps = {
-  heading: { title: string; subtitle: string };
+  mode: "signup" | "login";
   onEmailSent: (email: string) => void;
-  onProvider: () => void;
 };
 
-function StartStep({ heading, onEmailSent, onProvider }: StartStepProps) {
+function StartStep({ mode, onEmailSent }: StartStepProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState<"google" | "github" | "email" | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId(); // Hidden pages stay in the DOM, so fixed ids could clash.
+  const heading = HEADINGS[mode];
 
   // Clear the form when the page is hidden (see AuthFlow), so the next visit starts fresh.
   useLayoutEffect(() => {
     return () => {
       setEmail("");
       setError("");
+      setBusy(null);
     };
   }, []);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  // Coming back from Google or GitHub with the browser's back button can restore
+  // this page as it was, mid-redirect. Make the buttons usable again.
+  useEffect(() => {
+    const reset = (event: PageTransitionEvent) => event.persisted && setBusy(null);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
+
+  async function handleProvider(provider: "google" | "github") {
+    setBusy(provider);
+    const result = await startOAuth(provider, mode);
+    if ("url" in result) {
+      window.location.assign(result.url); // Stays busy until the provider's page loads.
+    } else {
+      setBusy(null);
+      toast.error(result.error);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const value = email.trim();
     const problem = !value ? "Enter your email." : !EMAIL.test(value) ? "Enter a valid email." : "";
     if (problem) {
       setError(problem);
       inputRef.current?.focus();
-    } else {
-      onEmailSent(value);
+      return;
     }
+
+    setBusy("email");
+    const result = await sendEmailCode(value);
+    setBusy(null);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    if (result.warning) toast.warning(result.warning);
+    onEmailSent(value);
   }
 
   return (
@@ -192,12 +263,22 @@ function StartStep({ heading, onEmailSent, onProvider }: StartStepProps) {
       <StepHeading title={heading.title} subtitle={heading.subtitle} />
       <div className={stepBody}>
         <div className="flex flex-col gap-3">
-          <button type="button" onClick={onProvider} className={outlineButton}>
-            <GoogleIcon className="size-[18px]" />
+          <button
+            type="button"
+            onClick={() => handleProvider("google")}
+            disabled={busy !== null}
+            className={outlineButton}
+          >
+            {busy === "google" ? <Spinner /> : <GoogleIcon className="size-[18px]" />}
             Continue with Google
           </button>
-          <button type="button" onClick={onProvider} className={outlineButton}>
-            <GitHubIcon className="size-[18px]" />
+          <button
+            type="button"
+            onClick={() => handleProvider("github")}
+            disabled={busy !== null}
+            className={outlineButton}
+          >
+            {busy === "github" ? <Spinner /> : <GitHubIcon className="size-[18px]" />}
             Continue with GitHub
           </button>
         </div>
@@ -234,8 +315,9 @@ function StartStep({ heading, onEmailSent, onProvider }: StartStepProps) {
               {error}
             </p>
           )}
-          <button type="submit" className={primaryButton}>
-            Continue with email
+          <button type="submit" disabled={busy !== null} className={primaryButton}>
+            {busy === "email" && <Spinner />}
+            {busy === "email" ? "Sending code…" : "Continue with email"}
           </button>
         </form>
       </div>
@@ -245,21 +327,26 @@ function StartStep({ heading, onEmailSent, onProvider }: StartStepProps) {
 
 type CodeStepProps = {
   email: string;
-  onVerified: () => void;
+  onNewAccount: () => void;
   onBack: () => void;
 };
 
-function CodeStep({ email, onVerified, onBack }: CodeStepProps) {
-  const [wrong, setWrong] = useState(false);
+function CodeStep({ email, onNewAccount, onBack }: CodeStepProps) {
+  const [status, setStatus] = useState<"idle" | "checking" | "wrong" | "expired">("idle");
   const backRef = useRef<HTMLButtonElement>(null);
   const errorId = useId();
+  const failed = status === "wrong" || status === "expired";
 
-  function handleComplete(code: string) {
-    if (code === TEST_CODE) {
-      onVerified();
+  async function handleComplete(code: string) {
+    setStatus("checking");
+    // Known emails are logged in and sent home by the server.
+    const result = await verifyEmailCode(email, code);
+    if (!result) return;
+    if (result.status === "new") {
+      onNewAccount();
     } else {
       // One try per code: the boxes lock and going back is the only way on.
-      setWrong(true);
+      setStatus(result.status);
       backRef.current?.focus();
     }
   }
@@ -278,15 +365,17 @@ function CodeStep({ email, onVerified, onBack }: CodeStepProps) {
       <div className={stepBody}>
         <CodeInput
           onComplete={handleComplete}
-          locked={wrong}
-          errorId={wrong ? errorId : undefined}
+          locked={failed}
+          disabled={status === "checking"}
+          errorId={failed ? errorId : undefined}
         />
-        {wrong && (
+        {failed && (
           <p id={errorId} role="alert" className="mt-4 text-sm text-balance text-error">
-            That code isn&rsquo;t right. Go back and enter your email to get a new one.
+            {status === "wrong" ? "That code isn’t right." : "That code has expired."} Go back
+            and enter your email to get a new one.
           </p>
         )}
-        <BackButton onClick={onBack} buttonRef={backRef} />
+        <BackButton onClick={onBack} buttonRef={backRef} disabled={status === "checking"} />
       </div>
     </>
   );
@@ -294,12 +383,12 @@ function CodeStep({ email, onVerified, onBack }: CodeStepProps) {
 
 type NameStepProps = {
   initialName: string; // Filled in after Google or GitHub.
-  onDone: () => void;
   onBack: () => void;
 };
 
-function NameStep({ initialName, onDone, onBack }: NameStepProps) {
+function NameStep({ initialName, onBack }: NameStepProps) {
   const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
   const stepRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dock = useKeyboardDock(inputRef, stepRef);
@@ -314,9 +403,21 @@ function NameStep({ initialName, onDone, onBack }: NameStepProps) {
     el.setSelectionRange(el.value.length, el.value.length);
   }, []);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (hasName) onDone();
+    if (!hasName || busy) return;
+    setBusy(true);
+    // On success the server creates the account and sends us home.
+    const result = await completeSignup(name);
+    setBusy(false);
+    if (!result) return;
+    toast.error(result.error);
+    if (result.expired) onBack();
+  }
+
+  function handleBack() {
+    void cancelSignup();
+    onBack();
   }
 
   return (
@@ -352,6 +453,7 @@ function NameStep({ initialName, onDone, onBack }: NameStepProps) {
             type="text"
             autoComplete="name"
             autoCapitalize="words"
+            maxLength={MAX_NAME}
             placeholder="Your name"
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -360,10 +462,11 @@ function NameStep({ initialName, onDone, onBack }: NameStepProps) {
           {/* preventDefault keeps focus in the input, so tapping a button
               doesn't close the phone keyboard and move the buttons mid-tap. */}
           <div onMouseDown={(event) => event.preventDefault()} className="flex flex-col gap-3">
-            <button type="submit" disabled={!hasName} className={primaryButton}>
+            <button type="submit" disabled={!hasName || busy} className={primaryButton}>
+              {busy && <Spinner />}
               Continue
             </button>
-            <BackButton onClick={onBack} className={dock ? "" : "mt-3"} />
+            <BackButton onClick={handleBack} disabled={busy} className={dock ? "" : "mt-3"} />
           </div>
         </div>
       </form>

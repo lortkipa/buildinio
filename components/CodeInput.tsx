@@ -8,6 +8,7 @@ const LENGTH = 6;
 type CodeInputProps = {
   onComplete: (code: string) => void; // Called once all digits are in.
   locked?: boolean; // Set after a wrong code: no more tries.
+  disabled?: boolean; // Set while the code is being checked.
   errorId?: string; // Id of the error message, when there is one.
 };
 
@@ -15,7 +16,7 @@ type CodeInputProps = {
  * Six boxes for a one-time code. A single real input sits on top of them,
  * so typing, pasting, backspace and SMS autofill all just work.
  */
-export function CodeInput({ onComplete, locked = false, errorId }: CodeInputProps) {
+export function CodeInput({ onComplete, locked = false, disabled = false, errorId }: CodeInputProps) {
   const [code, setCode] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -41,10 +42,10 @@ export function CodeInput({ onComplete, locked = false, errorId }: CodeInputProp
   }
 
   return (
-    <div className="relative mx-auto w-fit">
+    <div className={`relative mx-auto w-fit transition-opacity ${disabled ? "opacity-60" : ""}`}>
       <div aria-hidden className="flex gap-2 sm:gap-3">
         {Array.from({ length: LENGTH }, (_, i) => {
-          const active = focused && !locked && i === code.length;
+          const active = focused && !locked && !disabled && i === code.length;
           return (
             <div
               key={i}
@@ -72,7 +73,8 @@ export function CodeInput({ onComplete, locked = false, errorId }: CodeInputProp
         aria-label="6-digit code"
         aria-invalid={locked}
         aria-describedby={errorId}
-        disabled={locked}
+        aria-busy={disabled}
+        disabled={locked || disabled}
         value={code}
         onChange={handleChange}
         onSelect={keepCaretAtEnd}
