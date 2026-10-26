@@ -50,8 +50,11 @@ type CodeEmailProps = {
 };
 
 export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
-  const subject = `${code} is your buildinio code`;
-  const preview = `Your buildinio code is ${code}. It expires in ${minutes} minutes.`;
+  // Gmail and Apple Mail show their own "Copy code" button when they recognize a
+  // one-time code: say "verification code" next to the number, in the subject,
+  // preview and body, the way other sites' code emails do.
+  const subject = `Your buildinio verification code: ${code}`;
+  const preview = `Your buildinio verification code is ${code}. It expires in ${minutes} minutes.`;
   const site = siteUrl
     ? `<a href="${escape(siteUrl)}" style="color:${faint};text-decoration:underline;">buildinio</a>`
     : "buildinio";
@@ -99,7 +102,7 @@ export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
         <tr>
           <td align="center" class="card" style="background:#ffffff;border-radius:24px;padding:48px 40px;font-family:${font};">
             <h1 class="ink" style="margin:0;font-size:26px;line-height:34px;font-weight:600;letter-spacing:-0.4px;color:${ink};">Confirm your email</h1>
-            <p class="muted" style="margin:12px auto 0;max-width:380px;font-size:15px;line-height:24px;color:${muted};">Copy or type these six digits into buildinio. The code expires in ${minutes}&nbsp;minutes.</p>
+            <p class="muted" style="margin:12px auto 0;max-width:380px;font-size:15px;line-height:24px;color:${muted};">Your verification code is below. Enter it on buildinio within ${minutes}&nbsp;minutes.</p>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:36px auto 0;">
               <tr>
                 <td align="center" style="padding:16px 0;font-family:${font};font-size:30px;line-height:32px;font-weight:600;color:${ink};white-space:nowrap;font-variant-numeric:tabular-nums;-webkit-user-select:all;user-select:all;">${digits}</td>
@@ -124,9 +127,9 @@ export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
   const text = [
     "Confirm your email",
     "",
-    `Copy or type these six digits into buildinio. The code expires in ${minutes} minutes.`,
+    `Your buildinio verification code is ${code}`,
     "",
-    `    ${code}`,
+    `Enter it on buildinio within ${minutes} minutes.`,
     "",
     "If you didn't try to sign in, ignore this email. Your account stays safe.",
     "",
