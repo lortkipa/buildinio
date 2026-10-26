@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUp, Mic, Plus } from "lucide-react";
+import { focusRing } from "@/components/styles";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
 
@@ -69,8 +71,6 @@ function useTypingPlaceholder(active: boolean) {
   return text;
 }
 
-const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
 const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full ${focusRing}`;
 const swap = "col-start-1 row-start-1 transition duration-200 ease-out motion-reduce:transition-none";
 const shown = "scale-100 rotate-0 opacity-100";
@@ -82,6 +82,7 @@ type PromptBoxProps = {
 };
 
 export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps) {
+  const router = useRouter();
   const [value, setValue] = useState("");
   const placeholder = useTypingPlaceholder(value.length === 0);
   const hasText = value.trim().length > 0;
@@ -112,7 +113,7 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Not wired up yet.
+    router.push("/signup"); // Goes to sign-up for now.
   }
 
   return (
@@ -170,10 +171,11 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
           onMouseDown={(event) => event.preventDefault()}
           className="flex items-center justify-between px-3 pb-3"
         >
-          {/* Not wired up yet. */}
+          {/* Plus and mic go to sign-up for now. */}
           <button
             type="button"
             aria-label="Add files"
+            onClick={() => router.push("/signup")}
             className={`${iconButton} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground`}
           >
             <Plus size={20} />
@@ -185,6 +187,7 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
               type="button"
               aria-label="Use voice input"
               inert={hasText}
+              onClick={() => router.push("/signup")}
               className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
                 hasText ? "scale-50 -rotate-45 opacity-0" : shown
               }`}
