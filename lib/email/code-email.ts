@@ -14,9 +14,9 @@ const mono = "'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', mon
 
 /**
  * Content ids of the logos, attached inline so they show without hosting them anywhere.
- * The light one sits on a white badge: invisible on the white card, but it keeps the
- * logo readable in apps that force dark mode by darkening everything except images
- * (like Gmail's phone app). Apps that support dark-mode CSS get the white logo instead.
+ * The light one sits on a badge in the page color: invisible in light mode, but it
+ * keeps the logo readable in apps that force dark mode by darkening everything except
+ * images (like Gmail's phone app). Apps that support dark-mode CSS get the white logo instead.
  */
 export const LOGO_CID = "logo";
 export const LOGO_DARK_CID = "logo-dark";
@@ -73,12 +73,16 @@ export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
     <td align="center" style="padding:48px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
         <tr>
-          <td class="card" style="background:#ffffff;border:1px solid ${line};border-radius:16px;padding:30px 36px 40px;font-family:${font};">
-            <!-- The logo images have 12px of padding built in; the negative margin lines the ink up with the text. -->
-            <img src="cid:${LOGO_CID}" width="164" height="48" alt="buildinio" class="logo-light" style="display:block;border:0;outline:none;width:164px;height:48px;margin:0 0 22px -12px;">
+          <td style="padding:0 4px 18px;">
+            <!-- The logo images have 10px/12px of padding built in; the negative margins keep the logo where it would be without it. -->
+            <img src="cid:${LOGO_CID}" width="164" height="48" alt="buildinio" class="logo-light" style="display:block;border:0;outline:none;width:164px;height:48px;margin:-10px 0 0 -12px;">
             <!--[if !mso]><!-->
-            <img src="cid:${LOGO_DARK_CID}" width="164" height="48" alt="buildinio" class="logo-dark" style="display:none;border:0;outline:none;width:164px;height:48px;margin:0 0 22px -12px;mso-hide:all;">
+            <img src="cid:${LOGO_DARK_CID}" width="164" height="48" alt="buildinio" class="logo-dark" style="display:none;border:0;outline:none;width:164px;height:48px;margin:-10px 0 0 -12px;mso-hide:all;">
             <!--<![endif]-->
+          </td>
+        </tr>
+        <tr>
+          <td class="card" style="background:#ffffff;border:1px solid ${line};border-radius:16px;padding:40px 36px;font-family:${font};">
             <h1 class="ink" style="margin:0 0 12px;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.4px;color:${ink};">Your verification code</h1>
             <p class="body" style="margin:0 0 28px;font-size:15px;line-height:24px;color:${body};">Enter this code on buildinio to continue. It expires in ${minutes}&nbsp;minutes.</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
