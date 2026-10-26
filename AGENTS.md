@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — an app builder for non-coders. Early stage: only a landing page so far, no tests yet. Update this file as the project grows.
+`buildinio` — an app builder for non-coders. Early stage: a landing page plus sign-up and log-in pages, no tests yet. Update this file as the project grows.
 
 ## Stack
 
@@ -20,14 +20,20 @@ Guidance for AI coding agents working in this repo.
 
 ## Layout
 
-- `app/` — routes (`layout.tsx`, `page.tsx`) and `globals.css` (color tokens, light/dark).
-- `components/` — React components (`Header`, `Hero`, `PromptBox`) and `useKeyboardDock` (keeps the prompt above the phone keyboard).
+- `app/` — routes (`/` in `page.tsx`, `/signup`, `/login`), `layout.tsx` and `globals.css` (color tokens, light/dark).
+- `components/` — React components (`Header`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`), `useKeyboardDock` (keeps the prompt box and the name step above the phone keyboard) and `styles.ts` (shared class strings like `focusRing`).
 - `brand/` — logo and icons, imported directly (e.g. `import logo from "@/brand/logo.svg"`); don't copy them into `public/`.
 
 ## Brand
 
 - Logo files, colors and usage rules live in `brand/` (see `brand/README.md`). Use those files; don't redraw or recolor the logo.
-- UI colors are CSS variables in `app/globals.css` (`background`, `foreground`, `muted`, `surface`, `border`). Dark mode follows the system setting.
+- UI colors are CSS variables in `app/globals.css` (`background`, `foreground`, `muted`, `surface`, `border`, `error`). Dark mode follows the system setting.
+
+## Auth (mock)
+
+- `/signup` and `/login` are a design mock: no real auth, nothing is sent or stored. Both render `AuthFlow` (start → email code → name).
+- The only working email code is `123456`. Google and GitHub pre-fill the name with "Alex Morgan".
+- `cacheComponents` keeps visited pages alive but hidden, so `AuthFlow` resets itself when you leave the page.
 
 ## How to work
 
