@@ -25,8 +25,7 @@ const styles = `
 /* Phones: smaller boxes and padding so all six digits fit on one line. */
 @media (max-width: 480px) {
   .card { padding: 36px 20px !important; }
-  .digit { width: 40px !important; height: 52px !important; font-size: 24px !important; border-radius: 12px !important; }
-  .gap { width: 6px !important; }
+  .digit { padding: 12px 11px !important; margin: 0 2px !important; font-size: 24px !important; border-radius: 12px !important; }
 }
 /* Dark mode, for apps that support it (Apple Mail, iOS Mail, Outlook). */
 @media (prefers-color-scheme: dark) {
@@ -57,14 +56,18 @@ export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
     ? `<a href="${escape(siteUrl)}" style="color:${faint};text-decoration:underline;">buildinio</a>`
     : "buildinio";
 
-  // One box per digit, like the code boxes on the sign-in page.
+  // One box per digit, like the code boxes on the sign-in page. The boxes are
+  // inline spans with nothing between them, so the six digits are still one
+  // word: a double-click or long-press selects the whole code, it copies as
+  // "482913", and Gmail and Apple Mail spot it to offer their own copy button.
+  // (Emails can't run scripts, so a copy button of our own isn't possible.)
   const digits = code
     .split("")
     .map(
       (digit) =>
-        `<td class="digit" width="52" height="64" align="center" valign="middle" style="width:52px;height:64px;border:1px solid ${boxBorder};border-radius:14px;background:${boxFill};font-family:${font};font-size:30px;line-height:30px;font-weight:600;color:${ink};">${digit}</td>`,
+        `<span class="digit" style="display:inline;padding:14px 16px;margin:0 4px;border:1px solid ${boxBorder};border-radius:14px;background:${boxFill};">${digit}</span>`,
     )
-    .join(`<td class="gap" width="10" style="width:10px;font-size:0;line-height:0;">&nbsp;</td>`);
+    .join("");
 
   const html = `<!doctype html>
 <html lang="en">
@@ -96,9 +99,11 @@ export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
         <tr>
           <td align="center" class="card" style="background:#ffffff;border-radius:24px;padding:48px 40px;font-family:${font};">
             <h1 class="ink" style="margin:0;font-size:26px;line-height:34px;font-weight:600;letter-spacing:-0.4px;color:${ink};">Confirm your email</h1>
-            <p class="muted" style="margin:12px auto 0;max-width:380px;font-size:15px;line-height:24px;color:${muted};">Type these six digits into buildinio. The code expires in ${minutes}&nbsp;minutes.</p>
+            <p class="muted" style="margin:12px auto 0;max-width:380px;font-size:15px;line-height:24px;color:${muted};">Copy or type these six digits into buildinio. The code expires in ${minutes}&nbsp;minutes.</p>
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:36px auto 0;">
-              <tr>${digits}</tr>
+              <tr>
+                <td align="center" style="padding:16px 0;font-family:${font};font-size:30px;line-height:32px;font-weight:600;color:${ink};white-space:nowrap;font-variant-numeric:tabular-nums;-webkit-user-select:all;user-select:all;">${digits}</td>
+              </tr>
             </table>
             <p class="muted" style="margin:36px auto 0;max-width:380px;font-size:14px;line-height:22px;color:${muted};">If you didn&rsquo;t try to sign in, ignore this email. Your account stays safe.</p>
           </td>
@@ -119,7 +124,7 @@ export function codeEmail({ code, minutes, siteUrl }: CodeEmailProps) {
   const text = [
     "Confirm your email",
     "",
-    `Type these six digits into buildinio. The code expires in ${minutes} minutes.`,
+    `Copy or type these six digits into buildinio. The code expires in ${minutes} minutes.`,
     "",
     `    ${code}`,
     "",
