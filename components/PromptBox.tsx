@@ -74,6 +74,9 @@ function useTypingPlaceholder(active: boolean) {
 
 const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full ${focusRing}`;
 
+// Grows to 12 lines, then scrolls. lh is one line; 0.75rem is the textarea's pt-2 + pb-1.
+const MAX_HEIGHT = "calc(12lh + 0.75rem)";
+
 const VARIANTS = {
   // On the home page: types out example ideas, with a glow behind.
   hero: { label: "Describe the app you want to build", placeholder: null, rows: 2 },
@@ -117,7 +120,7 @@ export function PromptBox({
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setValue(event.target.value);
-    // Grow with the text; max-height caps it and then it scrolls.
+    // Grow with the text; max-height caps it at 12 lines and then it scrolls.
     const el = event.target;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
@@ -188,12 +191,12 @@ export function PromptBox({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder ?? example}
-            style={
-              dock
-                ? { maxHeight: Math.min(192, dock.visibleHeight - DOCK_CHROME) }
-                : undefined
-            }
-            className="scrollbar-thin block max-h-48 w-full resize-none bg-transparent pt-2 pr-3 pb-1 pl-5 text-base leading-relaxed text-foreground outline-none placeholder:text-muted"
+            style={{
+              maxHeight: dock
+                ? `min(${MAX_HEIGHT}, ${dock.visibleHeight - DOCK_CHROME}px)`
+                : MAX_HEIGHT,
+            }}
+            className="scrollbar-thin block w-full resize-none bg-transparent pt-2 pr-3 pb-1 pl-5 text-base leading-relaxed text-foreground outline-none placeholder:text-muted"
           />
         </div>
 
