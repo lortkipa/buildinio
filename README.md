@@ -20,6 +20,18 @@ Then open http://localhost:3000. To try it on your phone, connect it to the same
 
 The database is a SQLite file (`data/buildinio.db`), created on first start.
 
+## Browser regression tests
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+The tests build and start the production app on port 3100 with a separate database
+(`data/playwright.db`). They check that the account popup stays visible and clickable
+on New and project chats with narrow, collapsed, and mobile sidebars. To use an
+existing Chromium installation, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+
 ## Sign-in setup
 
 Sign-up and log-in work without any setup: email codes are printed in the terminal, and the Google and GitHub buttons say they aren't set up yet. To turn them on, copy `.env.example` to `.env.local`, fill in the keys below and restart `npm run dev`.

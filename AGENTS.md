@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, a signed-in home with a sidebar, and project chats where a **mocked** AI builds the app (no real AI, no preview, no search yet). No tests yet. Update this file as the project grows.
+`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, a signed-in home with a sidebar, and project chats where a **mocked** AI builds the app (no real AI, no preview, no search yet). Playwright regression tests cover account popup layering. Update this file as the project grows.
 
 ## Stack
 
@@ -18,6 +18,7 @@ Guidance for AI coding agents working in this repo.
 - `npm run dev` — dev server at http://localhost:3000
 - `npm run build` — production build (also type-checks)
 - `npm run lint` — ESLint
+- `npm run test:e2e` — production Playwright regression tests; run `npx playwright install chromium` first, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an installed Chromium. Uses a separate `data/playwright.db`.
 - `npm run db:generate` — after changing `lib/db/schema.ts`, writes a migration to `drizzle/`. Migrations run on server start (`instrumentation.ts`).
 
 ## Layout
@@ -44,7 +45,7 @@ Guidance for AI coding agents working in this repo.
 - `(workspace)/layout.tsx` owns the signed-in `AppShell`, keeping the sidebar and account controls mounted between New and project chats. Pages render only their content; the shell reads the active project title from client route params. Menus and the phone sidebar close on navigation. Signed-out home still renders the landing page, and project pages still check authentication.
 - Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects (newest first; an empty state of faint ghost rows and "Your apps will show up here." when there are none), and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump, and remembered through `useSidebarState` when the shared layout is hidden and restored. The project list's scroll position is shared the same way (in `ProjectList`).
 - Phones: a header with the sidebar button and the avatar. `MobileSidebar` slides over the whole screen, with the avatar floating at the bottom right.
-- The desktop sidebar sits at `z-30`, above the chat's sticky header (`z-20`) and composer (`z-10`), so account menus can extend past a narrow or collapsed sidebar. The phone sidebar sits at `z-40`.
+- Account popups use a fixed portal outside the desktop sidebar, positioned from the trigger and kept within the viewport. In the phone sidebar, the portal stays in its dialog focus scope. Outside clicks, Escape, navigation, scrolling and resizing close the popup.
 - Text that doesn't fit fades out with the `.fade-end` class (in `globals.css`) instead of ending in "…". It fades the element's last 2rem, so give it room (`flex-1`, or padding) or text that fits fades too.
 - Scroll areas fade out what's scrolled past the same way: `.fade-y` + `useScrollEdges` (sidebar projects); the chat, which scrolls the page, uses background gradients under the header and above the prompt box.
 - Hidden pages stay in the document (`cacheComponents`) and CSS animations replay when shown again, so "appear" animations use `usePlayOnce`, and only for things just made (`isNew` in the store).
