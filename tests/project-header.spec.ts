@@ -82,6 +82,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     await title.click();
     const menu = page.getByRole("menu", { name: "Project", exact: true });
     await expect(menu.getByRole("menuitem", { name: "Edit", exact: true })).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath(`project-menu-${colorScheme}.png`), animations: "disabled" });
     await page.keyboard.press("ArrowDown");
     await expect(menu.getByRole("menuitem", { name: "Delete", exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
@@ -141,7 +142,10 @@ test("preview stays mobile-only and the title menu works across screen sizes", a
   await expect(preview).not.toBeVisible();
   const title = header.getByRole("button", { name: "Options for Other app", exact: true });
   await expect(title).toBeVisible();
+  await title.hover();
+  await header.screenshot({ path: test.info().outputPath("desktop-title-hover.png"), animations: "disabled" });
   await title.click();
+  await page.screenshot({ path: test.info().outputPath("desktop-project-menu.png"), animations: "disabled" });
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "Edit project", exact: true });
   await expect(editor).toBeVisible();

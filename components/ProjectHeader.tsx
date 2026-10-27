@@ -38,14 +38,14 @@ export function ProjectTitle({ id }: { id: string }) {
         onClick={() => {
           const trigger = triggerRef.current;
           if (trigger) setMenu((open) => open ? null : {
-            anchor: { rect: trigger.getBoundingClientRect(), from: "button" },
+            anchor: { rect: trigger.getBoundingClientRect(), from: "button", align: "center" },
             trigger,
           });
         }}
-        className={`flex h-10 max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-semibold transition-colors hover:bg-foreground/5 ${focusRing}`}
+        className={`group flex h-10 max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-full border border-transparent bg-surface px-4 text-sm font-semibold transition-colors hover:border-border hover:bg-[color-mix(in_srgb,var(--surface),var(--foreground)_5%)] aria-expanded:border-border aria-expanded:bg-[color-mix(in_srgb,var(--surface),var(--foreground)_5%)] ${focusRing}`}
       >
         <ProjectLabel project={project} tile={false} ellipsis />
-        <ChevronDown size={16} className="shrink-0 text-muted" aria-hidden />
+        <ChevronDown size={16} className="shrink-0 text-muted transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none" aria-hidden />
       </button>
       {menu && (
         <ProjectMenu
