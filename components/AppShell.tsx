@@ -72,10 +72,11 @@ export function AppShell({ user, sidebar: saved, title, children }: AppShellProp
       {/* Out of reach while the phone sidebar covers it. */}
       <div inert={mobileOpen} className="flex min-w-0 flex-1 flex-col">
         {/* With a title it stays on top while the page scrolls under it, and shows on wider
-            screens too (just the title: the sidebar has the rest). */}
+            screens too (just the title: the sidebar has the rest). No background of its own:
+            the page fades out behind it (see ProjectChat). */}
         <header
           className={`relative flex h-14 shrink-0 items-center justify-between px-3 ${
-            title ? "sticky top-0 z-20 bg-background" : "md:hidden"
+            title ? "sticky top-0 z-20" : "md:hidden"
           }`}
         >
           <button

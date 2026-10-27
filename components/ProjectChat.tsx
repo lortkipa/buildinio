@@ -75,10 +75,11 @@ function Chat({ project }: { project: Project }) {
 
   return (
     <main className="flex flex-1 flex-col px-4 sm:px-6">
-      {/* Under the header: what scrolls up fades away instead of being cut off. */}
+      {/* Behind the header and its title: what scrolls up fades away instead of being cut
+          off. Pulled up over the header's spot, taking no space. */}
       <div
         aria-hidden
-        className={`pointer-events-none sticky top-14 z-10 -mx-4 -mb-16 h-16 bg-linear-to-b from-background to-transparent transition-opacity duration-300 sm:-mx-6 ${
+        className={`pointer-events-none sticky top-0 z-10 -mx-4 -mt-14 -mb-2 h-16 bg-linear-to-b from-background from-40% to-transparent transition-opacity duration-300 sm:-mx-6 ${
           atTop ? "opacity-0" : ""
         }`}
       />
@@ -102,7 +103,7 @@ function Chat({ project }: { project: Project }) {
         {/* Above the prompt box, the same for what's further down. */}
         <div
           aria-hidden
-          className={`pointer-events-none absolute inset-x-0 bottom-full h-16 bg-linear-to-t from-background to-transparent transition-opacity duration-300 ${
+          className={`pointer-events-none absolute inset-x-0 bottom-full h-8 bg-linear-to-t from-background to-transparent transition-opacity duration-300 ${
             atBottom ? "opacity-0" : ""
           }`}
         />
