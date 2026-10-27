@@ -87,6 +87,14 @@
   );
 }
 
+/* One line of text that fades out at the end when it doesn't fit, instead of
+   ending in "…". Text that fits never reaches the fade. */
+.fade-end {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+
 /* Thin, quiet scrollbar for the prompt box. */
 .scrollbar-thin {
   scrollbar-width: thin;

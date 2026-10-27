@@ -11,8 +11,27 @@ import type { CurrentUser } from "@/lib/auth/session";
 const menuItem = `flex h-10 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
 const dialogButton = `flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1 ${focusRing}`;
 
+// Where the menu opens, next to the button.
+const PLACEMENTS = {
+  "below-end": "top-full right-0 mt-2 origin-top-right",
+  "above-start": "bottom-full left-0 mb-2 origin-bottom-left",
+  "above-end": "bottom-full right-0 mb-2 origin-bottom-right",
+};
+
+type AccountMenuProps = {
+  user: CurrentUser;
+  trigger?: "avatar" | "row"; // Just the avatar, or a full-width row with the name and email too.
+  placement?: keyof typeof PLACEMENTS;
+  collapsed?: boolean; // Row only: hide the name and email, leaving the avatar.
+};
+
 /** The signed-in user's avatar; opens a menu to log out or delete the account. */
-export function AccountMenu({ user }: { user: CurrentUser }) {
+export function AccountMenu({
+  user,
+  trigger = "avatar",
+  placement = "below-end",
+  collapsed = false,
+}: AccountMenuProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"logout" | "delete" | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -36,20 +55,22 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
     const onPointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
+    // Captured and marked handled, so the phone sidebar around it stays open.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      event.preventDefault();
       setOpen(false);
       buttonRef.current?.focus();
     };
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open]);
 
-  // Clearing the session cookie re-renders the header, which swaps this menu for Log in and Sign up.
+  // Clearing the session cookie re-renders the home page, which swaps the app for the landing page.
   async function handleLogOut() {
     setBusy("logout");
     await logOut();
@@ -72,22 +93,29 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
         aria-expanded={open}
         aria-controls={`${id}-menu`}
         onClick={() => setOpen((value) => !value)}
-        className={`block cursor-pointer rounded-full ${focusRing}`}
+        className={
+          trigger === "row"
+            ? `flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl p-1 text-left transition-colors hover:bg-foreground/5 aria-expanded:bg-foreground/5 ${focusRing}`
+            : `block cursor-pointer rounded-full ${focusRing}`
+        }
       >
-        <Avatar src={user.avatarUrl} size={36} />
+        <Avatar src={user.avatarUrl} size={trigger === "row" ? 32 : 36} />
+        {trigger === "row" && (
+          <NameAndEmail
+            user={user}
+            className={`flex-1 leading-tight transition-opacity duration-200 ${collapsed ? "opacity-0" : ""}`}
+          />
+        )}
       </button>
 
       {open && (
         <div
           id={`${id}-menu`}
-          className="absolute top-full right-0 z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-1.5 text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.18)] motion-safe:animate-pop"
+          className={`absolute z-50 w-64 rounded-2xl border border-border bg-surface p-1.5 text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.18)] motion-safe:animate-pop ${PLACEMENTS[placement]}`}
         >
           <div className="flex items-center gap-3 px-3 pt-2.5 pb-3">
             <Avatar src={user.avatarUrl} size={40} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{user.name}</p>
-              <p className="truncate text-sm text-muted">{user.email}</p>
-            </div>
+            <NameAndEmail user={user} />
           </div>
           <div aria-hidden className="mx-1.5 mb-1.5 h-px bg-border" />
           <button
@@ -155,6 +183,16 @@ export function AccountMenu({ user }: { user: CurrentUser }) {
           </button>
         </div>
       </dialog>
+    </div>
+  );
+}
+
+/** Name over email; long ones fade out at the end. */
+function NameAndEmail({ user, className = "" }: { user: CurrentUser; className?: string }) {
+  return (
+    <div className={`min-w-0 text-sm ${className}`}>
+      <p className="fade-end font-semibold">{user.name}</p>
+      <p className="fade-end text-muted">{user.email}</p>
     </div>
   );
 }

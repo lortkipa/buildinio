@@ -1,18 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import logo from "@/brand/logo.svg";
 import logoDark from "@/brand/logo-dark.svg";
 import { focusRing } from "@/components/styles";
 
 type AuthButton = "login" | "signup";
 
-type HeaderProps = {
-  buttons?: AuthButton[]; // Which buttons to show at the top right.
-  children?: ReactNode; // Shown at the top right instead of the buttons.
-};
-
-export function Header({ buttons = ["login", "signup"], children }: HeaderProps) {
+/** The signed-out header: the logo, plus `buttons` (which of Log in and Sign up) at the top right. */
+export function Header({ buttons = ["login", "signup"] }: { buttons?: AuthButton[] }) {
   return (
     <header>
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -31,13 +26,13 @@ export function Header({ buttons = ["login", "signup"], children }: HeaderProps)
           />
         </Link>
 
-        {children ?? <AuthLinks buttons={buttons} />}
+        <AuthLinks buttons={buttons} />
       </div>
     </header>
   );
 }
 
-export function AuthLinks({ buttons = ["login", "signup"] }: { buttons?: AuthButton[] }) {
+function AuthLinks({ buttons }: { buttons: AuthButton[] }) {
   if (buttons.length === 0) return null;
   return (
     <div className="flex items-center gap-1 sm:gap-2">
