@@ -285,7 +285,7 @@ function ProjectsEmpty() {
           </div>
         ))}
       </div>
-      <p className="mt-3 px-2.5 text-xs text-balance text-muted">Your apps will show up here.</p>
+      <p className="fade-end mt-3 px-2.5 text-xs text-muted">Your apps will show up here.</p>
     </div>
   );
 }
