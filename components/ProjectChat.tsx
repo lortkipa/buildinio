@@ -83,11 +83,11 @@ function Chat({ project }: { project: Project }) {
 
   return (
     <main className="flex flex-1 flex-col px-4 sm:px-6">
-      {/* A gentle fade behind the mobile header, like the one above the prompt box.
+      {/* A gentle fade behind the header, like the one above the prompt box.
           Pulled up over the header's spot, taking no space. */}
       <div
         aria-hidden
-        className={`pointer-events-none sticky top-0 z-10 -mx-4 -mt-14 -mb-2 h-16 bg-linear-to-b from-background to-transparent transition-opacity duration-300 sm:-mx-6 md:from-40% ${
+        className={`pointer-events-none sticky top-0 z-10 -mx-4 -mt-14 -mb-2 h-16 bg-linear-to-b from-background to-transparent transition-opacity duration-300 sm:-mx-6 ${
           atTop ? "opacity-0" : ""
         }`}
       />

@@ -126,7 +126,7 @@ for (const colorScheme of ["light", "dark"] as const) {
   });
 }
 
-test("project controls stay mobile-only and reset on project navigation", async ({ page }) => {
+test("preview stays mobile-only and the title menu works across screen sizes", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/projects/header-project");
   const header = page.locator("header");
@@ -139,6 +139,17 @@ test("project controls stay mobile-only and reset on project navigation", async 
   await expect(header.getByRole("button", { name: "Options for Other app", exact: true })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(preview).not.toBeVisible();
-  await expect(header.getByRole("button", { name: "Options for Other app", exact: true })).not.toBeVisible();
-  await expect(header.getByText("Other app", { exact: true }).filter({ visible: true })).toBeVisible();
+  const title = header.getByRole("button", { name: "Options for Other app", exact: true });
+  await expect(title).toBeVisible();
+  await title.click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Edit project", exact: true });
+  await expect(editor).toBeVisible();
+  await editor.getByRole("button", { name: "Cancel", exact: true }).click();
+  await title.click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Delete “Other app”?", exact: true });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.screenshot({ path: test.info().outputPath("desktop-header.png") });
 });

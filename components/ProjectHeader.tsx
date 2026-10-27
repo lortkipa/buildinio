@@ -10,7 +10,7 @@ import { ProjectLabel } from "@/components/ProjectTile";
 import { focusRing } from "@/components/styles";
 import { deleteProject, useProject } from "@/lib/projects/store";
 
-/** Mobile project options; wider screens keep the plain centered title. */
+/** The rounded project title and shared options on every screen size. */
 export function ProjectTitle({ id }: { id: string }) {
   const { project } = useProject(id);
   const router = useRouter();
@@ -42,14 +42,11 @@ export function ProjectTitle({ id }: { id: string }) {
             trigger,
           });
         }}
-        className={`flex h-10 max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-semibold transition-colors hover:bg-foreground/5 md:hidden ${focusRing}`}
+        className={`flex h-10 max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-semibold transition-colors hover:bg-foreground/5 ${focusRing}`}
       >
         <ProjectLabel project={project} tile={false} ellipsis />
         <ChevronDown size={16} className="shrink-0 text-muted" aria-hidden />
       </button>
-      <div className="hidden max-w-full min-w-0 items-center text-sm font-semibold md:flex">
-        <ProjectLabel project={project} tile={false} className="px-8" />
-      </div>
       {menu && (
         <ProjectMenu
           anchor={menu.anchor}
