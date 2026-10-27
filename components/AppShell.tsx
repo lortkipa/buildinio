@@ -77,7 +77,7 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
       <div inert={mobileOpen} className="flex min-w-0 flex-1 flex-col">
         {/* With a title it stays on top while the page scrolls under it, and shows on wider
             screens too (just the title: the sidebar has the rest). No background of its own:
-            the mobile chat blurs behind it (see ProjectChat). */}
+            the chat fades out behind it (see ProjectChat). */}
         <header
           className={`relative flex h-14 shrink-0 items-center justify-between px-3 ${
             title ? "sticky top-0 z-20" : "md:hidden"
@@ -90,7 +90,7 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
             aria-expanded={mobileOpen}
             aria-controls={id}
             onClick={() => setMobileOpen(true)}
-            className={`grid size-10 cursor-pointer place-items-center ${projectId ? "rounded-full bg-surface" : "rounded-xl"} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden ${focusRing}`}
+            className={`grid size-10 cursor-pointer place-items-center rounded-full bg-surface text-muted transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden ${focusRing}`}
           >
             <PanelLeft size={20} />
           </button>

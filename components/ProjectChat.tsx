@@ -43,7 +43,7 @@ function Chat({ project }: { project: Project }) {
     return () => observer.disconnect();
   }, [title]);
 
-  // The page itself scrolls. Text blurs under the mobile header and fades above the prompt box
+  // The page itself scrolls. Text fades under the header and above the prompt box
   // while there's more that way, and the chat follows the answer while you're at the bottom.
   useEffect(() => {
     const page = document.documentElement;
@@ -83,10 +83,11 @@ function Chat({ project }: { project: Project }) {
 
   return (
     <main className="flex flex-1 flex-col px-4 sm:px-6">
-      {/* Behind the header: blur on phones, the existing fade on wider screens. Pulled up over the header's spot, taking no space. */}
+      {/* A gentle fade behind the mobile header, like the one above the prompt box.
+          Pulled up over the header's spot, taking no space. */}
       <div
         aria-hidden
-        className={`pointer-events-none sticky top-0 z-10 -mx-4 -mt-14 -mb-2 h-16 chat-header-backdrop md:bg-linear-to-b md:from-background md:from-40% md:to-transparent transition-opacity duration-300 sm:-mx-6 ${
+        className={`pointer-events-none sticky top-0 z-10 -mx-4 -mt-14 -mb-2 h-16 bg-linear-to-b from-background to-transparent transition-opacity duration-300 sm:-mx-6 md:from-40% ${
           atTop ? "opacity-0" : ""
         }`}
       />

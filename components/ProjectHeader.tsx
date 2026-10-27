@@ -85,7 +85,7 @@ export function PreviewToggle() {
       aria-label="Toggle preview"
       aria-pressed={active}
       onClick={() => setActive((value) => !value)}
-      className={`grid size-10 cursor-pointer place-items-center rounded-full bg-surface text-muted transition-colors hover:bg-foreground/5 hover:text-foreground aria-pressed:bg-foreground aria-pressed:text-background ${focusRing}`}
+      className={`grid size-10 cursor-pointer place-items-center rounded-full bg-surface text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing}`}
     >
       <AppWindow size={20} aria-hidden />
     </button>

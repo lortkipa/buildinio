@@ -49,19 +49,34 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(title).toBeVisible();
     await expect(header.getByRole("button", { name: "Account", exact: true })).toHaveCount(0);
     await expect(preview).toHaveAttribute("aria-pressed", "false");
+    const previewColors = await preview.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.backgroundColor, style.color];
+    });
     await preview.click();
     await expect(preview).toHaveAttribute("aria-pressed", "true");
+    await page.mouse.move(0, 100);
+    await expect.poll(() => preview.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.backgroundColor, style.color];
+    })).toEqual(previewColors);
     await preview.click();
     await expect(preview).toHaveAttribute("aria-pressed", "false");
+    await page.mouse.move(0, 100);
 
     // The whole name remains accessible while its visible text truncates before the chevron.
     expect(await title.locator("span").evaluate((element) => {
       const style = getComputedStyle(element);
       return element.scrollWidth > element.clientWidth && style.textOverflow === "ellipsis" && style.maskImage === "none";
     })).toBe(true);
-    const blur = page.locator(".chat-header-backdrop");
-    await expect(blur).not.toHaveClass(/opacity-0/);
-    expect(await blur.evaluate((element) => getComputedStyle(element).backdropFilter)).toBe("blur(12px)");
+    const fade = page.locator("main > div[aria-hidden]").first();
+    await expect(fade).not.toHaveClass(/opacity-0/);
+    expect(await fade.evaluate((element) => getComputedStyle(element).backdropFilter)).toBe("none");
+    const sidebarButton = header.getByRole("button", { name: "Open sidebar" });
+    const sidebarAppearance = await sidebarButton.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.borderRadius, style.backgroundColor, style.width, style.height];
+    });
     await page.screenshot({ path: test.info().outputPath(`mobile-header-${colorScheme}.png`) });
 
     await title.click();
@@ -103,6 +118,10 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(page).toHaveURL("http://localhost:3100/");
     await expect(header.getByRole("button", { name: "Account", exact: true })).toBeVisible();
     await expect(header.getByRole("button", { name: "Toggle preview" })).toHaveCount(0);
+    expect(await sidebarButton.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.borderRadius, style.backgroundColor, style.width, style.height];
+    })).toEqual(sidebarAppearance);
     expect(await page.evaluate((userId) => JSON.parse(localStorage.getItem(`buildinio:projects:${userId}`)!).length, userId)).toBe(1);
   });
 }
