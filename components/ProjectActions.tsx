@@ -3,7 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Pencil, Trash2 } from "lucide-react";
-import { dialogButton, dialogPanel, menuPanel } from "@/components/styles";
+import { dialogButton, dialogPanel, menuItem, menuPanel } from "@/components/styles";
 import { useCloseOnBackdrop } from "@/components/useCloseOnBackdrop";
 import type { Project } from "@/lib/projects/types";
 
@@ -13,8 +13,6 @@ type Rect = { left: number; right: number; top: number; bottom: number };
 
 /** Under a button, or at the pointer for a right-click. */
 export type ProjectMenuAnchor = { rect: Rect; from: "button" | "point"; align?: "center" };
-
-const projectMenuItem = "flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-sm font-medium outline-none transition-colors";
 
 type ProjectMenuProps = {
   anchor: ProjectMenuAnchor;
@@ -34,7 +32,7 @@ export function ProjectMenu({ anchor, trigger, onClose, onEdit, onDelete }: Proj
     if (!menu) return;
     const { width, height } = menu.getBoundingClientRect();
     const { rect, from, align } = anchor;
-    const gap = from === "button" ? 8 : 0;
+    const gap = from === "button" ? 4 : 0;
     const fitsBelow = rect.bottom + gap + height <= window.innerHeight - EDGE;
     const top = fitsBelow ? rect.bottom + gap : rect.top - gap - height;
     const left = align === "center" ? (rect.left + rect.right - width) / 2 : from === "button" ? rect.right - width : rect.left;
@@ -80,14 +78,13 @@ export function ProjectMenu({ anchor, trigger, onClose, onEdit, onDelete }: Proj
   // open, which covers the screen, so it stays part of it.
   const container = trigger?.closest<HTMLElement>("[role=dialog]") ?? document.body;
   return createPortal(
-    <div ref={ref} role="menu" aria-label="Project" className={`fixed top-0 left-0 z-50 w-52 ${menuPanel}`}>
-      <button type="button" role="menuitem" onClick={onEdit} className={`${projectMenuItem} text-foreground hover:bg-foreground/5 focus-visible:bg-foreground/5`}>
-        <Pencil size={16} className="shrink-0 text-muted" aria-hidden />
+    <div ref={ref} role="menu" aria-label="Project" className={`fixed top-0 left-0 z-50 w-44 ${menuPanel}`}>
+      <button type="button" role="menuitem" onClick={onEdit} className={`${menuItem} text-foreground`}>
+        <Pencil size={16} />
         Edit
       </button>
-      <div role="separator" className="mx-3 my-1 border-t border-border" />
-      <button type="button" role="menuitem" onClick={onDelete} className={`${projectMenuItem} text-error hover:bg-error/8 focus-visible:bg-error/8`}>
-        <Trash2 size={16} className="shrink-0" aria-hidden />
+      <button type="button" role="menuitem" onClick={onDelete} className={`${menuItem} text-error`}>
+        <Trash2 size={16} />
         Delete
       </button>
     </div>,
