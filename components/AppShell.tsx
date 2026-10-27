@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useParams, usePathname } from "next/navigation";
 import { PanelLeft } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
-import { ProjectTitle } from "@/components/ProjectTile";
+import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { focusRing } from "@/components/styles";
 import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
@@ -26,7 +26,7 @@ type AppShellProps = {
 export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
   const pathname = usePathname();
   const { id: projectId } = useParams<{ id?: string }>();
-  const title = projectId ? <ProjectTitle id={projectId} /> : null;
+  const title = projectId ? <ProjectTitle key={projectId} id={projectId} /> : null;
   const sidebar = useSidebarState(saved);
   const [mobileOpen, setMobileOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
@@ -77,7 +77,7 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
       <div inert={mobileOpen} className="flex min-w-0 flex-1 flex-col">
         {/* With a title it stays on top while the page scrolls under it, and shows on wider
             screens too (just the title: the sidebar has the rest). No background of its own:
-            the page fades out behind it (see ProjectChat). */}
+            the mobile chat blurs behind it (see ProjectChat). */}
         <header
           className={`relative flex h-14 shrink-0 items-center justify-between px-3 ${
             title ? "sticky top-0 z-20" : "md:hidden"
@@ -90,7 +90,7 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
             aria-expanded={mobileOpen}
             aria-controls={id}
             onClick={() => setMobileOpen(true)}
-            className={`grid size-10 cursor-pointer place-items-center rounded-xl text-muted transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden ${focusRing}`}
+            className={`grid size-10 cursor-pointer place-items-center ${projectId ? "rounded-full bg-surface" : "rounded-xl"} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden ${focusRing}`}
           >
             <PanelLeft size={20} />
           </button>
@@ -100,7 +100,7 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
             </div>
           )}
           <div className="md:hidden">
-            <AccountMenu user={user} />
+            {projectId ? <PreviewToggle key={projectId} /> : <AccountMenu user={user} />}
           </div>
         </header>
         {children}

@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { toast } from "sonner";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
+import { DeleteProjectDialog, ProjectMenu, type ProjectMenuAnchor } from "@/components/ProjectActions";
 import { ProjectLabel } from "@/components/ProjectTile";
-import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel, navItem } from "@/components/styles";
-import { useCloseOnBackdrop } from "@/components/useCloseOnBackdrop";
+import { focusRing, navItem } from "@/components/styles";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { useScrollEdges } from "@/components/useScrollEdges";
 import { deleteProject, isNew, useProjects } from "@/lib/projects/store";
@@ -18,14 +17,8 @@ import type { Project } from "@/lib/projects/types";
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_SLOP = 10; // px a finger can move and still count as holding.
-const EDGE = 8; // px the menu keeps from the edges of the screen.
 
-type Rect = { left: number; right: number; top: number; bottom: number };
-
-/** Where the menu opens: under the options button, or at the pointer for a right-click. */
-type Anchor = { rect: Rect; from: "button" | "point" };
-
-type MenuState = { projectId: string; anchor: Anchor; trigger: HTMLElement | null };
+type MenuState = { projectId: string; anchor: ProjectMenuAnchor; trigger: HTMLElement | null };
 
 // Preserve the desktop and mobile list positions when the workspace is hidden.
 const listScroll = { desktop: 0, mobile: 0 };
@@ -74,7 +67,7 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
   const editing = projects.find((project) => project.id === editingId);
   const deleting = projects.find((project) => project.id === deletingId);
 
-  function openMenu(project: Project, anchor: Anchor, trigger: HTMLElement | null) {
+  function openMenu(project: Project, anchor: ProjectMenuAnchor, trigger: HTMLElement | null) {
     // The options button toggles its menu.
     setMenu((open) =>
       open?.projectId === project.id && open.anchor.from === "button" && anchor.from === "button"
@@ -151,7 +144,7 @@ type ProjectRowProps = {
   current: boolean;
   mobile: boolean;
   menuOpen: boolean;
-  onMenu: (anchor: Anchor, trigger: HTMLElement | null) => void;
+  onMenu: (anchor: ProjectMenuAnchor, trigger: HTMLElement | null) => void;
   onNavigate?: () => void;
 };
 
@@ -263,140 +256,6 @@ function ProjectRow({ project, current, mobile, menuOpen, onMenu, onNavigate }: 
         <Ellipsis size={16} />
       </button>
     </li>
-  );
-}
-
-type ProjectMenuProps = {
-  anchor: Anchor;
-  trigger: HTMLElement | null; // The options button, to toggle and to get focus back.
-  onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-};
-
-/** Edit and Delete, floating over everything next to where it was opened. */
-function ProjectMenu({ anchor, trigger, onClose, onEdit, onDelete }: ProjectMenuProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Below the anchor, or above if there's no room; kept on screen. Then focus moves in.
-  useLayoutEffect(() => {
-    const menu = ref.current;
-    if (!menu) return;
-    const { width, height } = menu.getBoundingClientRect();
-    const { rect, from } = anchor;
-    const gap = from === "button" ? 4 : 0;
-    const fitsBelow = rect.bottom + gap + height <= window.innerHeight - EDGE;
-    const top = fitsBelow ? rect.bottom + gap : rect.top - gap - height;
-    const left = from === "button" ? rect.right - width : rect.left;
-    menu.style.top = `${clamp(top, EDGE, window.innerHeight - height - EDGE)}px`;
-    menu.style.left = `${clamp(left, EDGE, window.innerWidth - width - EDGE)}px`;
-    menu.style.transformOrigin = `${from === "button" ? "right" : "left"} ${fitsBelow ? "top" : "bottom"}`;
-    menu.querySelector("button")?.focus();
-  }, [anchor]);
-
-  // Close on a click outside, Escape, scrolling or resizing. Arrow keys move between the items.
-  useEffect(() => {
-    const onPointerDown = (event: globalThis.PointerEvent) => {
-      const target = event.target as Node;
-      if (!ref.current?.contains(target) && !trigger?.contains(target)) onClose();
-    };
-    // Captured and marked handled, so the phone sidebar around it stays open.
-    const onKeyDown = (event: KeyboardEvent) => {
-      const items = Array.from(ref.current?.querySelectorAll("button") ?? []);
-      const index = items.indexOf(document.activeElement as HTMLButtonElement);
-      if (event.key === "Escape" || event.key === "Tab") {
-        event.preventDefault();
-        onClose();
-        trigger?.focus();
-      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const step = event.key === "ArrowDown" ? 1 : -1;
-        items[(index + step + items.length) % items.length]?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown, true);
-    document.addEventListener("scroll", onClose, true);
-    window.addEventListener("resize", onClose);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown, true);
-      document.removeEventListener("scroll", onClose, true);
-      window.removeEventListener("resize", onClose);
-    };
-  }, [onClose, trigger]);
-
-  // Out of the scrolling list, so it isn't cut off. Inside the phone sidebar while it's
-  // open, which covers the screen, so it stays part of it.
-  const container = trigger?.closest<HTMLElement>("[role=dialog]") ?? document.body;
-  return createPortal(
-    <div ref={ref} role="menu" aria-label="Project" className={`fixed top-0 left-0 z-50 w-44 ${menuPanel}`}>
-      <button type="button" role="menuitem" onClick={onEdit} className={`${menuItem} text-foreground`}>
-        <Pencil size={16} />
-        Edit
-      </button>
-      <button type="button" role="menuitem" onClick={onDelete} className={`${menuItem} text-error`}>
-        <Trash2 size={16} />
-        Delete
-      </button>
-    </div>,
-    container,
-  );
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-type DeleteProjectDialogProps = {
-  project: Project;
-  onDelete: () => void;
-  onClose: () => void;
-};
-
-/** Asks before deleting, like deleting the account does. */
-function DeleteProjectDialog({ project, onDelete, onClose }: DeleteProjectDialogProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const id = useId();
-  const backdrop = useCloseOnBackdrop(ref);
-
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-
-  return (
-    <dialog
-      ref={ref}
-      aria-labelledby={`${id}-title`}
-      aria-describedby={`${id}-text`}
-      onClose={onClose}
-      {...backdrop}
-      className={`max-w-sm ${dialogPanel}`}
-    >
-      <h2 id={`${id}-title`} className="text-lg font-semibold tracking-[-0.01em] wrap-anywhere">
-        Delete {project.name ? <>&ldquo;{project.name}&rdquo;</> : "this project"}?
-      </h2>
-      <p id={`${id}-text`} className="mt-2 text-sm text-balance text-muted">
-        This permanently deletes the project and its chat. It can&rsquo;t be undone.
-      </p>
-      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
-        <button
-          type="button"
-          autoFocus
-          onClick={() => ref.current?.close()}
-          className={`${dialogButton} border border-border bg-surface enabled:hover:border-foreground/25`}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className={`${dialogButton} bg-error text-background enabled:hover:bg-error/85`}
-        >
-          Delete project
-        </button>
-      </div>
-    </dialog>
   );
 }
 

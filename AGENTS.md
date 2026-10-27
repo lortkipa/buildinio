@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, a signed-in home with a sidebar, and project chats where a **mocked** AI builds the app (no real AI, no preview, no search yet). Playwright regression tests cover account popup layering. Update this file as the project grows.
+`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, a signed-in home with a sidebar, and project chats where a **mocked** AI builds the app (no real AI, no preview, no search yet). Playwright regression tests cover account popup layering and mobile project header actions. Update this file as the project grows.
 
 ## Stack
 
@@ -24,7 +24,7 @@ Guidance for AI coding agents working in this repo.
 ## Layout
 
 - `app/` — routes (`/` and `/projects/[id]` in the `(workspace)` route group, `/signup`, `/login`, `/welcome`, `/api/auth/[provider]/callback`), `layout.tsx` and `globals.css` (color tokens, light/dark, animations, fades).
-- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `ProjectList`, `ProjectTile`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useSidebarState`, `useStreamed`, `useScrollEdges`, `usePlayOnce`, `useCloseOnBackdrop`) and `styles.ts` (shared class strings like `focusRing`, `navItem`, `menuPanel`, `dialogPanel`).
+- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `ProjectList`, `ProjectTile`, `ProjectHeader`, `ProjectActions`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useSidebarState`, `useStreamed`, `useScrollEdges`, `usePlayOnce`, `useCloseOnBackdrop`) and `styles.ts` (shared class strings like `focusRing`, `navItem`, `menuPanel`, `dialogPanel`).
 - `lib/projects/` — the mocked projects: `store.ts` (state, localStorage, the fake AI's timeline), `mock.ts` (its canned words), `options.ts` (project colors and icons), `types.ts`.
 - `lib/sidebar.ts` — the sidebar's widths and cookie names, shared by the layout and the sidebar.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations.
@@ -44,10 +44,10 @@ Guidance for AI coding agents working in this repo.
 - `/` shows the landing page (`Header` + `Hero`) when signed out, and `AppShell` with the "New" tab (greeting + prompt box) when signed in.
 - `(workspace)/layout.tsx` owns the signed-in `AppShell`, keeping the sidebar and account controls mounted between New and project chats. Pages render only their content; the shell reads the active project title from client route params. Menus and the phone sidebar close on navigation. Signed-out home still renders the landing page, and project pages still check authentication.
 - Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects (newest first; an empty state of faint ghost rows and "Your apps will show up here." when there are none), and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump, and remembered through `useSidebarState` when the shared layout is hidden and restored. The project list's scroll position is shared the same way (in `ProjectList`).
-- Phones: a header with the sidebar button and the avatar. `MobileSidebar` slides over the whole screen, with the avatar floating at the bottom right.
+- Phones: New keeps the sidebar button and avatar. Project chats have circular sidebar and preview buttons and a rounded title menu; long titles end in an ellipsis with a down chevron. The title opens the shared Edit and Delete actions (`ProjectActions`). Preview only toggles its pressed state for now; there is no preview layout. `MobileSidebar` slides over the whole screen, with the avatar floating at the bottom right.
 - Account popups use a fixed portal outside the desktop sidebar, positioned from the trigger and kept within the viewport. In the phone sidebar, the portal stays in its dialog focus scope. Outside clicks, Escape, navigation, scrolling and resizing close the popup.
 - Text that doesn't fit fades out with the `.fade-end` class (in `globals.css`) instead of ending in "…". It fades the element's last 2rem, so give it room (`flex-1`, or padding) or text that fits fades too.
-- Scroll areas fade out what's scrolled past the same way: `.fade-y` + `useScrollEdges` (sidebar projects); the chat, which scrolls the page, uses background gradients under the header and above the prompt box.
+- Scroll areas fade out what's scrolled past the same way: `.fade-y` + `useScrollEdges` (sidebar projects); the chat, which scrolls the page, uses a masked backdrop blur under the mobile header, a background gradient under the desktop title, and a background gradient above the prompt box.
 - Hidden pages stay in the document (`cacheComponents`) and CSS animations replay when shown again, so "appear" animations use `usePlayOnce`, and only for things just made (`isNew` in the store).
 - The Next.js dev badge is off (`devIndicators: false`) because every corner has a button under it.
 

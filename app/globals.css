@@ -153,6 +153,16 @@
   mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
 }
 
+/* Blur messages as they pass under the mobile project header. The mask softens
+   the blur's lower edge without painting a background-colored fade over text. */
+@media (width < 48rem) {
+  .chat-header-backdrop {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    mask-image: linear-gradient(to bottom, #000 65%, transparent);
+  }
+}
+
 /* A scroll area whose content fades out at the top or bottom while there's more
    to scroll that way, like .fade-end does for a line of text. useScrollEdges
    sets the data attributes. */
