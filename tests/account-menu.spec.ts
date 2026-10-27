@@ -73,7 +73,8 @@ for (const variant of ["narrow", "collapsed", "mobile", "mobile sidebar"] as con
     await page.locator("textarea:visible").press("Enter");
     await page.waitForURL("**/projects/*");
     await expect(page.getByText("Build a recipe app", { exact: true })).toBeVisible();
-    if (variant === "mobile sidebar") await page.getByRole("button", { name: "Open sidebar" }).click();
-    await checkPopup(page, variant === "mobile sidebar");
+    // Project chats use a preview toggle in the phone header; the account lives in the sidebar.
+    if (mobile) await page.getByRole("button", { name: "Open sidebar" }).click();
+    await checkPopup(page, mobile);
   });
 }
