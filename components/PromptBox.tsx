@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Mic, Plus } from "lucide-react";
@@ -74,18 +74,39 @@ function useTypingPlaceholder(active: boolean) {
 
 const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full ${focusRing}`;
 
+const VARIANTS = {
+  // On the home page: types out example ideas, with a glow behind.
+  hero: { label: "Describe the app you want to build", placeholder: null, rows: 2 },
+  // Under a project's chat: one line to start with.
+  chat: { label: "Ask for changes", placeholder: "Ask for changes…", rows: 1 },
+};
+
 type PromptBoxProps = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   dock: Dock | null; // Set while the phone keyboard is open; see useKeyboardDock.
+  onSubmit: (prompt: string) => void;
+  variant?: keyof typeof VARIANTS;
+  busy?: boolean; // The AI is still answering: typing works, sending waits.
   signedIn?: boolean;
   className?: string;
 };
 
-export function PromptBox({ textareaRef, dock, signedIn = false, className = "" }: PromptBoxProps) {
+export function PromptBox({
+  textareaRef,
+  dock,
+  onSubmit,
+  variant = "hero",
+  busy = false,
+  signedIn = false,
+  className = "",
+}: PromptBoxProps) {
   const router = useRouter();
+  const id = useId();
   const [value, setValue] = useState("");
-  const placeholder = useTypingPlaceholder(value.length === 0);
+  const { label, placeholder, rows } = VARIANTS[variant];
+  const example = useTypingPlaceholder(!placeholder && value.length === 0);
   const hasText = value.trim().length > 0;
+  const canSend = hasText && !busy;
 
   // Put the cursor in the box on desktop. Skipped on touch so the keyboard doesn't pop up.
   useEffect(() => {
@@ -107,19 +128,24 @@ export function PromptBox({ textareaRef, dock, signedIn = false, className = "" 
     if (!window.matchMedia("(pointer: fine)").matches) return;
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      if (hasText) event.currentTarget.form?.requestSubmit();
+      if (canSend) event.currentTarget.form?.requestSubmit();
     }
   }
 
-  // Building isn't there yet: signed-out people go to sign-up, signed-in ones hear it's coming.
-  function notYet() {
-    if (signedIn) toast.info("Building apps is coming soon.");
+  // Files and voice aren't there yet: signed-out people go to sign-up, signed-in ones hear it's coming.
+  function notYet(what: string) {
+    if (signedIn) toast.info(`${what} is coming soon.`);
     else router.push("/signup");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    notYet();
+    if (!canSend) return;
+    onSubmit(value.trim());
+    // Signed out, the prompt stays for when they come back from signing up.
+    if (!signedIn) return;
+    setValue("");
+    if (textareaRef.current) textareaRef.current.style.height = "";
   }
 
   return (
@@ -128,7 +154,7 @@ export function PromptBox({ textareaRef, dock, signedIn = false, className = "" 
       className={`relative isolate w-full max-w-2xl ${className}`}
     >
       {/* Hidden while docked: the box has moved, so the glow would float on its own. */}
-      {!dock && (
+      {variant === "hero" && !dock && (
         <div
           aria-hidden
           className="bg-glow pointer-events-none absolute -inset-x-24 -inset-y-20 -z-10"
@@ -147,21 +173,21 @@ export function PromptBox({ textareaRef, dock, signedIn = false, className = "" 
             : undefined
         }
         className="rounded-3xl border border-border bg-surface text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.12)] transition-[border-color,box-shadow] focus-within:border-foreground/20 focus-within:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_16px_40px_-12px_rgb(0_0_0/0.18)]">
-        <label htmlFor="prompt" className="sr-only">
-          Describe the app you want to build
+        <label htmlFor={id} className="sr-only">
+          {label}
         </label>
         {/* Inset top-right so the scrollbar stays clear of the rounded corner. */}
         <div className="pt-2 pr-2">
           <textarea
             ref={textareaRef}
-            id="prompt"
+            id={id}
             name="prompt"
-            rows={2}
+            rows={rows}
             enterKeyHint="enter"
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={placeholder ?? example}
             style={
               dock
                 ? { maxHeight: Math.min(192, dock.visibleHeight - DOCK_CHROME) }
@@ -177,11 +203,11 @@ export function PromptBox({ textareaRef, dock, signedIn = false, className = "" 
           onMouseDown={(event) => event.preventDefault()}
           className="flex items-center justify-between px-3 pb-3"
         >
-          {/* Plus and mic aren't built yet either. */}
+          {/* Plus and mic aren't built yet. */}
           <button
             type="button"
             aria-label="Add files"
-            onClick={notYet}
+            onClick={() => notYet("Adding files")}
             className={`${iconButton} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground`}
           >
             <Plus size={20} />
@@ -193,7 +219,7 @@ export function PromptBox({ textareaRef, dock, signedIn = false, className = "" 
               type="button"
               aria-label="Use voice input"
               inert={hasText}
-              onClick={notYet}
+              onClick={() => notYet("Voice input")}
               className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
                 hasText ? "scale-50 -rotate-45 opacity-0" : shown
               }`}
@@ -202,10 +228,12 @@ export function PromptBox({ textareaRef, dock, signedIn = false, className = "" 
             </button>
             <button
               type="submit"
-              aria-label="Start building"
+              aria-label={variant === "hero" ? "Start building" : "Send"}
+              title={busy ? "Wait for the answer to finish" : undefined}
               inert={!hasText}
-              className={`${iconButton} ${swap} bg-foreground text-background hover:bg-foreground/85 ${
-                hasText ? shown : "scale-50 rotate-45 opacity-0"
+              disabled={busy}
+              className={`${iconButton} ${swap} bg-foreground text-background enabled:hover:bg-foreground/85 disabled:cursor-not-allowed ${
+                !hasText ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
               }`}
             >
               <ArrowUp size={18} strokeWidth={2.25} />
