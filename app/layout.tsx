@@ -13,7 +13,11 @@ const onest = Onest({
 });
 
 export const metadata: Metadata = {
-  title: "buildinio | Build an app by describing it",
+  // Every page's title ends in " - Buildinio"; pages set just their own part.
+  title: {
+    template: "%s - Buildinio",
+    default: "Build an app by describing it - Buildinio",
+  },
   description:
     "An app builder for people who don't write code. Describe what you need and buildinio builds it.",
   icons: {

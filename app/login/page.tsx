@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthFlow } from "@/components/AuthFlow";
 
 export const metadata: Metadata = {
-  title: "Log in | buildinio",
+  title: "Log in",
 };
 
 export default function LogIn() {
