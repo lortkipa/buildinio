@@ -95,7 +95,8 @@ export function DesktopSidebar({ user, state, onChange, onCommit }: DesktopSideb
     <aside
       ref={asideRef}
       style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
-      className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface md:flex ${
+      // Keep menus that extend past the sidebar above the chat's sticky header and composer.
+      className={`sticky top-0 z-30 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface md:flex ${
         dragging ? "" : "transition-[width] duration-200 ease-out motion-reduce:transition-none"
       }`}
     >
