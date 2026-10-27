@@ -53,9 +53,13 @@ Guidance for AI coding agents working in this repo.
 - If anything is unclear, ask instead of guessing.
 - Keep `AGENTS.md` and `CLAUDE.md` up to date whenever the project changes (stack, commands, conventions).
 
+## Branches
+
+- Work on a descriptive branch: `feat/...`, `fix/...` or `docs/...` (e.g. `feat/sidebar`). Never commit to `main` or to an auto-named `claude/...` branch.
+- If your session starts on a `claude/...` branch, create the descriptive branch from the latest `main` before your first commit and push it with `git push -u origin <name>`. This is the owner's explicit permission to push there instead of the assigned branch.
+
 ## Pull requests
 
-- Use a descriptive branch name (e.g. `feat/...`, `fix/...`, `docs/...`).
 - After opening a PR, watch it: respond to review comments and fix failing CI.
 
 <!-- BEGIN:nextjs-agent-rules -->
