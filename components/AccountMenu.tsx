@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { LoaderCircle, LogOut, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel } from "@/components/styles";
@@ -9,11 +11,11 @@ import { deleteAccount, logOut } from "@/lib/auth/actions";
 import type { CurrentUser } from "@/lib/auth/session";
 import { forgetProjects } from "@/lib/projects/store";
 
-// Where the menu opens, next to the button.
+// The animation starts at the corner nearest the account button.
 const PLACEMENTS = {
-  "below-end": "top-full right-0 mt-2 origin-top-right",
-  "above-start": "bottom-full left-0 mb-2 origin-bottom-left",
-  "above-end": "bottom-full right-0 mb-2 origin-bottom-right",
+  "below-end": "origin-top-right",
+  "above-start": "origin-bottom-left",
+  "above-end": "origin-bottom-right",
 };
 
 type AccountMenuProps = {
@@ -30,28 +32,45 @@ export function AccountMenu({
   placement = "below-end",
   collapsed = false,
 }: AccountMenuProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [busy, setBusy] = useState<"logout" | "delete" | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const id = useId();
 
-  // Close everything when the page is hidden (cacheComponents keeps it alive),
-  // so it isn't still open when you come back.
+  // Close everything on navigation and when the containing layout is hidden.
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     return () => {
       setOpen(false);
       dialog?.close();
     };
-  }, []);
+  }, [pathname]);
+
+  // Position outside the sidebar's stacking and clipping contexts, before paint.
+  useLayoutEffect(() => {
+    const button = buttonRef.current;
+    const menu = menuRef.current;
+    if (!open || !button || !menu) return;
+    const rect = button.getBoundingClientRect();
+    const edge = 8;
+    const gap = 4;
+    const left = placement === "above-start" ? rect.left : rect.right - menu.offsetWidth;
+    const top = placement === "below-end" ? rect.bottom + gap : rect.top - menu.offsetHeight - gap;
+    menu.style.left = `${Math.max(edge, Math.min(left, window.innerWidth - menu.offsetWidth - edge))}px`;
+    menu.style.top = `${Math.max(edge, Math.min(top, window.innerHeight - menu.offsetHeight - edge))}px`;
+  }, [open, placement]);
 
   // Close on a click outside, or Escape.
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
     // Captured and marked handled, so the phone sidebar around it stays open.
     const onKeyDown = (event: KeyboardEvent) => {
@@ -62,9 +81,14 @@ export function AccountMenu({
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown, true);
+    const close = () => setOpen(false);
+    document.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
     };
   }, [open]);
 
@@ -91,7 +115,11 @@ export function AccountMenu({
         aria-label="Account"
         aria-expanded={open}
         aria-controls={`${id}-menu`}
-        onClick={() => setOpen((value) => !value)}
+        onClick={(event) => {
+          // Keep the portal in the phone sidebar's focus scope while it is open.
+          setPortalContainer(event.currentTarget.closest<HTMLElement>("[role=dialog]") ?? document.body);
+          setOpen((value) => !value);
+        }}
         className={
           trigger === "row"
             ? `flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl p-1 text-left transition-colors hover:bg-foreground/5 aria-expanded:bg-foreground/5 ${focusRing}`
@@ -107,10 +135,11 @@ export function AccountMenu({
         )}
       </button>
 
-      {open && (
+      {open && portalContainer && createPortal(
         <div
+          ref={menuRef}
           id={`${id}-menu`}
-          className={`absolute z-50 w-64 ${menuPanel} ${PLACEMENTS[placement]}`}
+          className={`fixed top-0 left-0 z-50 w-64 max-w-[calc(100%-1rem)] ${menuPanel} ${PLACEMENTS[placement]}`}
         >
           <div className="flex items-center gap-3 px-3 pt-2.5 pb-3">
             <Avatar src={user.avatarUrl} size={40} />
@@ -142,7 +171,8 @@ export function AccountMenu({
             <Trash2 size={16} />
             Delete account
           </button>
-        </div>
+        </div>,
+        portalContainer,
       )}
 
       <dialog
