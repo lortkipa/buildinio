@@ -27,6 +27,10 @@ type Anchor = { rect: Rect; from: "button" | "point" };
 
 type MenuState = { projectId: string; anchor: Anchor; trigger: HTMLElement | null };
 
+// How far the list is scrolled, shared by every page: each has its own sidebar, so
+// opening a project would otherwise show a list scrolled somewhere else.
+const listScroll = { desktop: 0, mobile: 0 };
+
 type ProjectListProps = {
   mobile?: boolean; // The phone sidebar: options always show, and the avatar floats over the end.
   onNavigate?: () => void;
@@ -42,6 +46,20 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   useScrollEdges(scrollRef);
+
+  // Pick up where the list was, before it paints: on mount, when a hidden page shows
+  // again, and once the projects are in (until then it's too short to scroll).
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const slot = mobile ? "mobile" : "desktop";
+    el.scrollTop = listScroll[slot];
+    const onScroll = () => {
+      listScroll[slot] = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [mobile, loaded]);
 
   // Close the menu and dialogs when the page is hidden (cacheComponents keeps it
   // alive), so they aren't open when you come back.
