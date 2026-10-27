@@ -2,8 +2,7 @@ import { useSyncExternalStore } from "react";
 import { SIDEBAR_COLLAPSED_COOKIE, SIDEBAR_WIDTH_COOKIE } from "@/lib/sidebar";
 import type { SidebarState } from "@/lib/sidebar";
 
-// One sidebar size for every page. Each page has its own AppShell, and hidden pages
-// stay alive (cacheComponents), so per-page state would leave the others at the old size.
+// Keep the current size when the shared workspace layout is hidden and restored.
 
 const YEAR_S = 365 * 24 * 60 * 60;
 
@@ -29,7 +28,7 @@ export function setSidebarState(next: SidebarState, persist: boolean) {
   listeners.forEach((listener) => listener());
 }
 
-/** The sidebar's size: `saved` (read from the cookies by the page) until it's changed. */
+/** The sidebar's size: `saved` (read from the cookies by the layout) until it's changed. */
 export function useSidebarState(saved: SidebarState) {
   return useSyncExternalStore(
     subscribe,

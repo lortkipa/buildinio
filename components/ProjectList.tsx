@@ -27,8 +27,7 @@ type Anchor = { rect: Rect; from: "button" | "point" };
 
 type MenuState = { projectId: string; anchor: Anchor; trigger: HTMLElement | null };
 
-// How far the list is scrolled, shared by every page: each has its own sidebar, so
-// opening a project would otherwise show a list scrolled somewhere else.
+// Preserve the desktop and mobile list positions when the workspace is hidden.
 const listScroll = { desktop: 0, mobile: 0 };
 
 type ProjectListProps = {
@@ -61,15 +60,14 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
     return () => el.removeEventListener("scroll", onScroll);
   }, [mobile, loaded]);
 
-  // Close the menu and dialogs when the page is hidden (cacheComponents keeps it
-  // alive), so they aren't open when you come back.
+  // Close menus and dialogs on navigation and when the workspace is hidden.
   useLayoutEffect(() => {
     return () => {
       setMenu(null);
       setEditingId(null);
       setDeletingId(null);
     };
-  }, []);
+  }, [pathname]);
 
   const closeMenu = useCallback(() => setMenu(null), []);
 

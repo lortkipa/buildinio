@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { LoaderCircle, LogOut, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel } from "@/components/styles";
@@ -30,6 +31,7 @@ export function AccountMenu({
   placement = "below-end",
   collapsed = false,
 }: AccountMenuProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"logout" | "delete" | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -37,15 +39,14 @@ export function AccountMenu({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const id = useId();
 
-  // Close everything when the page is hidden (cacheComponents keeps it alive),
-  // so it isn't still open when you come back.
+  // Close everything on navigation and when the containing layout is hidden.
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     return () => {
       setOpen(false);
       dialog?.close();
     };
-  }, []);
+  }, [pathname]);
 
   // Close on a click outside, or Escape.
   useEffect(() => {

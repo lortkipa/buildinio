@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useParams, usePathname } from "next/navigation";
 import { PanelLeft } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
+import { ProjectTitle } from "@/components/ProjectTile";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { focusRing } from "@/components/styles";
 import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
@@ -13,8 +15,7 @@ import type { SidebarState } from "@/lib/sidebar";
 
 type AppShellProps = {
   user: CurrentUser;
-  sidebar: SidebarState; // As saved, read by the page.
-  title?: ReactNode; // In the middle of a header that stays at the top, on every screen size.
+  sidebar: SidebarState; // As saved, read by the shared layout.
   children: ReactNode;
 };
 
@@ -22,7 +23,10 @@ type AppShellProps = {
  * The signed-in layout: a sidebar on the left on wider screens. On phones, a
  * header with a sidebar button and the account menu; the sidebar slides over.
  */
-export function AppShell({ user, sidebar: saved, title, children }: AppShellProps) {
+export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
+  const pathname = usePathname();
+  const { id: projectId } = useParams<{ id?: string }>();
+  const title = projectId ? <ProjectTitle id={projectId} /> : null;
   const sidebar = useSidebarState(saved);
   const [mobileOpen, setMobileOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
@@ -57,13 +61,13 @@ export function AppShell({ user, sidebar: saved, title, children }: AppShellProp
     return () => wide.removeEventListener("change", onChange);
   }, [mobileOpen]);
 
-  // Close it when the page is hidden (cacheComponents keeps it alive), so it isn't open on return.
+  // Close on navigation and when the layout is hidden.
   useLayoutEffect(() => {
     return () => {
       setMobileOpen(false);
       wasOpen.current = false;
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <div className="flex flex-1">

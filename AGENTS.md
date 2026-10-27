@@ -22,10 +22,10 @@ Guidance for AI coding agents working in this repo.
 
 ## Layout
 
-- `app/` — routes (`/` in `page.tsx`, `/projects/[id]`, `/signup`, `/login`, `/welcome`, `/api/auth/[provider]/callback`), `layout.tsx` and `globals.css` (color tokens, light/dark, animations, fades).
+- `app/` — routes (`/` and `/projects/[id]` in the `(workspace)` route group, `/signup`, `/login`, `/welcome`, `/api/auth/[provider]/callback`), `layout.tsx` and `globals.css` (color tokens, light/dark, animations, fades).
 - `components/` — React components (`Header`, `AppShell`, `Sidebar`, `ProjectList`, `ProjectTile`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useSidebarState`, `useStreamed`, `useScrollEdges`, `usePlayOnce`, `useCloseOnBackdrop`) and `styles.ts` (shared class strings like `focusRing`, `navItem`, `menuPanel`, `dialogPanel`).
 - `lib/projects/` — the mocked projects: `store.ts` (state, localStorage, the fake AI's timeline), `mock.ts` (its canned words), `options.ts` (project colors and icons), `types.ts`.
-- `lib/sidebar.ts` — the sidebar's widths and cookie names, shared by the page and the sidebar.
+- `lib/sidebar.ts` — the sidebar's widths and cookie names, shared by the layout and the sidebar.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations.
 - `lib/auth/` — sessions, Google/GitHub, email codes, sign-up, and `actions.ts` (the Server Actions the UI calls). `lib/email/` — the code email and sending.
 - `proxy.ts` — sends signed-in users from `/signup`, `/login` and `/welcome` to `/`.
@@ -41,7 +41,8 @@ Guidance for AI coding agents working in this repo.
 ## Signed-in home
 
 - `/` shows the landing page (`Header` + `Hero`) when signed out, and `AppShell` with the "New" tab (greeting + prompt box) when signed in.
-- Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects (newest first; an empty state of faint ghost rows and "Your apps will show up here." when there are none), and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump, and shared by every page through `useSidebarState` (kept-alive pages would otherwise keep their old size). The project list's scroll position is shared the same way (in `ProjectList`).
+- `(workspace)/layout.tsx` owns the signed-in `AppShell`, keeping the sidebar and account controls mounted between New and project chats. Pages render only their content; the shell reads the active project title from client route params. Menus and the phone sidebar close on navigation. Signed-out home still renders the landing page, and project pages still check authentication.
+- Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects (newest first; an empty state of faint ghost rows and "Your apps will show up here." when there are none), and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump, and remembered through `useSidebarState` when the shared layout is hidden and restored. The project list's scroll position is shared the same way (in `ProjectList`).
 - Phones: a header with the sidebar button and the avatar. `MobileSidebar` slides over the whole screen, with the avatar floating at the bottom right.
 - Text that doesn't fit fades out with the `.fade-end` class (in `globals.css`) instead of ending in "…". It fades the element's last 2rem, so give it room (`flex-1`, or padding) or text that fits fades too.
 - Scroll areas fade out what's scrolled past the same way: `.fade-y` + `useScrollEdges` (sidebar projects); the chat, which scrolls the page, uses background gradients under the header and above the prompt box.
@@ -51,7 +52,7 @@ Guidance for AI coding agents working in this repo.
 ## Projects (mocked)
 
 - Everything is fake for now, to design the chat: no AI is called and nothing is built or previewed. Projects live in this browser's localStorage (`buildinio:projects:<userId>`), dropped when the account is deleted.
-- `lib/projects/store.ts` is a store outside React (`useSyncExternalStore`), so every page's sidebar and chat see the same projects and an answer keeps going on other pages. `AppShell` calls `loadProjects`.
+- `lib/projects/store.ts` is a store outside React (`useSyncExternalStore`), so the shared sidebar and every chat see the same projects and an answer keeps going on other pages. The shared `AppShell` calls `loadProjects`.
 - A prompt on New creates a project and opens `/projects/[id]`. The sidebar row and the chat title show skeletons right away. The first answer: Thinking → naming (the name types itself out with an icon and color guessed from the prompt) → a plan and tool calls (web search, file edits) → all of that folds away and a summary streams in. Later prompts get a plain streamed answer, no tools.
 - Text streams by the clock: a step stores when it started and the UI shows one letter every `CHAR_MS`. Answers in progress aren't saved; a reload restarts the cut-off one.
 - Seconds tick while the AI works and stay next to like / dislike / copy under every answer. Like and dislike exclude each other; pressing the one that's on turns it off.
@@ -67,7 +68,7 @@ Guidance for AI coding agents working in this repo.
 - Email codes: 6 digits, 10 minutes, one try each, at most 5 per email per hour.
 - Sessions: random token in an httpOnly `session` cookie, only its SHA-256 stored, 30 days. Read the user with `getCurrentUser()` inside `<Suspense>` (it reads the request).
 - Setup is in `.env.example` and the README. With no keys, email codes are printed in the server console (with a warning toast), and the Google/GitHub buttons show an error toast.
-- `cacheComponents` keeps visited pages alive but hidden, so `AuthFlow`, `AccountMenu`, `AppShell` and `ProjectList` reset themselves when you leave the page. Logging in or out purges the browser's page cache (`revalidatePath("/", "layout")`).
+- `cacheComponents` keeps visited pages and layouts alive but hidden. `AuthFlow` resets when hidden; `AccountMenu`, `AppShell` and `ProjectList` also close transient controls when the pathname changes. Logging in or out purges the browser's page cache (`revalidatePath("/", "layout")`).
 
 ## How to work
 

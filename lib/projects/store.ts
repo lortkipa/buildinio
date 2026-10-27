@@ -4,8 +4,8 @@ import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import type { Feedback, Message, Project, Step, Turn } from "@/lib/projects/types";
 
 // The signed-in user's projects, kept in this browser's localStorage (one key per
-// account). A store outside React, because each page has its own AppShell and
-// hidden pages stay alive (cacheComponents): every one of them sees the same projects,
+// account). A store outside React, because hidden pages stay alive
+// (cacheComponents): the shared sidebar and every chat see the same projects,
 // and an answer keeps going while you're on another page.
 //
 // The AI is fake (see mock.ts). Text streams by the clock: a step only records when
