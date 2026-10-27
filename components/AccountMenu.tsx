@@ -4,12 +4,10 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LoaderCircle, LogOut, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { focusRing } from "@/components/styles";
+import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel } from "@/components/styles";
 import { deleteAccount, logOut } from "@/lib/auth/actions";
 import type { CurrentUser } from "@/lib/auth/session";
-
-const menuItem = `flex h-10 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
-const dialogButton = `flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1 ${focusRing}`;
+import { forgetProjects } from "@/lib/projects/store";
 
 // Where the menu opens, next to the button.
 const PLACEMENTS = {
@@ -80,6 +78,7 @@ export function AccountMenu({
   async function handleDelete() {
     setBusy("delete");
     await deleteAccount();
+    forgetProjects(user.id);
     dialogRef.current?.close();
     toast.success("Your account was deleted.");
   }
@@ -111,7 +110,7 @@ export function AccountMenu({
       {open && (
         <div
           id={`${id}-menu`}
-          className={`absolute z-50 w-64 rounded-2xl border border-border bg-surface p-1.5 text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.18)] motion-safe:animate-pop ${PLACEMENTS[placement]}`}
+          className={`absolute z-50 w-64 ${menuPanel} ${PLACEMENTS[placement]}`}
         >
           <div className="flex items-center gap-3 px-3 pt-2.5 pb-3">
             <Avatar src={user.avatarUrl} size={40} />
@@ -152,7 +151,7 @@ export function AccountMenu({
         aria-describedby={`${id}-text`}
         // Stay open while the account is being deleted.
         onCancel={(event) => busy && event.preventDefault()}
-        className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-3xl border border-border bg-surface p-6 text-left text-foreground shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] backdrop:bg-black/40 open:motion-safe:animate-pop"
+        className={`max-w-sm ${dialogPanel}`}
       >
         <h2 id={`${id}-title`} className="text-lg font-semibold tracking-[-0.01em]">
           Delete your account?

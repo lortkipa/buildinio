@@ -67,6 +67,64 @@
       opacity: 0;
     }
   }
+
+  /* Messages, steps and projects showing up. */
+  --animate-enter: enter 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  /* A band of light sweeping across skeletons and the "Thinking" label. */
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Like and dislike being pressed: the thumb jumps up, or drops down. */
+  --animate-like: like 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+  --animate-dislike: dislike 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  @keyframes like {
+    35% {
+      transform: translateY(-2px) scale(1.35) rotate(-16deg);
+    }
+    70% {
+      transform: scale(0.94) rotate(4deg);
+    }
+  }
+
+  @keyframes dislike {
+    35% {
+      transform: translateY(2px) scale(1.3) rotate(16deg);
+    }
+    70% {
+      transform: scale(0.94) rotate(-4deg);
+    }
+  }
+
+  /* A ring spreading out from a pressed button. */
+  --animate-burst: burst 0.5s ease-out forwards;
+
+  @keyframes burst {
+    from {
+      opacity: 0.5;
+      transform: scale(0.4);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.4);
+    }
+  }
 }
 
 /* Dot grid that fades out toward the edges of the screen. */
@@ -93,6 +151,70 @@
   overflow: hidden;
   white-space: nowrap;
   mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+
+/* A scroll area whose content fades out at the top or bottom while there's more
+   to scroll that way, like .fade-end does for a line of text. useScrollEdges
+   sets the data attributes. */
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.fade-y {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
+  transition:
+    --fade-top 0.3s ease-out,
+    --fade-bottom 0.3s ease-out;
+}
+
+.fade-y[data-top="false"] {
+  --fade-top: 3rem;
+}
+
+.fade-y[data-bottom="false"] {
+  --fade-bottom: 3rem;
+}
+
+/* Placeholder for something that's on its way, like a name the AI is picking.
+   Add motion-safe:animate-shimmer to make it sweep. */
+.skeleton {
+  background: linear-gradient(
+      90deg,
+      transparent 25%,
+      color-mix(in srgb, var(--foreground) 8%, transparent) 50%,
+      transparent 75%
+    )
+    color-mix(in srgb, var(--foreground) 8%, transparent);
+  background-size: 200% 100%;
+}
+
+/* Muted text with light sweeping through it (with motion-safe:animate-shimmer),
+   while the AI thinks. Plain muted text for reduced motion. */
+.text-shimmer {
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .text-shimmer {
+    background: linear-gradient(90deg, var(--muted) 40%, var(--foreground) 50%, var(--muted) 60%);
+    background-size: 200% 100%;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 /* Thin, quiet scrollbar for the prompt box. */

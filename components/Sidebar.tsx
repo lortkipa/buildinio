@@ -12,7 +12,8 @@ import logoDark from "@/brand/logo-dark.svg";
 import mark from "@/brand/mark.svg";
 import markDark from "@/brand/mark-dark.svg";
 import { AccountMenu } from "@/components/AccountMenu";
-import { focusRing, shown, swap } from "@/components/styles";
+import { ProjectList } from "@/components/ProjectList";
+import { focusRing, navItem, shown, swap } from "@/components/styles";
 import type { CurrentUser } from "@/lib/auth/session";
 import { clampWidth, COLLAPSE_AT, COLLAPSED_WIDTH, MAX_WIDTH, MIN_WIDTH } from "@/lib/sidebar";
 import type { SidebarState } from "@/lib/sidebar";
@@ -209,7 +210,7 @@ export function MobileSidebar({ id, user, open, onClose, closeRef }: MobileSideb
         </button>
       </div>
 
-      <SidebarNav onNavigate={onClose} />
+      <SidebarNav mobile onNavigate={onClose} />
 
       {/* Floats over the projects, so they can scroll under it. */}
       <div className="absolute right-4 bottom-[max(1rem,env(safe-area-inset-bottom))]">
@@ -221,11 +222,12 @@ export function MobileSidebar({ id, user, open, onClose, closeRef }: MobileSideb
 
 type SidebarNavProps = {
   collapsed?: boolean; // Icons only.
+  mobile?: boolean; // In the phone sidebar.
   onNavigate?: () => void;
 };
 
 /** The tabs and the projects, shared by both sidebars. */
-function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
+function SidebarNav({ collapsed = false, mobile = false, onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
   return (
     <>
@@ -249,48 +251,19 @@ function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
         </button>
       </nav>
 
+      {/* The heading stays put; only the projects scroll, fading out at the edges. */}
       <section
         aria-label="Projects"
-        className={`scrollbar-thin mt-4 min-h-0 flex-1 overflow-y-auto px-2 transition-[opacity,visibility] duration-200 ${
+        className={`mt-4 flex min-h-0 flex-1 flex-col transition-[opacity,visibility] duration-200 ${
           collapsed ? "invisible opacity-0" : ""
         }`}
       >
-        <h2 className="fade-end px-2.5 pb-1 text-xs font-medium text-muted">Projects</h2>
-        <ProjectsEmpty />
+        <h2 className="fade-end shrink-0 px-4.5 pb-1 text-xs font-medium text-muted">Projects</h2>
+        <ProjectList mobile={mobile} onNavigate={onNavigate} />
       </section>
     </>
   );
 }
-
-// Ghost rows: bar width and opacity, each fainter than the last.
-const GHOST_ROWS = [
-  { bar: "55%", opacity: 1 },
-  { bar: "40%", opacity: 0.65 },
-  { bar: "48%", opacity: 0.35 },
-];
-
-/** No projects yet: faint outlines of rows where they'll show up. Same size as real rows. */
-function ProjectsEmpty() {
-  return (
-    <div className="pt-1">
-      <div aria-hidden className="flex flex-col gap-1.5">
-        {GHOST_ROWS.map(({ bar, opacity }) => (
-          <div
-            key={bar}
-            style={{ opacity }}
-            className="flex h-10 items-center gap-3 rounded-xl border border-dashed border-foreground/20 px-2.5"
-          >
-            <span className="size-5 shrink-0 rounded-md bg-foreground/[0.07]" />
-            <span style={{ width: bar }} className="h-2 rounded-full bg-foreground/[0.07]" />
-          </div>
-        ))}
-      </div>
-      <p className="fade-end mt-3 px-2.5 text-xs text-muted">Your apps will show up here.</p>
-    </div>
-  );
-}
-
-const navItem = `flex h-10 w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl px-2.5 text-left text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground aria-[current=page]:bg-foreground/5 aria-[current=page]:text-foreground ${focusRing}`;
 
 /** A tab's icon and label. The icon stays put; the label fades out when the sidebar gets narrow. */
 function NavLabel({ icon, label, collapsed }: { icon: ReactNode; label: string; collapsed: boolean }) {

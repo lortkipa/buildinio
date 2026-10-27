@@ -2,8 +2,10 @@
 
 import { useRef } from "react";
 import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { PromptBox } from "@/components/PromptBox";
 import { DOCK_TEXT_GAP, useKeyboardDock } from "@/components/useKeyboardDock";
+import { createProject } from "@/lib/projects/store";
 
 type HeroProps = {
   title: ReactNode;
@@ -16,6 +18,12 @@ export function Hero({ title, subtitle, signedIn = false }: HeroProps) {
   const heroRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dock = useKeyboardDock(textareaRef, heroRef);
+  const router = useRouter();
+
+  // Signed in, the prompt starts a project and opens its chat. Signed out, it's time to sign up.
+  function handleSubmit(prompt: string) {
+    router.push(signedIn ? `/projects/${createProject(prompt)}` : "/signup");
+  }
 
   return (
     <div
@@ -58,6 +66,7 @@ export function Hero({ title, subtitle, signedIn = false }: HeroProps) {
       <PromptBox
         textareaRef={textareaRef}
         dock={dock}
+        onSubmit={handleSubmit}
         signedIn={signedIn}
         className={`motion-safe:animate-rise motion-safe:[animation-delay:160ms] ${
           subtitle ? "mt-10" : "mt-8"

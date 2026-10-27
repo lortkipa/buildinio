@@ -6,22 +6,15 @@ import { PanelLeft } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { focusRing } from "@/components/styles";
+import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
 import type { CurrentUser } from "@/lib/auth/session";
-import { SIDEBAR_COLLAPSED_COOKIE, SIDEBAR_WIDTH_COOKIE } from "@/lib/sidebar";
+import { loadProjects } from "@/lib/projects/store";
 import type { SidebarState } from "@/lib/sidebar";
-
-const YEAR_S = 365 * 24 * 60 * 60;
-
-/** Remembered in cookies, so the page renders at this size next time with no jump. */
-function saveSidebar({ width, collapsed }: SidebarState) {
-  const options = `; path=/; max-age=${YEAR_S}; samesite=lax`;
-  document.cookie = `${SIDEBAR_WIDTH_COOKIE}=${width}${options}`;
-  document.cookie = `${SIDEBAR_COLLAPSED_COOKIE}=${collapsed ? 1 : 0}${options}`;
-}
 
 type AppShellProps = {
   user: CurrentUser;
   sidebar: SidebarState; // As saved, read by the page.
+  title?: ReactNode; // In the middle of a header that stays at the top, on every screen size.
   children: ReactNode;
 };
 
@@ -29,19 +22,22 @@ type AppShellProps = {
  * The signed-in layout: a sidebar on the left on wider screens. On phones, a
  * header with a sidebar button and the account menu; the sidebar slides over.
  */
-export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
-  const [sidebar, setSidebar] = useState(saved);
+export function AppShell({ user, sidebar: saved, title, children }: AppShellProps) {
+  const sidebar = useSidebarState(saved);
   const [mobileOpen, setMobileOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const id = useId();
 
-  const commitSidebar = useCallback((next: SidebarState) => {
-    setSidebar(next);
-    saveSidebar(next);
-  }, []);
+  const changeSidebar = useCallback((next: SidebarState) => setSidebarState(next, false), []);
+  const commitSidebar = useCallback((next: SidebarState) => setSidebarState(next, true), []);
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
+
+  // The user's projects live in this browser (see lib/projects/store.ts).
+  useEffect(() => {
+    loadProjects(user.id);
+  }, [user.id]);
 
   // Focus moves into the phone sidebar when it opens, and back to its button when it
   // closes. After rendering: until then, one or the other is still hidden or inert.
@@ -71,11 +67,18 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
 
   return (
     <div className="flex flex-1">
-      <DesktopSidebar user={user} state={sidebar} onChange={setSidebar} onCommit={commitSidebar} />
+      <DesktopSidebar user={user} state={sidebar} onChange={changeSidebar} onCommit={commitSidebar} />
 
       {/* Out of reach while the phone sidebar covers it. */}
       <div inert={mobileOpen} className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between px-3 md:hidden">
+        {/* With a title it stays on top while the page scrolls under it, and shows on wider
+            screens too (just the title: the sidebar has the rest). No background of its own:
+            the page fades out behind it (see ProjectChat). */}
+        <header
+          className={`relative flex h-14 shrink-0 items-center justify-between px-3 ${
+            title ? "sticky top-0 z-20" : "md:hidden"
+          }`}
+        >
           <button
             ref={openRef}
             type="button"
@@ -83,11 +86,18 @@ export function AppShell({ user, sidebar: saved, children }: AppShellProps) {
             aria-expanded={mobileOpen}
             aria-controls={id}
             onClick={() => setMobileOpen(true)}
-            className={`grid size-10 cursor-pointer place-items-center rounded-xl text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing}`}
+            className={`grid size-10 cursor-pointer place-items-center rounded-xl text-muted transition-colors hover:bg-foreground/5 hover:text-foreground md:hidden ${focusRing}`}
           >
             <PanelLeft size={20} />
           </button>
-          <AccountMenu user={user} />
+          {title && (
+            <div className="absolute inset-x-16 inset-y-0 flex items-center justify-center md:inset-x-6">
+              {title}
+            </div>
+          )}
+          <div className="md:hidden">
+            <AccountMenu user={user} />
+          </div>
         </header>
         {children}
       </div>
