@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { parseSidebar, SIDEBAR_COLLAPSED_COOKIE, SIDEBAR_WIDTH_COOKIE } from "@/lib/sidebar";
 
 export const metadata: Metadata = {
-  title: "Project | buildinio",
+  title: "Project",
 };
 
 // Projects live in the browser for now (lib/projects/store.ts), so the chat fills in there.

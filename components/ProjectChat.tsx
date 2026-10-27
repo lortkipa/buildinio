@@ -29,11 +29,19 @@ function Chat({ project }: { project: Project }) {
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(true);
 
-  // The tab shows the project's name. After every render: navigating to this page
-  // again puts back the page's own title ("Project | buildinio").
+  // The tab shows the project's name. Next.js puts the page's own title ("Project - Buildinio")
+  // back whenever it mounts its <title>, which can happen after this (navigating here again,
+  // metadata streaming in), so put the name back every time the head changes.
+  const title = `${project.name ?? "New project"} - Buildinio`;
   useEffect(() => {
-    document.title = `${project.name ?? "New project"} | buildinio`;
-  });
+    const apply = () => {
+      if (document.title !== title) document.title = title;
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [title]);
 
   // The page itself scrolls. Text fades out under the header and above the prompt box
   // while there's more that way, and the chat follows the answer while you're at the bottom.

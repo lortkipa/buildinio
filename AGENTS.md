@@ -35,6 +35,7 @@ Guidance for AI coding agents working in this repo.
 ## Brand
 
 - Logo files, colors and usage rules live in `brand/` (see `brand/README.md`). Use those files; don't redraw or recolor the logo.
+- Page titles end in " - Buildinio": the root layout's `title.template` adds it, so pages set only their own part (`title: "Log in"`). The project chat swaps in the project's name (`ProjectChat`).
 - UI colors are CSS variables in `app/globals.css` (`background`, `foreground`, `muted`, `surface`, `border`, `error`). Dark mode follows the system setting.
 
 ## Signed-in home

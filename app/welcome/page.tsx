@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { getPendingSignup } from "@/lib/auth/signup";
 
 export const metadata: Metadata = {
-  title: "Welcome | buildinio",
+  title: "Welcome",
 };
 
 // First Google or GitHub sign-in lands here to pick a name (see the OAuth callback).
