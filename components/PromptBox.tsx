@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Mic, Plus } from "lucide-react";
-import { focusRing } from "@/components/styles";
+import { toast } from "sonner";
+import { focusRing, shown, swap } from "@/components/styles";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
 
@@ -72,16 +73,15 @@ function useTypingPlaceholder(active: boolean) {
 }
 
 const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full ${focusRing}`;
-const swap = "col-start-1 row-start-1 transition duration-200 ease-out motion-reduce:transition-none";
-const shown = "scale-100 rotate-0 opacity-100";
 
 type PromptBoxProps = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   dock: Dock | null; // Set while the phone keyboard is open; see useKeyboardDock.
+  signedIn?: boolean;
   className?: string;
 };
 
-export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps) {
+export function PromptBox({ textareaRef, dock, signedIn = false, className = "" }: PromptBoxProps) {
   const router = useRouter();
   const [value, setValue] = useState("");
   const placeholder = useTypingPlaceholder(value.length === 0);
@@ -111,9 +111,15 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
     }
   }
 
+  // Building isn't there yet: signed-out people go to sign-up, signed-in ones hear it's coming.
+  function notYet() {
+    if (signedIn) toast.info("Building apps is coming soon.");
+    else router.push("/signup");
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push("/signup"); // Goes to sign-up for now.
+    notYet();
   }
 
   return (
@@ -171,11 +177,11 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
           onMouseDown={(event) => event.preventDefault()}
           className="flex items-center justify-between px-3 pb-3"
         >
-          {/* Plus and mic go to sign-up for now. */}
+          {/* Plus and mic aren't built yet either. */}
           <button
             type="button"
             aria-label="Add files"
-            onClick={() => router.push("/signup")}
+            onClick={notYet}
             className={`${iconButton} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground`}
           >
             <Plus size={20} />
@@ -187,7 +193,7 @@ export function PromptBox({ textareaRef, dock, className = "" }: PromptBoxProps)
               type="button"
               aria-label="Use voice input"
               inert={hasText}
-              onClick={() => router.push("/signup")}
+              onClick={notYet}
               className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
                 hasText ? "scale-50 -rotate-45 opacity-0" : shown
               }`}

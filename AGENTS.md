@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — an app builder for non-coders. Early stage: a landing page plus working sign-up, log-in and accounts, no tests yet. Update this file as the project grows.
+`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, and a signed-in home with a sidebar (building apps, search and projects aren't built yet). No tests yet. Update this file as the project grows.
 
 ## Stack
 
@@ -23,7 +23,8 @@ Guidance for AI coding agents working in this repo.
 ## Layout
 
 - `app/` — routes (`/` in `page.tsx`, `/signup`, `/login`, `/welcome`, `/api/auth/[provider]/callback`), `layout.tsx` and `globals.css` (color tokens, light/dark).
-- `components/` — React components (`Header`, `HeaderAccount`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), `useKeyboardDock` (keeps the prompt box and the name step above the phone keyboard) and `styles.ts` (shared class strings like `focusRing`).
+- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), `useKeyboardDock` (keeps the prompt box and the name step above the phone keyboard) and `styles.ts` (shared class strings like `focusRing`).
+- `lib/sidebar.ts` — the sidebar's widths and cookie names, shared by the page and the sidebar.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations.
 - `lib/auth/` — sessions, Google/GitHub, email codes, sign-up, and `actions.ts` (the Server Actions the UI calls). `lib/email/` — the code email and sending.
 - `proxy.ts` — sends signed-in users from `/signup`, `/login` and `/welcome` to `/`.
@@ -35,6 +36,14 @@ Guidance for AI coding agents working in this repo.
 - Logo files, colors and usage rules live in `brand/` (see `brand/README.md`). Use those files; don't redraw or recolor the logo.
 - UI colors are CSS variables in `app/globals.css` (`background`, `foreground`, `muted`, `surface`, `border`, `error`). Dark mode follows the system setting.
 
+## Signed-in home
+
+- `/` shows the landing page (`Header` + `Hero`) when signed out, and `AppShell` with the "New" tab (greeting + prompt box) when signed in.
+- Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects, and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump.
+- Phones: a header with the sidebar button and the avatar. `MobileSidebar` slides over the whole screen, with the avatar floating at the bottom right.
+- Text that doesn't fit fades out with the `.fade-end` class (in `globals.css`) instead of ending in "…".
+- The Next.js dev badge is off (`devIndicators: false`) because every corner has a button under it.
+
 ## Auth
 
 - `/signup` and `/login` do the same thing; only the headings differ. Both render `AuthFlow` (start → email code → name). The server decides: an email with an account logs in, a new one creates an account.
@@ -44,7 +53,7 @@ Guidance for AI coding agents working in this repo.
 - Email codes: 6 digits, 10 minutes, one try each, at most 5 per email per hour.
 - Sessions: random token in an httpOnly `session` cookie, only its SHA-256 stored, 30 days. Read the user with `getCurrentUser()` inside `<Suspense>` (it reads the request).
 - Setup is in `.env.example` and the README. With no keys, email codes are printed in the server console (with a warning toast), and the Google/GitHub buttons show an error toast.
-- `cacheComponents` keeps visited pages alive but hidden, so `AuthFlow` and `AccountMenu` reset themselves when you leave the page. Logging in or out purges the browser's page cache (`revalidatePath("/", "layout")`).
+- `cacheComponents` keeps visited pages alive but hidden, so `AuthFlow`, `AccountMenu` and `AppShell` reset themselves when you leave the page. Logging in or out purges the browser's page cache (`revalidatePath("/", "layout")`).
 
 ## How to work
 

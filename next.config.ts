@@ -11,6 +11,9 @@ const lanAddresses = Object.values(networkInterfaces())
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: lanAddresses,
+  // Hide the dev-only Next.js badge: every corner has a button under it (the sidebar
+  // toggle and avatars). Build and runtime errors still show.
+  devIndicators: false,
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
