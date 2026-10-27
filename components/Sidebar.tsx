@@ -256,8 +256,37 @@ function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
         }`}
       >
         <h2 className="fade-end px-2.5 pb-1 text-xs font-medium text-muted">Projects</h2>
+        <ProjectsEmpty />
       </section>
     </>
+  );
+}
+
+// Ghost rows: bar width and opacity, each fainter than the last.
+const GHOST_ROWS = [
+  { bar: "55%", opacity: 1 },
+  { bar: "40%", opacity: 0.65 },
+  { bar: "48%", opacity: 0.35 },
+];
+
+/** No projects yet: faint outlines of rows where they'll show up. Same size as real rows. */
+function ProjectsEmpty() {
+  return (
+    <div className="pt-1">
+      <div aria-hidden className="flex flex-col gap-1.5">
+        {GHOST_ROWS.map(({ bar, opacity }) => (
+          <div
+            key={bar}
+            style={{ opacity }}
+            className="flex h-10 items-center gap-3 rounded-xl border border-dashed border-foreground/20 px-2.5"
+          >
+            <span className="size-5 shrink-0 rounded-md bg-foreground/[0.07]" />
+            <span style={{ width: bar }} className="h-2 rounded-full bg-foreground/[0.07]" />
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 px-2.5 text-xs text-balance text-muted">Your apps will show up here.</p>
+    </div>
   );
 }
 
