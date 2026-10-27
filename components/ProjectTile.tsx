@@ -45,15 +45,10 @@ export function ProjectLabel({ project, tile = true, className = "" }: ProjectLa
   );
 }
 
-/** Whether the sidebar and the chat's title show the project yet: from when the AI starts naming it. */
-export function isListed(project: Project) {
-  return project.name !== null || project.turn?.phase !== "thinking";
-}
-
 /** The project's name at the top of its chat, without the tile. */
 export function ProjectTitle({ id }: { id: string }) {
   const { project } = useProject(id);
-  if (!project || !isListed(project)) return null;
+  if (!project) return null;
   // Padding on both sides of the name: room for the fade, so a name that fits stays
   // centered and doesn't fade, and one that doesn't still fades out.
   return (

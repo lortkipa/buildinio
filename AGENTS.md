@@ -51,7 +51,7 @@ Guidance for AI coding agents working in this repo.
 
 - Everything is fake for now, to design the chat: no AI is called and nothing is built or previewed. Projects live in this browser's localStorage (`buildinio:projects:<userId>`), dropped when the account is deleted.
 - `lib/projects/store.ts` is a store outside React (`useSyncExternalStore`), so every page's sidebar and chat see the same projects and an answer keeps going on other pages. `AppShell` calls `loadProjects`.
-- A prompt on New creates a project and opens `/projects/[id]`. The first answer: Thinking → naming (sidebar row and chat title show skeletons, then the name types itself out with an icon and color guessed from the prompt) → a plan and tool calls (web search, file edits) → all of that folds away and a summary streams in. Later prompts get a plain streamed answer, no tools.
+- A prompt on New creates a project and opens `/projects/[id]`. The sidebar row and the chat title show skeletons right away. The first answer: Thinking → naming (the name types itself out with an icon and color guessed from the prompt) → a plan and tool calls (web search, file edits) → all of that folds away and a summary streams in. Later prompts get a plain streamed answer, no tools.
 - Text streams by the clock: a step stores when it started and the UI shows one letter every `CHAR_MS`. Answers in progress aren't saved; a reload restarts the cut-off one.
 - Seconds tick while the AI works and stay next to like / dislike / copy under every answer. Like and dislike exclude each other; pressing the one that's on turns it off.
 - User prompts sit on a tint of the project color; answers have no background.

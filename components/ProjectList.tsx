@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Ellipsis, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
-import { isListed, ProjectLabel } from "@/components/ProjectTile";
+import { ProjectLabel } from "@/components/ProjectTile";
 import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel, navItem } from "@/components/styles";
 import { useCloseOnBackdrop } from "@/components/useCloseOnBackdrop";
 import { usePlayOnce } from "@/components/usePlayOnce";
@@ -55,7 +55,6 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
-  const listed = projects.filter(isListed);
   const editing = projects.find((project) => project.id === editingId);
   const deleting = projects.find((project) => project.id === deletingId);
 
@@ -83,11 +82,11 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
       <div ref={scrollRef} className="scrollbar-thin fade-y min-h-0 flex-1 overflow-y-auto px-2">
         <div className={mobile ? "pb-24" : "pb-2"}>
           {loaded &&
-            (listed.length === 0 ? (
+            (projects.length === 0 ? (
               <ProjectsEmpty />
             ) : (
               <ul className="flex flex-col gap-0.5">
-                {listed.map((project) => (
+                {projects.map((project) => (
                   <ProjectRow
                     key={project.id}
                     project={project}
