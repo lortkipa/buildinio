@@ -6,28 +6,15 @@ import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import { NAME_CHAR_MS, useProject } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
 
-const SIZES = {
-  sm: { box: "size-5 rounded-md", icon: 12 },
-  lg: { box: "size-12 rounded-2xl", icon: 24 },
-};
-
 /** The project's icon, white on its color. */
-export function ProjectTile({
-  icon,
-  color,
-  size = "sm",
-}: {
-  icon: ProjectIcon;
-  color: ProjectColor;
-  size?: keyof typeof SIZES;
-}) {
+export function ProjectTile({ icon, color }: { icon: ProjectIcon; color: ProjectColor }) {
   const Icon = PROJECT_ICONS[icon];
   return (
     <span
       style={{ backgroundColor: PROJECT_COLORS[color] }}
-      className={`grid shrink-0 place-items-center text-white transition-colors duration-500 ${SIZES[size].box}`}
+      className="grid size-5 shrink-0 place-items-center rounded-md text-white transition-colors duration-500"
     >
-      <Icon size={SIZES[size].icon} strokeWidth={2.25} aria-hidden />
+      <Icon size={12} strokeWidth={2.25} aria-hidden />
     </span>
   );
 }

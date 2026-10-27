@@ -3,8 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Check } from "lucide-react";
-import { ProjectTile } from "@/components/ProjectTile";
 import { dialogButton, dialogPanel } from "@/components/styles";
+import { useCloseOnBackdrop } from "@/components/useCloseOnBackdrop";
 import {
   COLOR_NAMES,
   ICON_NAMES,
@@ -36,6 +36,7 @@ export function EditProjectDialog({ project, onClose }: EditProjectDialogProps) 
   const ref = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
+  const backdrop = useCloseOnBackdrop(ref);
   const [name, setName] = useState(project.name ?? "");
   const [icon, setIcon] = useState(project.icon);
   const [color, setColor] = useState(project.color);
@@ -61,15 +62,13 @@ export function EditProjectDialog({ project, onClose }: EditProjectDialogProps) 
       tabIndex={-1}
       aria-labelledby={`${id}-title`}
       onClose={onClose}
+      {...backdrop}
       className={`max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto outline-none ${dialogPanel}`}
     >
       <form onSubmit={handleSubmit}>
-        <div className="flex items-center gap-4">
-          <ProjectTile icon={icon} color={color} size="lg" />
-          <h2 id={`${id}-title`} className="text-lg font-semibold tracking-[-0.01em]">
-            Edit project
-          </h2>
-        </div>
+        <h2 id={`${id}-title`} className="text-lg font-semibold tracking-[-0.01em]">
+          Edit project
+        </h2>
 
         <label htmlFor={`${id}-name`} className="mt-6 block text-sm font-medium">
           Name

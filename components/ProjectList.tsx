@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
 import { isListed, ProjectLabel } from "@/components/ProjectTile";
 import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel, navItem } from "@/components/styles";
+import { useCloseOnBackdrop } from "@/components/useCloseOnBackdrop";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { useScrollEdges } from "@/components/useScrollEdges";
 import { deleteProject, isNew, useProjects } from "@/lib/projects/store";
@@ -221,8 +222,13 @@ function ProjectRow({ project, current, mobile, menuOpen, onMenu, onNavigate }: 
         onPointerMove={handlePointerMove}
         onPointerUp={cancelPress}
         onPointerCancel={cancelPress}
-        // No text selection or link preview when holding a finger on it.
-        className={`${navItem} pr-10 select-none [-webkit-touch-callout:none]`}
+        // No text selection or link preview when holding a finger on it. The name only
+        // makes room for the options button while it shows.
+        className={`${navItem} select-none [-webkit-touch-callout:none] ${
+          mobile || menuOpen
+            ? "pr-10"
+            : "pr-10 pointer-fine:pr-2.5 pointer-fine:group-focus-within/row:pr-10 pointer-fine:group-hover/row:pr-10"
+        }`}
       >
         <ProjectLabel project={project} className="flex-1" />
       </Link>
@@ -337,6 +343,7 @@ type DeleteProjectDialogProps = {
 function DeleteProjectDialog({ project, onDelete, onClose }: DeleteProjectDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
+  const backdrop = useCloseOnBackdrop(ref);
 
   useEffect(() => {
     ref.current?.showModal();
@@ -348,6 +355,7 @@ function DeleteProjectDialog({ project, onDelete, onClose }: DeleteProjectDialog
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-text`}
       onClose={onClose}
+      {...backdrop}
       className={`max-w-sm ${dialogPanel}`}
     >
       <h2 id={`${id}-title`} className="text-lg font-semibold tracking-[-0.01em] wrap-anywhere">

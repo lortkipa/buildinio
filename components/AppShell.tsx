@@ -6,19 +6,10 @@ import { PanelLeft } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { focusRing } from "@/components/styles";
+import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
 import type { CurrentUser } from "@/lib/auth/session";
 import { loadProjects } from "@/lib/projects/store";
-import { SIDEBAR_COLLAPSED_COOKIE, SIDEBAR_WIDTH_COOKIE } from "@/lib/sidebar";
 import type { SidebarState } from "@/lib/sidebar";
-
-const YEAR_S = 365 * 24 * 60 * 60;
-
-/** Remembered in cookies, so the page renders at this size next time with no jump. */
-function saveSidebar({ width, collapsed }: SidebarState) {
-  const options = `; path=/; max-age=${YEAR_S}; samesite=lax`;
-  document.cookie = `${SIDEBAR_WIDTH_COOKIE}=${width}${options}`;
-  document.cookie = `${SIDEBAR_COLLAPSED_COOKIE}=${collapsed ? 1 : 0}${options}`;
-}
 
 type AppShellProps = {
   user: CurrentUser;
@@ -32,16 +23,14 @@ type AppShellProps = {
  * header with a sidebar button and the account menu; the sidebar slides over.
  */
 export function AppShell({ user, sidebar: saved, title, children }: AppShellProps) {
-  const [sidebar, setSidebar] = useState(saved);
+  const sidebar = useSidebarState(saved);
   const [mobileOpen, setMobileOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const id = useId();
 
-  const commitSidebar = useCallback((next: SidebarState) => {
-    setSidebar(next);
-    saveSidebar(next);
-  }, []);
+  const changeSidebar = useCallback((next: SidebarState) => setSidebarState(next, false), []);
+  const commitSidebar = useCallback((next: SidebarState) => setSidebarState(next, true), []);
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
@@ -78,7 +67,7 @@ export function AppShell({ user, sidebar: saved, title, children }: AppShellProp
 
   return (
     <div className="flex flex-1">
-      <DesktopSidebar user={user} state={sidebar} onChange={setSidebar} onCommit={commitSidebar} />
+      <DesktopSidebar user={user} state={sidebar} onChange={changeSidebar} onCommit={commitSidebar} />
 
       {/* Out of reach while the phone sidebar covers it. */}
       <div inert={mobileOpen} className="flex min-w-0 flex-1 flex-col">

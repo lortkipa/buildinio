@@ -23,7 +23,7 @@ Guidance for AI coding agents working in this repo.
 ## Layout
 
 - `app/` — routes (`/` in `page.tsx`, `/projects/[id]`, `/signup`, `/login`, `/welcome`, `/api/auth/[provider]/callback`), `layout.tsx` and `globals.css` (color tokens, light/dark, animations, fades).
-- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `ProjectList`, `ProjectTile`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useStreamed`, `useScrollEdges`, `usePlayOnce`) and `styles.ts` (shared class strings like `focusRing`, `navItem`, `menuPanel`, `dialogPanel`).
+- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `ProjectList`, `ProjectTile`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useSidebarState`, `useStreamed`, `useScrollEdges`, `usePlayOnce`, `useCloseOnBackdrop`) and `styles.ts` (shared class strings like `focusRing`, `navItem`, `menuPanel`, `dialogPanel`).
 - `lib/projects/` — the mocked projects: `store.ts` (state, localStorage, the fake AI's timeline), `mock.ts` (its canned words), `options.ts` (project colors and icons), `types.ts`.
 - `lib/sidebar.ts` — the sidebar's widths and cookie names, shared by the page and the sidebar.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations.
@@ -40,7 +40,7 @@ Guidance for AI coding agents working in this repo.
 ## Signed-in home
 
 - `/` shows the landing page (`Header` + `Hero`) when signed out, and `AppShell` with the "New" tab (greeting + prompt box) when signed in.
-- Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects (newest first; an empty state of faint ghost rows and "Your apps will show up here." when there are none), and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump.
+- Desktop (`md` and up): `DesktopSidebar` with the logo (turns into the toggle on hover), New and Search tabs, Projects (newest first; an empty state of faint ghost rows and "Your apps will show up here." when there are none), and the account row at the bottom. Drag its right edge to resize (180–400px); dragging under 140px collapses it to icons. Width and collapsed state are saved in the `sidebar_width` and `sidebar_collapsed` cookies, so the page renders at that size with no jump, and shared by every page through `useSidebarState` (kept-alive pages would otherwise keep their old size).
 - Phones: a header with the sidebar button and the avatar. `MobileSidebar` slides over the whole screen, with the avatar floating at the bottom right.
 - Text that doesn't fit fades out with the `.fade-end` class (in `globals.css`) instead of ending in "…". It fades the element's last 2rem, so give it room (`flex-1`, or padding) or text that fits fades too.
 - Scroll areas fade out what's scrolled past the same way: `.fade-y` + `useScrollEdges` (sidebar projects); the chat, which scrolls the page, uses background gradients under the header and above the prompt box.
@@ -55,7 +55,7 @@ Guidance for AI coding agents working in this repo.
 - Text streams by the clock: a step stores when it started and the UI shows one letter every `CHAR_MS`. Answers in progress aren't saved; a reload restarts the cut-off one.
 - Seconds tick while the AI works and stay next to like / dislike / copy under every answer. Like and dislike exclude each other; pressing the one that's on turns it off.
 - User prompts sit on a tint of the project color; answers have no background.
-- Sidebar rows: the ⋯ button shows on hover with a mouse and always on touch screens and in the phone sidebar. It, right-click and a long press open Edit (name, color, icon) and Delete (asks first, like deleting the account).
+- Sidebar rows: the ⋯ button shows on hover with a mouse and always on touch screens and in the phone sidebar. The name only makes room for it while it shows. It, right-click and a long press open Edit (name, color, icon) and Delete (asks first, like deleting the account). Clicking outside either dialog cancels it (`useCloseOnBackdrop`).
 
 ## Auth
 
