@@ -54,16 +54,14 @@ test("bullets and numbers carry on, nest and end as they're typed, and show as l
   await box.pressSequentially("Cheap");
   expect(await withCaret(box)).toBe("Pages?\n• Home\n  • Hero\n• Menu\n1. Fast\n2. Cheap|\n3. Simple");
 
-  // Shift+Enter breaks the line inside an item; Backspace after a number takes it away.
-  await box.press("Shift+Enter");
-  await box.pressSequentially("and safe");
+  // Shift+Enter starts the next item too; Backspace after a number takes it away.
   await box.press("End");
   await box.press("ArrowDown");
   await box.press("End");
-  await box.press("Enter");
-  expect(await withCaret(box)).toBe("Pages?\n• Home\n  • Hero\n• Menu\n1. Fast\n2. Cheap\n   and safe\n3. Simple\n4. |");
+  await box.press("Shift+Enter");
+  expect(await withCaret(box)).toBe("Pages?\n• Home\n  • Hero\n• Menu\n1. Fast\n2. Cheap\n3. Simple\n4. |");
   await box.press("Backspace");
-  expect(await withCaret(box)).toBe("Pages?\n• Home\n  • Hero\n• Menu\n1. Fast\n2. Cheap\n   and safe\n3. Simple\n|");
+  expect(await withCaret(box)).toBe("Pages?\n• Home\n  • Hero\n• Menu\n1. Fast\n2. Cheap\n3. Simple\n|");
   await box.press("Backspace");
 
   // Enter in a list never sends; outside one it does.
@@ -79,7 +77,7 @@ test("bullets and numbers carry on, nest and end as they're typed, and show as l
   await expect(bullets.locator(":scope > li")).toHaveCount(2);
   await expect(bullets.locator("ul > li")).toHaveText(["Hero"]);
   await expect(bullets.locator("ul")).toHaveCSS("list-style-type", "circle");
-  await expect(message.locator("ol > li")).toHaveText(["Fast", "Cheap\nand safe", "Simple"]);
+  await expect(message.locator("ol > li")).toHaveText(["Fast", "Cheap", "Simple"]);
   await expect(message).not.toContainText("•");
   await page.screenshot({ path: test.info().outputPath("sent.png"), animations: "disabled" });
 });

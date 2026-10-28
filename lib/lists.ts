@@ -40,7 +40,7 @@ function indentOf(line: string) {
   return line.length - line.trimStart().length;
 }
 
-/** A line that carries on the item above it (indented, after Shift+Enter). */
+/** A line that carries on the item above it (indented, with no bullet of its own). */
 function continues(line: string) {
   return /^[ \t]/.test(line) && !parseItem(line);
 }
@@ -123,13 +123,12 @@ function finish(lines: string[], start: Spot, end: Spot, at: number): Edit {
   return { value: lines.join("\n"), start: positionOf(lines, start), end: positionOf(lines, end) };
 }
 
-export type ListKey = "Enter" | "Shift+Enter" | "Tab" | "Shift+Tab" | "Backspace";
+export type ListKey = "Enter" | "Tab" | "Shift+Tab" | "Backspace";
 
 /**
  * What a key does in a list, or null when it does what it always does:
- * - Enter starts the next item (numbered one more). On an empty item it moves the
- *   item out a level, or ends the list.
- * - Shift+Enter breaks the line inside the item.
+ * - Enter (and Shift+Enter, which people use for a new line) starts the next item,
+ *   numbered one more. On an empty item it moves the item out a level, or ends the list.
  * - Tab and Shift+Tab move the item, its sub-items and the selected items in and out a level.
  * - Backspace just after a bullet or number takes it away.
  */
@@ -145,13 +144,6 @@ export function listKey(value: string, selStart: number, selEnd: number, key: Li
   if (o === -1) return null;
   const item = parseItem(lines[o])!;
   const line = lines[i];
-
-  if (key === "Shift+Enter") {
-    const col = line.length - caret.fromEnd;
-    lines.splice(i, 1, line.slice(0, col), " ".repeat(item.prefix) + line.slice(col).trimStart());
-    const spot = { line: i + 1, fromEnd: caret.fromEnd };
-    return finish(lines, spot, spot, i);
-  }
 
   const next = format({ ...item, number: item.number === null ? null : item.number + 1 });
   if (o === i && !line.slice(item.prefix).trim()) {

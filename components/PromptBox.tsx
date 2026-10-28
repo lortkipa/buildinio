@@ -107,7 +107,8 @@ function applyEdit(textarea: HTMLTextAreaElement, { value, start, end }: Edit) {
 /** The keys that do something special in a list. */
 function listKeyOf(event: KeyboardEvent<HTMLTextAreaElement>): ListKey | null {
   if (event.altKey || event.ctrlKey || event.metaKey) return null;
-  if (event.key === "Enter") return event.shiftKey ? "Shift+Enter" : "Enter";
+  // Shift+Enter too: it's how people make a new line, and in a list that's the next item.
+  if (event.key === "Enter") return "Enter";
   if (event.key === "Tab") return event.shiftKey ? "Shift+Tab" : "Tab";
   if (event.key === "Backspace" && !event.shiftKey) return "Backspace";
   return null;
