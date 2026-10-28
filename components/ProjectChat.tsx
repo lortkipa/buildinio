@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { X } from "lucide-react";
 import { AssistantMessage, UserMessage } from "@/components/ChatMessage";
 import { ChatTurn } from "@/components/ChatTurn";
 import { PromptBox } from "@/components/PromptBox";
 import { focusRing } from "@/components/styles";
 import { useKeyboardDock } from "@/components/useKeyboardDock";
-import { sendMessage, useProject } from "@/lib/projects/store";
+import { usePlayOnce } from "@/components/usePlayOnce";
+import { setMobilePreview } from "@/components/usePreviewState";
+import { markPreviewSeen, sendMessage, useProject } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
 
 const FOLLOW_SLACK = 96; // px from the bottom that still counts as reading the latest.
@@ -115,6 +118,8 @@ function Chat({ project }: { project: Project }) {
             atBottom ? "opacity-0" : ""
           }`}
         />
+        {/* Hidden while docked above the keyboard: the box has moved. */}
+        {project.ready && !dock && <ReadyCard projectId={project.id} />}
         <PromptBox
           textareaRef={textareaRef}
           dock={dock}
@@ -126,6 +131,41 @@ function Chat({ project }: { project: Project }) {
         />
       </div>
     </main>
+  );
+}
+
+/**
+ * On phones the preview doesn't open by itself when the app is built (it would cover
+ * the chat): a small pill above the prompt box says it's ready.
+ */
+function ReadyCard({ projectId }: { projectId: string }) {
+  const enter = usePlayOnce("motion-safe:animate-enter");
+  return (
+    // Centered over the chat, leaving what's beside it clickable.
+    <div className="pointer-events-none absolute inset-x-4 bottom-full mb-2 flex justify-center md:hidden">
+      <div
+        onAnimationEnd={enter.onAnimationEnd}
+        className={`pointer-events-auto flex items-center gap-1 rounded-full border border-border bg-surface py-1 pr-1 pl-4 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.18)] ${enter.className}`}
+      >
+        <p className="mr-2 text-sm font-medium">Your app is ready</p>
+        <button
+          type="button"
+          aria-label="View your app"
+          onClick={() => setMobilePreview(true)}
+          className={`h-8 cursor-pointer rounded-full bg-foreground px-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 ${focusRing}`}
+        >
+          View
+        </button>
+        <button
+          type="button"
+          aria-label="Dismiss"
+          onClick={() => markPreviewSeen(projectId)}
+          className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing}`}
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
   );
 }
 

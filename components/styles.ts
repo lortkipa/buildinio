@@ -6,6 +6,9 @@ export const focusRing =
 export const swap = "col-start-1 row-start-1 transition duration-200 ease-out motion-reduce:transition-none";
 export const shown = "scale-100 rotate-0 opacity-100";
 
+// Round icon buttons in the chat header, on a surface so they stand out from what scrolls under them.
+export const circleButton = `grid size-10 cursor-pointer place-items-center rounded-full bg-surface text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing}`;
+
 // A tab or project in the sidebar.
 export const navItem = `flex h-10 w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl px-2.5 text-left text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground aria-[current=page]:bg-foreground/5 aria-[current=page]:text-foreground ${focusRing}`;
 

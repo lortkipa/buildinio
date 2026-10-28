@@ -55,13 +55,18 @@ for (const colorScheme of ["light", "dark"] as const) {
     });
     await preview.click();
     await expect(preview).toHaveAttribute("aria-pressed", "true");
+    // It slides the preview over the chat, whose own pressed toggle closes it again.
+    const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
+    await expect(sheet).toBeVisible();
     await page.mouse.move(0, 100);
     await expect.poll(() => preview.evaluate((element) => {
       const style = getComputedStyle(element);
       return [style.backgroundColor, style.color];
     })).toEqual(previewColors);
-    await preview.click();
+    await sheet.getByRole("button", { name: "Toggle preview" }).click();
+    await expect(sheet).not.toBeVisible();
     await expect(preview).toHaveAttribute("aria-pressed", "false");
+    await expect(preview).toBeFocused();
     await page.mouse.move(0, 100);
 
     // The whole name remains accessible while its visible text truncates before the chevron.
@@ -127,19 +132,24 @@ for (const colorScheme of ["light", "dark"] as const) {
   });
 }
 
-test("preview stays mobile-only and the title menu works across screen sizes", async ({ page }) => {
+test("the phone preview closes on navigation and the title menu works across screen sizes", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto("/projects/header-project");
   const header = page.locator("header");
   const preview = header.getByRole("button", { name: "Toggle preview" });
   await preview.click();
-  await header.getByRole("button", { name: "Open sidebar" }).click();
+  // The preview has the chat header's sidebar button; the sidebar slides over it.
+  const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
+  await sheet.getByRole("button", { name: "Open sidebar" }).click();
   await page.getByRole("dialog", { name: "Sidebar", exact: true }).getByRole("link", { name: "Other app", exact: true }).click();
   await expect(page).toHaveURL(/\/projects\/other-project$/);
+  await expect(sheet).not.toBeVisible();
   await expect(preview).toHaveAttribute("aria-pressed", "false");
   await expect(header.getByRole("button", { name: "Options for Other app", exact: true })).toBeVisible();
+  // On wider screens the button toggles the panel next to the chat instead.
   await page.setViewportSize({ width: 1280, height: 800 });
-  await expect(preview).not.toBeVisible();
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute("aria-pressed", "false");
   const title = header.getByRole("button", { name: "Options for Other app", exact: true });
   await expect(title).toBeVisible();
   await title.hover();

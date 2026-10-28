@@ -6,15 +6,22 @@ import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import { NAME_CHAR_MS } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
 
+type ProjectTileProps = {
+  icon: ProjectIcon;
+  color: ProjectColor;
+  className?: string; // Size and corners, if not the sidebar's.
+  iconSize?: number;
+};
+
 /** The project's icon, white on its color. */
-export function ProjectTile({ icon, color }: { icon: ProjectIcon; color: ProjectColor }) {
+export function ProjectTile({ icon, color, className = "size-5 rounded-md", iconSize = 12 }: ProjectTileProps) {
   const Icon = PROJECT_ICONS[icon];
   return (
     <span
       style={{ backgroundColor: PROJECT_COLORS[color] }}
-      className="grid size-5 shrink-0 place-items-center rounded-md text-white transition-colors duration-500"
+      className={`grid shrink-0 place-items-center text-white transition-colors duration-500 ${className}`}
     >
-      <Icon size={12} strokeWidth={2.25} aria-hidden />
+      <Icon size={iconSize} strokeWidth={2.25} aria-hidden />
     </span>
   );
 }

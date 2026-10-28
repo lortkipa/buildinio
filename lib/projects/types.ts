@@ -41,4 +41,5 @@ export type Project = {
   createdAt: number;
   messages: Message[];
   turn: Turn | null;
+  ready?: boolean; // The AI just built the app and its preview hasn't been seen yet.
 };
