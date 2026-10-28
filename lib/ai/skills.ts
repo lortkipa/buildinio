@@ -11,13 +11,20 @@ import { FileError } from "@/lib/sandbox/files";
 
 // The ignore comment stops the bundler from tracing the whole project because of this path.
 const ROOT = path.join(/* turbopackIgnore: true */ process.cwd(), "skills");
+const TEXT = /\.(md|txt|json|ya?ml|[cm]?js|jsx|tsx?|css|html)$/i; // Files the AI can read; not pictures.
+// A command whose output goes in its place when SKILL.md is read, like shadcn's
+// !`npx shadcn@latest info --json` (the same syntax as Claude Code's skills).
+const COMMAND = /(?<=^|\s)!`([^`\n]+)`/gm;
+
+/** Runs a skill's command in the project and returns what it printed. */
+type Run = (command: string) => Promise<string>;
 
 type Skill = {
   name: string;
   description: string;
   dir: string;
   body: string; // SKILL.md without its frontmatter.
-  files: string[]; // The skill's other files, like "command.md". Licenses left out.
+  files: string[]; // The skill's other text files, like "command.md". Licenses left out.
 };
 
 export const SKILLS: Skill[] = readSkills();
@@ -27,18 +34,29 @@ export function skillList() {
   return SKILLS.map((skill) => `- ${skill.name}: ${skill.description}`).join("\n");
 }
 
-/** A skill's SKILL.md, followed by its other files' names, or one of those files. */
-export async function readSkill(name: string, file: string) {
+/** A skill's SKILL.md (its commands run), followed by its other files' names, or one of those files. */
+export async function readSkill(name: string, file: string, run: Run) {
   const skill = SKILLS.find((candidate) => candidate.name === name);
   if (!skill) throw new FileError(`There's no skill called ${name}.`);
   const wanted = file.trim().replace(/^(\.\/)+/, "");
   if (!wanted || wanted === "SKILL.md") {
-    return skill.files.length ? `${skill.body}\n\n---\nThis skill's other files: ${skill.files.join(", ")}` : skill.body;
+    const body = await withCommands(skill.body, run);
+    return skill.files.length ? `${body}\n\n---\nThis skill's other files: ${skill.files.join(", ")}` : body;
   }
   if (!skill.files.includes(wanted)) {
     throw new FileError(`${skill.name} has no file called ${wanted}. Its files: ${skill.files.join(", ") || "just SKILL.md"}.`);
   }
   return readFile(path.join(skill.dir, ...wanted.split("/")), "utf8");
+}
+
+async function withCommands(text: string, run: Run) {
+  let result = "";
+  let last = 0;
+  for (const match of text.matchAll(COMMAND)) {
+    result += text.slice(last, match.index) + (await run(match[1]));
+    last = match.index + match[0].length;
+  }
+  return result + text.slice(last);
 }
 
 function readSkills(): Skill[] {
@@ -62,7 +80,7 @@ function readSkills(): Skill[] {
     const files = readdirSync(dir, { recursive: true, withFileTypes: true, encoding: "utf8" })
       .filter((entry) => entry.isFile())
       .map((entry) => path.relative(dir, path.join(entry.parentPath, entry.name)).split(path.sep).join("/"))
-      .filter((file) => file !== "SKILL.md" && !/^licen[cs]e/i.test(path.basename(file)))
+      .filter((file) => file !== "SKILL.md" && TEXT.test(file) && !/^licen[cs]e/i.test(path.basename(file)))
       .sort();
     skills.push({ name: meta.name, description: meta.description, dir, body: body.trim(), files });
   }

@@ -6,7 +6,7 @@ export type AssistantMessage = { id: string; role: "assistant"; text: string; se
 
 export type Message = { id: string; role: "user"; text: string } | AssistantMessage;
 
-export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "skill";
+export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "skill" | "look";
 
 type TextStep = { id: string; kind: "text"; text: string; startedAt: number };
 

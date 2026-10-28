@@ -1,7 +1,9 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { NPM_CACHE, projectDir } from "@/lib/sandbox/workspace";
 
 // Runs a shell command in a project's folder: npm installs, builds, and the AI's own
@@ -13,9 +15,12 @@ const MAX_OUTPUT = 16_000; // The end of the output is kept: that's where errors
 // Color codes: tokens the AI pays for and gets nothing from. NO_COLOR stops most;
 // this cleans up after the rest. (CI=true, which npm wants, turns Vite's colors on.)
 const COLORS = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
-const IMAGE = process.env.SANDBOX_IMAGE || "node:22-slim";
+const IMAGE = process.env.SANDBOX_IMAGE || playwrightImage();
 
 export type CommandResult = { exitCode: number; output: string; timedOut: boolean };
+
+/** A file or folder of ours a command needs, shown read-only at `container` in Docker. */
+export type Mount = { host: string; container: string };
 
 /** The sandbox itself can't run (no Docker, say): nothing the AI can fix. */
 export class SandboxError extends Error {}
@@ -27,7 +32,7 @@ export function sandboxMode() {
 export async function runCommand(
   projectId: string,
   command: string,
-  { signal, timeoutMs }: { signal: AbortSignal; timeoutMs: number },
+  { signal, timeoutMs, mounts = [] }: { signal: AbortSignal; timeoutMs: number; mounts?: Mount[] },
 ): Promise<CommandResult> {
   signal.throwIfAborted();
   const dir = projectDir(projectId);
@@ -36,7 +41,7 @@ export async function runCommand(
   const name = `buildinio-${projectId.slice(0, 8)}-${randomBytes(4).toString("hex")}`;
 
   const child = docker
-    ? spawn("docker", dockerArgs(name, dir, command), { stdio: ["ignore", "pipe", "pipe"] })
+    ? spawn("docker", dockerArgs(name, dir, command, mounts), { stdio: ["ignore", "pipe", "pipe"] })
     : spawn(command, {
         cwd: dir,
         shell: true,
@@ -87,7 +92,7 @@ export async function runCommand(
   }
 }
 
-function dockerArgs(name: string, dir: string, command: string) {
+function dockerArgs(name: string, dir: string, command: string, mounts: Mount[]) {
   // Run as this user, so files made in the folder stay ours to change and delete.
   const user = process.getuid && process.getgid ? ["--user", `${process.getuid()}:${process.getgid()}`] : [];
   return [
@@ -96,6 +101,7 @@ function dockerArgs(name: string, dir: string, command: string) {
     ...user,
     "-v", `${dir}:/app`, "-w", "/app",
     "-v", `${NPM_CACHE}:/npm-cache`,
+    ...mounts.flatMap((mount) => ["-v", `${mount.host}:${mount.container}:ro`]),
     "-e", "HOME=/tmp", "-e", "npm_config_cache=/npm-cache", "-e", "npm_config_update_notifier=false", "-e", "CI=true",
     "-e", "NO_COLOR=1",
     IMAGE, "sh", "-c", command,
@@ -114,7 +120,8 @@ function dockerProblem(exitCode: number, output: string) {
 
 // The host's environment, minus anything secret: just enough for npm to work
 // (behind a proxy too). Without NODE_ENV, so devDependencies install.
-const HOST_ENV = /^(path|pathext|home|userprofile|appdata|localappdata|temp|tmp|tmpdir|systemroot|comspec|lang|https?_proxy|no_proxy|node_extra_ca_certs|ssl_cert_file|npm_config_(https?_proxy|proxy|noproxy|cafile|registry))$/i;
+// Plus where Chromium is, for the screenshots (lib/sandbox/look.ts).
+const HOST_ENV = /^(path|pathext|home|userprofile|appdata|localappdata|temp|tmp|tmpdir|systemroot|comspec|lang|https?_proxy|no_proxy|node_extra_ca_certs|ssl_cert_file|npm_config_(https?_proxy|proxy|noproxy|cafile|registry)|chromium_path|playwright_browsers_path)$/i;
 
 function hostEnv() {
   const env: Record<string, string | undefined> = {
@@ -135,6 +142,35 @@ function killTree(pid: number | undefined) {
   } catch {
     // Already gone.
   }
+}
+
+/**
+ * Playwright's image: Node and npm, plus the Chromium our playwright-core drives for
+ * screenshots (look.ts). Same version, or playwright-core won't find its browser.
+ */
+function playwrightImage() {
+  try {
+    const manifest = path.join(/* turbopackIgnore: true */ process.cwd(), "node_modules", "playwright-core", "package.json");
+    return `mcr.microsoft.com/playwright:v${JSON.parse(readFileSync(manifest, "utf8")).version}-noble`;
+  } catch {
+    return "node:22-slim"; // No screenshots, then.
+  }
+}
+
+/**
+ * Downloads the Docker image in the background if it isn't here yet, so the first
+ * build doesn't spend its time limit on that. Called when the server starts.
+ */
+export function prepareSandbox() {
+  if (sandboxMode() !== "docker") return;
+  let noDocker = false; // The first command says so.
+  const inspect = spawn("docker", ["image", "inspect", IMAGE], { stdio: "ignore" });
+  inspect.on("error", () => (noDocker = true));
+  inspect.on("close", (code) => {
+    if (noDocker || code === 0) return;
+    console.log(`Downloading the sandbox image (${IMAGE}) for the AI's commands…`);
+    spawn("docker", ["pull", IMAGE], { stdio: "ignore" }).on("error", () => {});
+  });
 }
 
 function tail(output: string) {

@@ -41,8 +41,10 @@ The AI that builds the apps is an OpenAI model. Without a key, every answer says
 
 Every answer logs what it cost in the server console, like `AI answer for 1a2b3c4d: 9 requests, 182,400 input tokens (164,100 cached), …`. Most of the input should be cached: the AI's instructions stay the same between requests so OpenAI's prompt cache can reuse them.
 
-The AI can read up on design when a request needs it, using well-known public skills kept in [`skills/`](skills/).
+The AI can read up on design when a request needs it, using well-known public skills kept in [`skills/`](skills/), and it looks at screenshots of the app it built to fix what looks off.
 
-Each project is a real Vite + React app, kept in `data/projects/<id>` until the project or the account is deleted. The AI installs packages and builds the app with npm, which runs in [Docker](https://docs.docker.com/get-docker/) by default: a throwaway container that only sees the app's folder. Have Docker running (the first build downloads the `node:22-slim` image). To skip Docker, set `SANDBOX=host`: commands then run straight on your computer, which is quicker to set up but gives the AI's code the same access you have.
+Each project is a real Vite + React app, kept in `data/projects/<id>` until the project or the account is deleted. The AI installs packages and builds the app with npm, which runs in [Docker](https://docs.docker.com/get-docker/) by default: a throwaway container that only sees the app's folder. Have Docker running. The image is Playwright's (`mcr.microsoft.com/playwright`, matching the installed `playwright-core`): Node and npm, plus the Chromium the AI uses to take screenshots of the app it built. It's a big download, started in the background when the server starts. To skip Docker, set `SANDBOX=host`: commands then run straight on your computer, which is quicker to set up but gives the AI's code the same access you have. Screenshots then use Playwright's Chromium (`npx playwright install chromium`), or the one at `CHROMIUM_PATH`.
+
+The AI builds apps from [shadcn/ui](https://ui.shadcn.com) components, so wherever its commands run needs to reach `ui.shadcn.com` as well as npm.
 
 Brand assets and usage rules are in [`brand/`](brand/).

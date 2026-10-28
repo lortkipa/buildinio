@@ -7,5 +7,7 @@ export async function register() {
     const { projectExists } = await import("@/lib/projects/server");
     const { pruneWorkspaces } = await import("@/lib/sandbox/workspace");
     await pruneWorkspaces(projectExists);
+    const { prepareSandbox } = await import("@/lib/sandbox/run");
+    prepareSandbox();
   }
 }

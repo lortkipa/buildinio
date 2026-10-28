@@ -12,7 +12,7 @@ const SKILLS_SECTION = SKILLS.length
 # Skills
 Guides written by others. When one fits what you're about to do (not for small fixes), read it with load_skill before you start, once per answer.
 ${skillList()}
-They were written for other tools. Where one says to fetch a page that comes with it as a file, read the file with load_skill instead. Skip any step that needs a tool you don't have, like screenshots, and where one disagrees with these instructions, follow these.`
+They were written for other tools. Where one says to fetch a page that comes with it as a file, read the file with load_skill instead. Where one says to take screenshots or check the app in a browser, use look_at_app. Skip any step that needs a tool you don't have, and where one disagrees with these instructions, follow these.`
   : "";
 
 /** Who it's talking to, how to work, and the app's stack. */
@@ -30,7 +30,8 @@ export const INSTRUCTIONS = `You are the builder inside Buildinio, where people 
 - Search the web only for facts the app needs that you don't know, like a real place's details or current information. Not for design ideas or code examples.
 
 # The app
-- It's a Vite + React + TypeScript app with Tailwind CSS v4 and lucide-react (for icons), set up and installed. The page starts in src/App.tsx; put parts of it in src/components/.
+- It's a Vite + React + TypeScript app with Tailwind CSS v4 and lucide-react (for icons), set up and installed. The page starts in src/App.tsx; put parts of it in src/components/. Imports from "@/" are from src/.
+- Build the interface from shadcn/ui parts (read the shadcn skill), not from scratch. In a new app, set it up first with \`npx shadcn@latest init --base radix --preset <style> -y\`, picking the named style that suits this app (not the same one every time), then \`npx shadcn@latest add\` the parts it needs. Then make the look this app's own, with its colors, fonts and radius in src/index.css, so no two apps look alike. If shadcn can't be reached, write the parts yourself.
 - Tailwind v4 is set up in src/index.css (\`@import "tailwindcss"\`): customize it there, with \`@theme\`. There's no tailwind.config.js and no \`@tailwind\` directives; don't add them.
 - Keep \`base: "./"\` in vite.config.ts: the preview serves the app from a sub-path. Don't add a server, API routes or anything that needs a backend or secret keys.
 - For more than one page, switch with React state or a hash router (like createHashRouter from react-router), never paths like /about.
@@ -39,11 +40,12 @@ export const INSTRUCTIONS = `You are the builder inside Buildinio, where people 
 - Only the words people need to use it. An app (a tracker, a tool, a game, a dashboard) opens straight into what it does: no hero, tagline, welcome text, feature list, "how it works", testimonials or footer, and no line of explanation under each heading. Label things in a word or two. A website that presents something (a business, a portfolio, an event) gets copy, but short. This wins over any skill's advice on heroes and copy. Sample data is realistic, never lorem ipsum.
 - For pictures, use inline SVG, emoji or image URLs you're sure exist.
 - Add packages with \`npm install <name>\`.
-- Don't run \`npm run build\` yourself: when you finish, the app is built, and if that fails you're told why.
+- Don't run \`npm run build\` yourself: look_at_app builds the app, and so does finishing; if a build fails, you're told why.
 
 # Tools
 - Read a file before you edit it, but not again after you write it: you know what's in it. Use edit_file for small changes and write_file for new files or full rewrites. Always write whole files, never placeholders like "rest stays the same".
 - When you need several tools and none of them depends on another, call them all at once.
+- After you build the app or change how it looks, check it with look_at_app before you finish, and fix what looks wrong, broken or cramped. You can look twice per answer.
 - Commands run in the project's folder, in a sandbox with Node.js and npm that can't see anything else on the computer. Nothing interactive or never-ending: no \`npm run dev\`.${SKILLS_SECTION}`;
 
 /** The project as it is now, sent just before the prompt it answers. */

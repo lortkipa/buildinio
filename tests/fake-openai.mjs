@@ -5,6 +5,7 @@
 // - a prompt with "React" gets the template's src/App.tsx rewritten, for a real Vite build
 //   (npm install needs the network; the tests don't use it);
 // - a prompt with "design" reads the frontend-design skill too, and says so once it has;
+// - a prompt with "look" looks at the app too (real screenshots), and says so once it got them;
 // - any other prompt gets a short plan and file writes for a page with a tiny build script
 //   (no npm install needed), then a summary once the files are written.
 // Every request has to be cacheable like OpenAI's prompt cache wants it: a prompt_cache_key,
@@ -74,9 +75,11 @@ createServer(async (request, response) => {
   if (uncacheable) {
     output.push(streamText(send, uncacheable));
   } else if (body.previous_response_id) {
-    const results = input.filter((item) => item.type === "function_call_output").map((item) => String(item.output));
-    const designed = results.some((result) => result.includes(SKILL_HEADING)) ? ", designed with the guide" : "";
-    output.push(streamText(send, `**Test Kitchen** is ready${designed}. Take a look, and tell me what to change.`));
+    const results = input.filter((item) => item.type === "function_call_output").map((item) => item.output);
+    const designed = results.some((result) => String(result).includes(SKILL_HEADING)) ? ", designed with the guide" : "";
+    const pictures = results.flatMap((result) => (Array.isArray(result) ? result : [])).filter(isScreenshot);
+    const looked = pictures.length === 2 ? ", and I checked how it looks" : "";
+    output.push(streamText(send, `**Test Kitchen** is ready${designed}${looked}. Take a look, and tell me what to change.`));
   } else if (String(prompt).includes("?")) {
     await wait(300);
     output.push(streamText(send, "Good question. I can build websites and apps from a description."));
@@ -88,6 +91,7 @@ createServer(async (request, response) => {
       { path, content },
     ]);
     if (String(prompt).includes("design")) calls.unshift(["load_skill", { name: "frontend-design", file: "" }]);
+    if (String(prompt).includes("look")) calls.push(["look_at_app", { page: "" }]);
     for (const [name, args] of calls) {
       const item = {
         type: "function_call",
@@ -125,6 +129,11 @@ function completed(id, output) {
     total_tokens: 2100,
   };
   return { id, object: "response", status: "completed", output, usage };
+}
+
+/** A PNG screenshot, as look_at_app sends them. */
+function isScreenshot(part) {
+  return part?.type === "input_image" && String(part.image_url).startsWith("data:image/png;base64,iVBOR");
 }
 
 /** Why OpenAI couldn't reuse the cached prompt for this request, or null if it could. */

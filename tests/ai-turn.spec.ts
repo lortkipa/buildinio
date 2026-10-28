@@ -83,6 +83,14 @@ test("the AI reads up on a skill when one fits, and builds with it", async ({ pa
   expect(saved(id)).toEqual({ appVersion: 1, roles: ["user", "assistant"] });
 });
 
+test("the AI looks at the app it built, on a phone and a desktop", async ({ page }) => {
+  const id = await startProject(page, "A page for my test kitchen, then look at it");
+  await expect(page.getByText("Looked at your app")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("is ready, and I checked how it looks.")).toBeVisible({ timeout: 15_000 });
+  expect(saved(id)).toEqual({ appVersion: 1, roles: ["user", "assistant"] }); // Built to look at, and not again.
+  expect(existsSync(path.join(PROJECTS, id, "dist", ".look", "phone.png"))).toBe(true);
+});
+
 test("a question just gets an answer, and nothing is built", async ({ page }) => {
   const id = await startProject(page, "What can you build?");
   await expect(page.getByText("Good question. I can build websites and apps from a description.")).toBeVisible({
