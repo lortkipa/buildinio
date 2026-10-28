@@ -1,6 +1,7 @@
 // A stand-in for OpenAI's Responses API, for the Playwright tests (see playwright.config.ts).
 // The app talks to it like to OpenAI (OPENAI_BASE_URL), so the real code runs end to end:
 // - naming (a json_schema request) gets a fixed name;
+// - a prompt with "Markdown" just gets tests/markdown-sample.md as its answer;
 // - a prompt with a "?" just gets an answer;
 // - a prompt with "React" gets the template's src/App.tsx rewritten, for a real Vite build
 //   (npm install needs the network; the tests don't use it);
@@ -11,6 +12,7 @@
 // Every request has to be cacheable like OpenAI's prompt cache wants it: a prompt_cache_key,
 // and the same instructions from one request to the next. If not, the answer says so.
 
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
 const PORT = Number(process.env.FAKE_OPENAI_PORT || 3101);
@@ -38,6 +40,8 @@ const REACT_FILES = {
 }
 `,
 };
+
+const MARKDOWN = readFileSync(new URL("./markdown-sample.md", import.meta.url), "utf8");
 
 const SKILL_HEADING = "# Frontend Design"; // In skills/frontend-design/SKILL.md.
 
@@ -80,6 +84,8 @@ createServer(async (request, response) => {
     const pictures = results.flatMap((result) => (Array.isArray(result) ? result : [])).filter(isScreenshot);
     const looked = pictures.length === 2 ? ", and I checked how it looks" : "";
     output.push(streamText(send, `**Test Kitchen** is ready${designed}${looked}. Take a look, and tell me what to change.`));
+  } else if (String(prompt).includes("Markdown")) {
+    output.push(streamText(send, MARKDOWN));
   } else if (String(prompt).includes("?")) {
     await wait(300);
     output.push(streamText(send, "Good question. I can build websites and apps from a description."));

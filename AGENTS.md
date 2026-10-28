@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, a signed-in home with a sidebar, and project chats where an OpenAI model builds a real Vite + React app (writing files, running npm, searching the web) and the preview shows it. Playwright regression tests cover account popup layering, project header actions, the preview and the AI end to end (against a fake OpenAI). Update this file as the project grows.
+`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts, a signed-in home with a sidebar, and project chats where an OpenAI model builds a real Vite + React app (writing files, running npm, searching the web) and the preview shows it. Playwright regression tests cover account popup layering, project header actions, the preview, how answers' Markdown looks and the AI end to end (against a fake OpenAI). Update this file as the project grows.
 
 ## Stack
 
@@ -12,6 +12,7 @@ Guidance for AI coding agents working in this repo.
 - SQLite (`better-sqlite3`) with Drizzle ORM; Arctic for Google/GitHub OAuth; Resend for email. Node.js 22+.
 - The AI: OpenAI's Responses API (`openai` SDK), OpenAI models only. Users' apps start from `templates/app` (Vite, React, TypeScript, Tailwind v4) and their commands run in Docker (Playwright's image, for screenshots), or on the host with `SANDBOX=host`.
 - Font: Onest (the brand wordmark font), loaded with `next/font/google`.
+- Answers are Markdown: `react-markdown` + `remark-gfm`, code colored with `lowlight` (highlight.js).
 
 ## Commands
 
@@ -25,7 +26,7 @@ Guidance for AI coding agents working in this repo.
 ## Layout
 
 - `app/` — routes (`/` and `/projects/[id]` in the `(workspace)` route group, `/signup`, `/login`, `/welcome`, `/api/auth/[provider]/callback`, `/api/projects/[id]/turn` (sends a prompt and streams the AI's answer), `/preview/[id]/...` (the built app)), `layout.tsx` and `globals.css` (color tokens, light/dark, animations, fades).
-- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `Preview`, `ProjectList`, `ProjectTile`, `ProjectHeader`, `ProjectActions`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useSidebarState`, `usePreviewState`, `useSwipeSheet`, `useStreamed`, `useScrollEdges`, `usePlayOnce`, `useCloseOnBackdrop`) and `styles.ts` (shared class strings like `focusRing`, `circleButton`, `navItem`, `menuPanel`, `dialogPanel`).
+- `components/` — React components (`Header`, `AppShell`, `Sidebar`, `Preview`, `ProjectList`, `ProjectTile`, `ProjectHeader`, `ProjectActions`, `EditProjectDialog`, `ProjectChat`, `ChatMessage`, `ChatTurn`, `MessageText`, `CodeBlock`, `MessageActions`, `AccountMenu`, `Hero`, `PromptBox`, `AuthFlow`, `CodeInput`, `ProviderIcons`, `Toaster`), hooks (`useKeyboardDock` keeps the prompt box and the name step above the phone keyboard; `useSidebarState`, `usePreviewState`, `useSwipeSheet`, `useStreamed`, `useScrollEdges`, `usePlayOnce`, `useCloseOnBackdrop`) and `styles.ts` (shared class strings like `focusRing`, `circleButton`, `navItem`, `menuPanel`, `dialogPanel`).
 - `lib/projects/` — projects and chats: `server.ts` (database queries), `actions.ts` (Server Actions: edit, delete, feedback, preview seen), `store.ts` (the browser's copy, and playing back the AI's answers), `ids.ts`, `options.ts` (project colors and icons), `types.ts` (including the streamed `TurnEvent`s).
 - `lib/ai/` — the AI: `client.ts` (OpenAI settings from env), `agent.ts` (one answer: the tool loop and the build), `tools.ts`, `instructions.ts` (its system prompt, and the project's state sent with each prompt), `skills.ts`, `naming.ts`, `runs.ts` and `registry.ts` (answers in progress, on the server).
 - `skills/` — well-known public skills the AI reads when a request needs one (`frontend-design` from anthropics/skills, `web-design-guidelines` from vercel-labs, `shadcn` from shadcn-ui), copied as they are with their licenses. `skills/README.md` lists where each came from and how to add one. Excluded from type-checking, lint and Tailwind's class scan.
@@ -75,6 +76,7 @@ Guidance for AI coding agents working in this repo.
 - Users' apps: `templates/app` (Vite + React + TypeScript + Tailwind v4 + lucide-react, `base: "./"`; no colors, fonts or components of ours: the AI picks a look per app; the prompt keeps apps to the words people need, with no hero, taglines or blurbs, and that wins over skills' hero and copy advice), built into `dist/` and served by `app/preview` with a CSP `sandbox` (its own origin, so its scripts can't reach this site; `localStorage` may not work there) and CORS for Vite's `crossorigin` scripts. Commands get 5 minutes; files 200 KB each and 5 MB in all; links out of the folder are refused. The Docker image is pulled in the background when the server starts (`prepareSandbox`), so the first build doesn't spend its time limit downloading it.
 - Seconds tick while the AI works and stay next to like / dislike / copy under every answer. Like and dislike exclude each other; pressing the one that's on turns it off.
 - User prompts sit on a tint of the project color; answers have no background.
+- Answers are Markdown (`MessageText`): headings, **bold**, *italic*, ~~strike~~, lists and task lists, quotes, rules, links (new tab), tables (bordered, scroll sideways when too wide) and code blocks (`CodeBlock`: the language over the code, a copy button, colors from highlight.js's classes, set in `globals.css` like GitHub's, light and dark). Languages: lowlight's common ones plus some more registered in `CodeBlock`; add one there. Images show as links. While an answer streams in, `settle` hides Markdown that isn't finished yet (an open `**`, a table with only its header). Wide code and tables have `data-scroll-x`, so a swipe on them scrolls instead of pulling in the preview. `tests/markdown-sample.md` has a bit of everything; the fake OpenAI answers it to a prompt with "Markdown".
 - Sidebar rows: the ⋯ button shows on hover with a mouse and always on touch screens and in the phone sidebar. The name only makes room for it while it shows. It, right-click and a long press open Edit (name, color, icon) and Delete (asks first, like deleting the account). Clicking outside either dialog cancels it (`useCloseOnBackdrop`).
 
 ## Auth

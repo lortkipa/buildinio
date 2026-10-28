@@ -16,6 +16,7 @@
   --glow: rgb(239 68 68 / 0.1);
   --glow-warm: rgb(251 146 60 / 0.07);
   --scrollbar: rgb(28 28 31 / 0.2);
+  --code: #f4f4f2;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +31,7 @@
     --glow: rgb(239 68 68 / 0.14);
     --glow-warm: rgb(251 146 60 / 0.06);
     --scrollbar: rgb(255 255 255 / 0.2);
+    --code: #18181b;
   }
 }
 
@@ -40,6 +42,7 @@
   --color-surface: var(--surface);
   --color-border: var(--border);
   --color-error: var(--error);
+  --color-code: var(--code);
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
 
   /* `backwards`, not `both`: a transform kept after the animation would trap
@@ -236,6 +239,7 @@
 /* Safari doesn't support scrollbar-color yet. */
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -245,4 +249,116 @@
 .scrollbar-thin::-webkit-scrollbar-thumb {
   border-radius: 9999px;
   background: var(--scrollbar);
+}
+
+/* Code in answers, colored by highlight.js's classes (CodeBlock). Close to
+   GitHub's colors, which people who code already know. */
+.hljs {
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-number: #0550ae;
+  --hl-function: #8250df;
+  --hl-type: #953800;
+  --hl-tag: #116329;
+  --hl-comment: #6e7781;
+  --hl-added: rgb(26 127 55 / 0.12);
+  --hl-removed: rgb(207 34 46 / 0.1);
+  color: var(--foreground);
+}
+
+@media (prefers-color-scheme: dark) {
+  .hljs {
+    --hl-keyword: #ff7b72;
+    --hl-string: #a5d6ff;
+    --hl-number: #79c0ff;
+    --hl-function: #d2a8ff;
+    --hl-type: #ffa657;
+    --hl-tag: #7ee787;
+    --hl-comment: #8b949e;
+    --hl-added: rgb(46 160 67 / 0.18);
+    --hl-removed: rgb(248 81 73 / 0.16);
+  }
+}
+
+.hljs-keyword,
+.hljs-doctag,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-type.hljs-keyword,
+.hljs-selector-tag {
+  color: var(--hl-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string,
+.hljs-char.escape {
+  color: var(--hl-string);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable.constant_,
+.hljs-symbol,
+.hljs-meta,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-property,
+.hljs-operator,
+.hljs-link {
+  color: var(--hl-number);
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-section {
+  color: var(--hl-function);
+}
+
+.hljs-type,
+.hljs-built_in,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params,
+.hljs-selector-pseudo,
+.hljs-bullet {
+  color: var(--hl-type);
+}
+
+.hljs-name,
+.hljs-quote {
+  color: var(--hl-tag);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.hljs-addition {
+  display: inline-block;
+  min-width: 100%;
+  background: var(--hl-added);
+  color: var(--hl-tag);
+}
+
+.hljs-deletion {
+  display: inline-block;
+  min-width: 100%;
+  background: var(--hl-removed);
+  color: var(--hl-keyword);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
 }

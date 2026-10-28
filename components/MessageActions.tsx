@@ -20,6 +20,23 @@ type MessageActionsProps = {
 
 /** Under every answer: like, dislike and copy, then how long it took. */
 export function MessageActions({ text, seconds, feedback, onFeedback }: MessageActionsProps) {
+  // Pressing the one that's on turns it off; pressing the other switches.
+  function press(value: Feedback) {
+    onFeedback(feedback === value ? null : value);
+  }
+
+  return (
+    <div className="mt-2 -ml-1.5 flex h-8 items-center gap-0.5">
+      <FeedbackButton kind="like" on={feedback === "like"} onPress={() => press("like")} />
+      <FeedbackButton kind="dislike" on={feedback === "dislike"} onPress={() => press("dislike")} />
+      <CopyButton text={text} />
+      <span className="ml-1.5 text-xs text-muted tabular-nums">{formatSeconds(seconds)}</span>
+    </div>
+  );
+}
+
+/** Copies `text`, and shows a check for a moment once it has. */
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   // Back to the copy icon after a moment.
@@ -29,36 +46,26 @@ export function MessageActions({ text, seconds, feedback, onFeedback }: MessageA
     return () => window.clearTimeout(timer);
   }, [copied]);
 
-  // Pressing the one that's on turns it off; pressing the other switches.
-  function press(value: Feedback) {
-    onFeedback(feedback === value ? null : value);
-  }
-
   async function handleCopy() {
-    if (await copyText(text.replaceAll("**", ""))) setCopied(true);
+    if (await copyText(text)) setCopied(true);
     else toast.error("Couldn’t copy. Try selecting the text instead.");
   }
 
   return (
-    <div className="mt-2 -ml-1.5 flex h-8 items-center gap-0.5">
-      <FeedbackButton kind="like" on={feedback === "like"} onPress={() => press("like")} />
-      <FeedbackButton kind="dislike" on={feedback === "dislike"} onPress={() => press("dislike")} />
-      <button
-        type="button"
-        aria-label={copied ? "Copied" : "Copy"}
-        title={copied ? "Copied" : "Copy"}
-        onClick={handleCopy}
-        className={actionButton}
-      >
-        <Copy size={16} className={`${swap} ${copied ? "scale-50 -rotate-45 opacity-0" : shown}`} />
-        <Check
-          size={16}
-          strokeWidth={2.5}
-          className={`${swap} text-foreground ${copied ? shown : "scale-50 rotate-45 opacity-0"}`}
-        />
-      </button>
-      <span className="ml-1.5 text-xs text-muted tabular-nums">{formatSeconds(seconds)}</span>
-    </div>
+    <button
+      type="button"
+      aria-label={copied ? "Copied" : label}
+      title={copied ? "Copied" : label}
+      onClick={handleCopy}
+      className={actionButton}
+    >
+      <Copy size={16} className={`${swap} ${copied ? "scale-50 -rotate-45 opacity-0" : shown}`} />
+      <Check
+        size={16}
+        strokeWidth={2.5}
+        className={`${swap} text-foreground ${copied ? shown : "scale-50 rotate-45 opacity-0"}`}
+      />
+    </button>
   );
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { MessageActions } from "@/components/MessageActions";
+import { MessageText } from "@/components/MessageText";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { PROJECT_COLORS } from "@/lib/projects/options";
 import type { ProjectColor } from "@/lib/projects/options";
@@ -36,47 +37,5 @@ export function AssistantMessage({ projectId, message }: { projectId: string; me
         onFeedback={(feedback) => setFeedback(projectId, message.id, feedback)}
       />
     </div>
-  );
-}
-
-/**
- * The AI's text: paragraphs split by blank lines, "- " lists and **bold**. Copes
- * with text that's halfway streamed in, like a list item that's just a "-" so far.
- */
-export function MessageText({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/).filter((block) => block.trim());
-  return (
-    <div className="flex flex-col gap-3 leading-relaxed wrap-anywhere">
-      {blocks.map((block, index) => {
-        const lines = block.split("\n").filter(Boolean);
-        if (lines.every((line) => line.startsWith("-"))) {
-          return (
-            <ul key={index} className="flex list-disc flex-col gap-1 pl-5 marker:text-muted">
-              {lines.map((line, i) => (
-                <li key={i}>{withBold(line.replace(/^-\s?/, ""))}</li>
-              ))}
-            </ul>
-          );
-        }
-        return (
-          <p key={index} className="whitespace-pre-wrap">
-            {withBold(block)}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Text between ** pairs in bold. An unclosed one (still streaming) is bold to the end. */
-function withBold(text: string): ReactNode[] {
-  return text.split("**").map((part, index) =>
-    index % 2 ? (
-      <strong key={index} className="font-semibold">
-        {part}
-      </strong>
-    ) : (
-      part
-    ),
   );
 }
