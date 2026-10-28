@@ -112,3 +112,20 @@ test("lists typed or pasted any common way show as lists, and web addresses as l
   await expect(message.locator("ul ol > li")).toHaveText(["where we are", "when we're open"]);
   await expect(message.locator("p")).toHaveText(["Like https://example.com/menu, but:", "Thanks"]);
 });
+
+test("a new item stays in sight when the prompt box is full and scrolls", async ({ page }) => {
+  const id = seedProject(user.id, { name: "Lists", messages: [] });
+  await page.goto(`/projects/${id}`);
+  const box = page.getByRole("textbox", { name: "Ask for changes" });
+  await box.click();
+  await box.pressSequentially("- Item 1");
+  for (let i = 2; i <= 16; i++) {
+    await box.press(i % 2 ? "Enter" : "Shift+Enter");
+    await box.pressSequentially(`Item ${i}`);
+  }
+  await box.press("Enter");
+  // The cursor's line, the new empty item, is at the bottom of what shows.
+  const scroll = await box.evaluate((el) => ({ top: el.scrollTop, height: el.clientHeight, full: el.scrollHeight }));
+  expect(scroll.full).toBeGreaterThan(scroll.height);
+  expect(scroll.top + scroll.height).toBeGreaterThanOrEqual(scroll.full - 1);
+});

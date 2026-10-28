@@ -102,6 +102,35 @@ function applyEdit(textarea: HTMLTextAreaElement, { value, start, end }: Edit) {
     }
   }
   textarea.setSelectionRange(start, end);
+  revealCaret(textarea);
+}
+
+/**
+ * Scrolls a full text box to the cursor's line. Typing does that by itself; an edit
+ * made in code doesn't, so a new item would hide under the bottom edge.
+ */
+function revealCaret(textarea: HTMLTextAreaElement) {
+  if (textarea.scrollHeight <= textarea.clientHeight) return;
+  // A copy of the box with only the text up to the cursor: its height is where the cursor's line ends.
+  const probe = textarea.cloneNode() as HTMLTextAreaElement;
+  probe.removeAttribute("id");
+  probe.removeAttribute("name");
+  probe.setAttribute("aria-hidden", "true");
+  probe.value = textarea.value.slice(0, textarea.selectionEnd);
+  Object.assign(probe.style, {
+    position: "absolute",
+    visibility: "hidden",
+    width: `${textarea.offsetWidth}px`,
+    height: "0",
+    minHeight: "0",
+    maxHeight: "none",
+  });
+  textarea.after(probe);
+  const bottom = probe.scrollHeight;
+  probe.remove();
+  const line = parseFloat(getComputedStyle(textarea).lineHeight) || 24;
+  if (bottom > textarea.scrollTop + textarea.clientHeight) textarea.scrollTop = bottom - textarea.clientHeight;
+  else if (bottom - line * 1.5 < textarea.scrollTop) textarea.scrollTop = Math.max(0, bottom - line * 1.5);
 }
 
 /** The keys that do something special in a list. */
