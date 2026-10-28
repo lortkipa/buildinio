@@ -55,11 +55,11 @@ async function rightEdges(page: Page) {
   return [Math.round(toggle!.x + toggle!.width), Math.round(prompt!.x + prompt!.width)];
 }
 
-async function drag(page: Page, handle: Locator, toX: number) {
+async function drag(page: Page, handle: Locator, toX: number, y = 400) {
   const box = await handle.boundingBox();
-  await page.mouse.move(box!.x + box!.width / 2, 400);
+  await page.mouse.move(box!.x + box!.width / 2, y);
   await page.mouse.down();
-  await page.mouse.move(toX, 400, { steps: 8 });
+  await page.mouse.move(toX, y, { steps: 8 });
   await page.mouse.up();
 }
 
@@ -98,6 +98,14 @@ test("desktop: the preview button lines up with the prompt box and the panel res
   await toggle.click();
   await expect.poll(() => width(panel)).toBe(0);
   await drag(page, handle, right - 520);
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => width(panel)).toBe(520);
+
+  // Along its whole height, even beside the prompt box, which floats over the chat.
+  await toggle.click();
+  await expect.poll(() => width(panel)).toBe(0);
+  const prompt = await page.getByRole("textbox", { name: "Ask for changes" }).boundingBox();
+  await drag(page, handle, right - 520, prompt!.y + prompt!.height / 2);
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => width(panel)).toBe(520);
 

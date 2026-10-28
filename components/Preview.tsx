@@ -117,7 +117,7 @@ export function DesktopPreview({ id, projectId, state, sidebarWidth, onChange, o
       id={id}
       aria-label="Preview"
       style={{ width: open ? shown : 0 }}
-      className={`sticky top-0 hidden h-dvh min-w-0 shrink md:block ${
+      className={`sticky top-0 z-20 hidden h-dvh min-w-0 shrink md:block ${
         dragging ? "" : "transition-[width] duration-200 ease-out motion-reduce:transition-none"
       }`}
     >
