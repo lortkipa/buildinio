@@ -1,48 +1,29 @@
-import { randomBytes, createHash } from "node:crypto";
-import Database from "better-sqlite3";
 import { expect, test } from "@playwright/test";
+import { clearProjects, db, ORIGIN, seedProject, testUser } from "./seed";
 
-const userId = `header-test-${randomBytes(8).toString("hex")}`;
-const token = randomBytes(32).toString("hex");
+const user = testUser("Header Test");
 const projectName = "A very long project name that cannot fit a phone header";
+let projectId = "";
+let otherId = "";
 
-test.beforeAll(() => {
-  const db = new Database("data/playwright.db");
-  db.prepare("INSERT INTO users (id,email,name,avatar_url,created_at) VALUES (?,?,?,?,?)")
-    .run(userId, `${userId}@example.test`, "Header Test", "/avatars/default.svg", Date.now());
-  db.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)")
-    .run(createHash("sha256").update(token).digest("hex"), userId, Date.now() + 3_600_000);
-  db.close();
-});
-
-test.afterAll(() => {
-  const db = new Database("data/playwright.db");
-  db.pragma("foreign_keys = ON");
-  db.prepare("DELETE FROM users WHERE id = ?").run(userId);
-  db.close();
-});
-
-test.beforeEach(async ({ page, context }) => {
-  await context.addCookies([{ name: "session", value: token, url: "http://localhost:3100" }]);
-  await page.addInitScript(({ userId, projectName }) => {
-    localStorage.setItem(`buildinio:projects:${userId}`, JSON.stringify([{
-      id: "header-project", name: projectName, icon: "sparkles", color: "slate", createdAt: 1,
-      messages: Array.from({ length: 20 }, (_, index) => ({
-        id: `message-${index}`, role: "assistant", text: `Message ${index}: Here is the app we built for you.`,
-        seconds: 1, feedback: null,
-      })), turn: null,
-    }, {
-      id: "other-project", name: "Other app", icon: "sparkles", color: "slate", createdAt: 0,
-      messages: [], turn: null,
-    }]));
-  }, { userId, projectName });
+test.beforeEach(async ({ context }) => {
+  clearProjects(user.id);
+  otherId = seedProject(user.id, { name: "Other app", createdAt: Date.now() - 1000 });
+  projectId = seedProject(user.id, {
+    name: projectName,
+    messages: Array.from({ length: 20 }, (_, index) => ({
+      role: "assistant" as const,
+      text: `Message ${index}: Here is the app we built for you.`,
+    })),
+  });
+  await context.addCookies([{ name: "session", value: user.token, url: ORIGIN }]);
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
   test(`mobile ${colorScheme}: title edits, preview toggles, and deletion asks first`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ colorScheme });
-    await page.goto("/projects/header-project");
+    await page.goto(`/projects/${projectId}`);
     const header = page.locator("header");
     const title = header.getByRole("button", { name: `Options for ${projectName}`, exact: true });
     const preview = header.getByRole("button", { name: "Toggle preview" });
@@ -128,13 +109,19 @@ for (const colorScheme of ["light", "dark"] as const) {
       const style = getComputedStyle(element);
       return [style.borderRadius, style.backgroundColor, style.width, style.height];
     })).toEqual(sidebarAppearance);
-    expect(await page.evaluate((userId) => JSON.parse(localStorage.getItem(`buildinio:projects:${userId}`)!).length, userId)).toBe(1);
+    // Gone from the server too.
+    await expect.poll(() => {
+      const database = db();
+      const ids = database.prepare("SELECT id FROM projects WHERE user_id = ?").all(user.id) as { id: string }[];
+      database.close();
+      return ids.map(({ id }) => id);
+    }).toEqual([otherId]);
   });
 }
 
 test("the phone preview closes on navigation and the title menu works across screen sizes", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto("/projects/header-project");
+  await page.goto(`/projects/${projectId}`);
   const header = page.locator("header");
   const preview = header.getByRole("button", { name: "Toggle preview" });
   await preview.click();
@@ -142,7 +129,7 @@ test("the phone preview closes on navigation and the title menu works across scr
   const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
   await sheet.getByRole("button", { name: "Open sidebar" }).click();
   await page.getByRole("dialog", { name: "Sidebar", exact: true }).getByRole("link", { name: "Other app", exact: true }).click();
-  await expect(page).toHaveURL(/\/projects\/other-project$/);
+  await expect(page).toHaveURL(new RegExp(`/projects/${otherId}$`));
   await expect(sheet).not.toBeVisible();
   await expect(preview).toHaveAttribute("aria-pressed", "false");
   await expect(header.getByRole("button", { name: "Options for Other app", exact: true })).toBeVisible();

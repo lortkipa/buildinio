@@ -21,6 +21,7 @@ import {
   signInOrStartSignup,
 } from "@/lib/auth/signup";
 import { sendCodeEmail } from "@/lib/email/send";
+import { removeUserProjects } from "@/lib/projects/server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME = 80;
@@ -128,11 +129,12 @@ export async function logOut() {
   await endSession();
 }
 
-/** Deletes the signed-in user's account, linked logins and sessions, then logs out. */
+/** Deletes the signed-in user's account, linked logins, sessions and projects, then logs out. */
 export async function deleteAccount() {
   const user = await getCurrentUser();
   if (user) {
-    db.delete(users).where(eq(users.id, user.id)).run(); // Accounts and sessions go with it.
+    await removeUserProjects(user.id); // Their code, on disk.
+    db.delete(users).where(eq(users.id, user.id)).run(); // Accounts, sessions, projects and chats go with it.
     db.delete(emailCodes).where(eq(emailCodes.email, user.email)).run();
   }
   await endSession();

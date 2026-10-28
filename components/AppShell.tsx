@@ -14,6 +14,7 @@ import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
 import type { CurrentUser } from "@/lib/auth/session";
 import type { PreviewState } from "@/lib/preview";
 import { loadProjects, useProject } from "@/lib/projects/store";
+import type { ProjectData } from "@/lib/projects/types";
 import { COLLAPSED_WIDTH } from "@/lib/sidebar";
 import type { SidebarState } from "@/lib/sidebar";
 
@@ -21,6 +22,7 @@ type AppShellProps = {
   user: CurrentUser;
   sidebar: SidebarState; // As saved, read by the shared layout.
   preview: PreviewState; // Likewise.
+  projects: ProjectData[]; // Likewise.
   children: ReactNode;
 };
 
@@ -29,7 +31,7 @@ type AppShellProps = {
  * preview on the right. On phones, a header with a sidebar button and the account
  * menu (or the preview button in project chats); the sidebar and preview slide over.
  */
-export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, children }: AppShellProps) {
+export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, projects, children }: AppShellProps) {
   const pathname = usePathname();
   const { id: projectId } = useParams<{ id?: string }>();
   const sidebar = useSidebarState(savedSidebar);
@@ -62,10 +64,10 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, c
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const closePreview = useCallback(() => setMobilePreview(false), []);
 
-  // The user's projects live in this browser (see lib/projects/store.ts).
+  // From here on the store keeps them up to date (see lib/projects/store.ts).
   useEffect(() => {
-    loadProjects(user.id);
-  }, [user.id]);
+    loadProjects(user.id, projects);
+  }, [user.id, projects]);
 
   // Focus moves into the phone sidebar when it opens, and back to the button that
   // opened it when it closes. After rendering: until then, one or the other is still

@@ -1,4 +1,6 @@
 import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
+import type { Feedback } from "@/lib/projects/types";
 
 // After changing this file, run `npm run db:generate` to add a migration.
 
@@ -60,3 +62,37 @@ export const pendingSignups = sqliteTable("pending_signups", {
   providerAccountId: text("provider_account_id"),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+/** An app someone is building. Its code lives on disk (see lib/sandbox/workspace.ts). */
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: text("id").primaryKey(), // Random and long: the preview's address relies on it.
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name"), // Null until the AI names it.
+    icon: text("icon").$type<ProjectIcon>().notNull(),
+    color: text("color").$type<ProjectColor>().notNull(),
+    ready: integer("ready", { mode: "boolean" }).notNull().default(false), // Built, and the preview not seen yet.
+    appVersion: integer("app_version").notNull().default(0), // Goes up with every build; 0 until the first.
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("projects_user_id_idx").on(table.userId)],
+);
+
+export const messages = sqliteTable(
+  "messages",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    role: text("role").$type<"user" | "assistant">().notNull(),
+    text: text("text").notNull(),
+    seconds: integer("seconds"), // How long the answer took. Null for prompts.
+    feedback: text("feedback").$type<Feedback>(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("messages_project_id_idx").on(table.projectId, table.createdAt)],
+);

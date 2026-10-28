@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, FilePen, FilePlus, FileText, Globe, LoaderCircle, SquareTerminal } from "lucide-react";
+import { Check, FilePen, FilePlus, FileText, FileX, Globe, LoaderCircle, SquareTerminal, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { MessageText } from "@/components/ChatMessage";
 import { shown, swap } from "@/components/styles";
@@ -17,18 +17,18 @@ const TOOL_ICONS: Record<Tool, LucideIcon> = {
   read: FileText,
   create: FilePlus,
   edit: FilePen,
+  delete: FileX,
   run: SquareTerminal,
 };
 
 /**
- * The answer being worked on: "Thinking", then (when building) what the AI says and
- * the tools it uses, which fold away before the summary streams in. Counts the seconds.
+ * The answer being worked on: "Thinking", then what the AI says and the tools it
+ * uses, which fold away before its answer. Counts the seconds.
  */
 export function ChatTurn({ turn }: { turn: Turn }) {
-  const thinking = turn.phase === "thinking" || turn.phase === "naming";
   return (
     <div aria-busy className="flex flex-col gap-4">
-      {thinking && <Thinking />}
+      {turn.phase === "thinking" && <Thinking />}
 
       {turn.steps.length > 0 && (
         <div
@@ -95,7 +95,7 @@ function ToolGroup({ steps }: { steps: ToolStep[] }) {
   );
 }
 
-/** One tool: what it's doing (shimmering) with a spinner, then what it did with a check. */
+/** One tool: what it's doing (shimmering) with a spinner, then what it did with a check (or an X). */
 function ToolRow({ step }: { step: ToolStep }) {
   const enter = usePlayOnce("motion-safe:animate-enter");
   const Icon = TOOL_ICONS[step.tool];
@@ -114,10 +114,13 @@ function ToolRow({ step }: { step: ToolStep }) {
         )}
         {step.detail && <span className="ml-2 text-muted">{step.detail}</span>}
       </span>
-      {step.added !== undefined && (
-        <span className="shrink-0 text-xs font-medium tabular-nums">
-          <span className="text-emerald-600 dark:text-emerald-400">+{step.added}</span>
-          {step.removed ? <span className="ml-1 text-error">&minus;{step.removed}</span> : null}
+      {(step.added !== undefined || step.removed !== undefined) && (
+        <span className="flex shrink-0 gap-1 text-xs font-medium tabular-nums">
+          {/* A deleted file only lost lines. */}
+          {step.added || !step.removed ? (
+            <span className="text-emerald-600 dark:text-emerald-400">+{step.added ?? 0}</span>
+          ) : null}
+          {step.removed ? <span className="text-error">&minus;{step.removed}</span> : null}
         </span>
       )}
       <span className="grid shrink-0 place-items-center">
@@ -129,10 +132,16 @@ function ToolRow({ step }: { step: ToolStep }) {
         <Check
           size={16}
           strokeWidth={2.5}
-          aria-label={step.done ? "Done" : undefined}
+          aria-label={step.done && !step.failed ? "Done" : undefined}
           className={`${swap} text-emerald-600 dark:text-emerald-400 ${
-            step.done ? shown : "scale-50 -rotate-45 opacity-0"
+            step.done && !step.failed ? shown : "scale-50 -rotate-45 opacity-0"
           }`}
+        />
+        <X
+          size={16}
+          strokeWidth={2.5}
+          aria-label={step.failed ? "Failed" : undefined}
+          className={`${swap} text-error ${step.failed ? shown : "scale-50 opacity-0"}`}
         />
       </span>
     </li>
