@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* The template for users' apps uses Tailwind too: its classes aren't ours. */
+@source not "../templates";
+
 /* Brand colors: see brand/README.md */
 :root {
   --background: #fafaf9;
@@ -215,6 +218,12 @@
     background-clip: text;
     color: transparent;
   }
+}
+
+/* While a sidebar or preview edge is dragged, the pointer can cross the app's
+   frame, which would keep it to itself. */
+[data-dragging] iframe {
+  pointer-events: none;
 }
 
 /* Thin, quiet scrollbar for the prompt box. */

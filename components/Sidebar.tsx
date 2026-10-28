@@ -35,15 +35,18 @@ export function DesktopSidebar({ user, state, onChange, onCommit }: DesktopSideb
   const [dragging, setDragging] = useState(false);
   const dragStartWidth = useRef(width);
 
-  // While dragging, keep the resize cursor everywhere and don't select text.
+  // While dragging, keep the resize cursor everywhere, don't select text, and keep
+  // the pointer out of the preview's frame (see globals.css).
   useEffect(() => {
     if (!dragging) return;
     const root = document.documentElement;
     root.style.cursor = "col-resize";
     root.style.userSelect = "none";
+    root.dataset.dragging = "";
     return () => {
       root.style.cursor = "";
       root.style.userSelect = "";
+      delete root.dataset.dragging;
     };
   }, [dragging]);
 

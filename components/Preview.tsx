@@ -1,23 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent, RefObject } from "react";
-import { PanelLeft } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent, RefObject } from "react";
+import { AppWindow, PanelLeft } from "lucide-react";
 import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
-import { ProjectTile } from "@/components/ProjectTile";
 import { circleButton } from "@/components/styles";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { setMobilePreview } from "@/components/usePreviewState";
 import { useSwipeSheet } from "@/components/useSwipeSheet";
 import { CHAT_MIN_WIDTH, clampPreviewWidth, PREVIEW_CLOSE_AT, PREVIEW_MIN_WIDTH } from "@/lib/preview";
 import type { PreviewState } from "@/lib/preview";
-import { guessIdea } from "@/lib/projects/mock";
-import { PROJECT_COLORS } from "@/lib/projects/options";
 import { markPreviewSeen, useProject } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
 
-// The app the AI builds, next to the chat on wider screens and over it on phones.
-// Mocked like the AI: a skeleton while it builds, then a made-up page for the app.
+// The app the AI builds, next to the chat on wider screens and over it on phones:
+// a skeleton while it builds the first version, then the app itself, in a frame.
 
 const KEY_STEP = 16; // px per arrow key press on the resize handle.
 const WIDE = "(min-width: 48rem)";
@@ -37,30 +34,34 @@ type DesktopPreviewProps = {
  */
 export function DesktopPreview({ id, projectId, state, sidebarWidth, onChange, onCommit }: DesktopPreviewProps) {
   const { project } = useProject(projectId);
+  const wide = useWide();
   const { width, open } = state;
   const ref = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
   const dragStartWidth = useRef(width);
   const ready = project?.ready === true;
 
-  // While dragging, keep the resize cursor everywhere and don't select text.
+  // While dragging, keep the resize cursor everywhere, don't select text, and keep
+  // the pointer out of the app's frame (see globals.css).
   useEffect(() => {
     if (!dragging) return;
     const root = document.documentElement;
     root.style.cursor = "col-resize";
     root.style.userSelect = "none";
+    root.dataset.dragging = "";
     return () => {
       root.style.cursor = "";
       root.style.userSelect = "";
+      delete root.dataset.dragging;
     };
   }, [dragging]);
 
   // A just-built app shows itself: the panel opens if it was hidden. Phones get a card instead (see ProjectChat).
   useEffect(() => {
-    if (!ready || !window.matchMedia(WIDE).matches) return;
+    if (!ready || !wide) return;
     if (!open) onCommit({ width, open: true });
     markPreviewSeen(projectId);
-  }, [ready, open, width, onCommit, projectId]);
+  }, [ready, wide, open, width, onCommit, projectId]);
 
   const toggle = () => onCommit({ width, open: !open });
 
@@ -126,9 +127,7 @@ export function DesktopPreview({ id, projectId, state, sidebarWidth, onChange, o
       <div inert={!open} className="absolute inset-0 flex justify-end overflow-hidden">
         <div style={{ width: shown }} className="h-full shrink-0 py-2 pr-2">
           <div className="h-full overflow-hidden rounded-2xl border border-border bg-surface">
-            <div className="scrollbar-thin @container h-full overflow-y-auto overscroll-contain">
-              <PreviewScreen project={project} />
-            </div>
+            {wide && <PreviewScreen project={project} />}
           </div>
         </div>
       </div>
@@ -177,6 +176,20 @@ function usePageWidth() {
   );
 }
 
+function subscribeWide(listener: () => void) {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+/**
+ * Whether the screen is wide enough for the preview panel, rather than the phone
+ * sheet. Only the one that shows loads the app.
+ */
+function useWide() {
+  return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => false);
+}
+
 type MobilePreviewProps = {
   id: string;
   projectId: string;
@@ -206,6 +219,7 @@ export function MobilePreview({
   swipeAreaRef,
 }: MobilePreviewProps) {
   const { project } = useProject(projectId);
+  const wide = useWide();
   const ready = project?.ready === true;
   const ref = useRef<HTMLDivElement>(null);
   useSwipeSheet(swipeAreaRef, ref, open, setMobilePreview);
@@ -257,18 +271,52 @@ export function MobilePreview({
         </div>
         <PreviewToggle ref={closeRef} pressed controls={id} onClick={onClose} />
       </div>
-      <div className="scrollbar-thin @container min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
-        <PreviewScreen project={project} />
+      <div className="relative min-h-0 flex-1 pb-[env(safe-area-inset-bottom)]">
+        {!wide && <PreviewScreen project={project} />}
+        {/* The app's frame keeps touches to itself: a strip along its left edge still
+            takes the swipe that pushes the preview back out. */}
+        <div aria-hidden className="absolute inset-y-0 left-0 w-4 touch-pan-y" />
       </div>
     </div>
   );
 }
 
-/** The app taking shape while the AI builds it, then the app. */
+/** The app, or a skeleton while the AI builds the first version of it. */
 function PreviewScreen({ project }: { project: Project | null }) {
   if (!project) return null;
-  const built = project.messages.some((message) => message.role === "assistant");
-  return built ? <MockApp project={project} /> : <AppSkeleton />;
+  if (project.appVersion > 0) return <AppFrame key={project.appVersion} project={project} />;
+  return (
+    <div className="scrollbar-thin @container h-full touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain">
+      {project.turn ? <AppSkeleton /> : <NothingYet />}
+    </div>
+  );
+}
+
+/** The built app (served by app/preview), sandboxed: its scripts can't reach this site. */
+function AppFrame({ project }: { project: Project }) {
+  // Only an app that was just built appears; one opened later is just there.
+  const enter = usePlayOnce("motion-safe:animate-enter", project.ready);
+  return (
+    <iframe
+      src={`/preview/${project.id}/index.html?v=${project.appVersion}`}
+      title={project.name ?? "Your app"}
+      sandbox="allow-scripts allow-forms allow-modals allow-popups"
+      onAnimationEnd={enter.onAnimationEnd}
+      className={`block size-full bg-white ${enter.className}`}
+    />
+  );
+}
+
+/** Nothing built yet, and the AI isn't working on it. */
+function NothingYet() {
+  return (
+    <div className="flex min-h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+      <AppWindow size={28} aria-hidden className="text-muted" />
+      <p className="max-w-64 text-sm text-balance text-muted">
+        Your app shows up here once there&rsquo;s something to see. Ask for what you&rsquo;d like to build.
+      </p>
+    </div>
+  );
 }
 
 // The shimmer's length (animate-shimmer in globals.css), and how far behind the one
@@ -331,66 +379,6 @@ function AppSkeleton() {
           <span className="text-shimmer motion-safe:animate-shimmer">Building your app</span>
         </p>
       </div>
-    </div>
-  );
-}
-
-/**
- * A made-up page for the app, from what the AI took from the first prompt, in the
- * project's name, icon and color (so edits show). Only a picture: nothing to click.
- */
-function MockApp({ project }: { project: Project }) {
-  const first = project.messages[0];
-  const prompt = first?.role === "user" ? first.text : "";
-  const { pitch, features } = useMemo(() => guessIdea(prompt), [prompt]);
-  // Only an app that was just built appears; one opened later is just there.
-  const enter = usePlayOnce("motion-safe:animate-enter", project.ready === true);
-  const name = project.name ?? "Your app";
-  const button = "shrink-0 rounded-full font-medium";
-
-  return (
-    <div
-      style={{ "--app": PROJECT_COLORS[project.color] } as CSSProperties}
-      onAnimationEnd={enter.onAnimationEnd}
-      className={`flex min-h-full flex-col ${enter.className}`}
-    >
-      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border px-4 @2xl:px-8">
-        <ProjectTile icon={project.icon} color={project.color} className="size-7 rounded-lg" iconSize={16} />
-        <span className="min-w-0 truncate text-sm font-semibold">{name}</span>
-        <span className="ml-auto hidden items-center gap-5 text-sm text-muted @xl:flex">
-          <span>Home</span>
-          <span>About</span>
-          <span>Contact</span>
-        </span>
-        <span className={`${button} ml-auto bg-(--app) px-3.5 py-1.5 text-xs text-white @xl:ml-0`}>Get started</span>
-      </div>
-
-      <div className="px-6 pt-12 pb-10 text-center @2xl:pt-16">
-        <ProjectTile icon={project.icon} color={project.color} className="mx-auto size-14 rounded-2xl" iconSize={28} />
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-balance wrap-anywhere @2xl:text-4xl">
-          {name}
-        </h2>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-balance text-muted @2xl:text-base">
-          {pitch[0].toUpperCase() + pitch.slice(1)}.
-        </p>
-        <div className="mt-6 flex justify-center gap-2 text-sm">
-          <span className={`${button} bg-(--app) px-5 py-2.5 text-white`}>Get started</span>
-          <span className={`${button} border border-border px-5 py-2.5`}>Learn more</span>
-        </div>
-      </div>
-
-      <ul className="grid gap-3 px-5 pb-10 @2xl:grid-cols-3 @2xl:px-8">
-        {features.map((feature, index) => (
-          <li key={feature} className="rounded-2xl border border-border p-4">
-            <span className="grid size-8 place-items-center rounded-lg bg-(--app) text-sm font-semibold text-white">
-              {index + 1}
-            </span>
-            <p className="mt-3 text-sm leading-relaxed">{feature}</p>
-          </li>
-        ))}
-      </ul>
-
-      <p className="mt-auto border-t border-border px-5 py-5 text-center text-xs text-muted">Made with buildinio</p>
     </div>
   );
 }

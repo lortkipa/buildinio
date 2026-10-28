@@ -1,46 +1,37 @@
-import { randomBytes, createHash } from "node:crypto";
-import Database from "better-sqlite3";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { clearProjects, db, ORIGIN, seedProject, testUser } from "./seed";
 
-const userId = `preview-test-${randomBytes(8).toString("hex")}`;
-const token = randomBytes(32).toString("hex");
+const user = testUser("Preview Test");
+const BUILT_HEADING = "Built by the test AI"; // What the fake AI builds (tests/fake-openai.mjs).
 
-test.beforeAll(() => {
-  const db = new Database("data/playwright.db");
-  db.prepare("INSERT INTO users (id,email,name,avatar_url,created_at) VALUES (?,?,?,?,?)")
-    .run(userId, `${userId}@example.test`, "Preview Test", "/avatars/default.svg", Date.now());
-  db.prepare("INSERT INTO sessions (id,user_id,expires_at) VALUES (?,?,?)")
-    .run(createHash("sha256").update(token).digest("hex"), userId, Date.now() + 3_600_000);
-  db.close();
+test.beforeEach(async ({ context }) => {
+  clearProjects(user.id);
+  await context.addCookies([{ name: "session", value: user.token, url: ORIGIN }]);
 });
 
-test.afterAll(() => {
-  const db = new Database("data/playwright.db");
-  db.pragma("foreign_keys = ON");
-  db.prepare("DELETE FROM users WHERE id = ?").run(userId);
-  db.close();
-});
+/** A built app. */
+function seedBuilt() {
+  return seedProject(user.id, {
+    name: "Café Menu",
+    icon: "coffee",
+    color: "amber",
+    messages: [
+      { role: "user", text: "An online menu for my café" },
+      { role: "assistant", text: "**Café Menu** is ready." },
+    ],
+    built: "<!doctype html><html><body><h1>Café Menu</h1></body></html>",
+  });
+}
 
-// A built app, and one the AI is still building (its build starts again on load).
-test.beforeEach(async ({ page, context }) => {
-  await context.addCookies([{ name: "session", value: token, url: "http://localhost:3100" }]);
-  await page.addInitScript((userId) => {
-    const key = `buildinio:projects:${userId}`;
-    if (localStorage.getItem(key)) return; // Keep what changed, across reloads.
-    localStorage.setItem(key, JSON.stringify([{
-      id: "built", name: "Café Menu", icon: "coffee", color: "amber", createdAt: 1,
-      messages: [
-        { id: "ask", role: "user", text: "An online menu for my café" },
-        { id: "done", role: "assistant", text: "**Café Menu** is ready.", seconds: 20, feedback: null },
-      ],
-      turn: null,
-    }, {
-      id: "building", name: "Salon Booking", icon: "scissors", color: "pink", createdAt: 0,
-      messages: [{ id: "ask", role: "user", text: "A booking app for my hair salon" }],
-      turn: null,
-    }]));
-  }, userId);
-});
+/** One the AI hasn't answered yet: it starts when the page loads. */
+function seedBuilding() {
+  return seedProject(user.id, {
+    name: "Salon Booking",
+    icon: "scissors",
+    color: "pink",
+    messages: [{ role: "user", text: "A booking app for my hair salon" }],
+  });
+}
 
 /** The projects are in (the title shows), so the build is under way. */
 const loaded = (page: Page) =>
@@ -65,7 +56,7 @@ async function drag(page: Page, handle: Locator, toX: number, y = 400) {
 
 test("desktop: the preview button lines up with the prompt box and the panel resizes, hides and comes back", async ({ page, context }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/projects/built");
+  await page.goto(`/projects/${seedBuilt()}`);
   const toggle = page.locator("header").getByRole("button", { name: "Toggle preview" });
   const panel = page.getByRole("region", { name: "Preview", exact: true });
   const handle = page.getByRole("separator", { name: "Resize preview" });
@@ -78,7 +69,7 @@ test("desktop: the preview button lines up with the prompt box and the panel res
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => width(panel)).toBe(480);
-  await expect(panel.getByRole("heading", { name: "Café Menu" })).toBeVisible();
+  await expect(panel.frameLocator("iframe").getByRole("heading", { name: "Café Menu" })).toBeVisible();
   await expect.poll(() => rightEdges(page).then(([a, b]) => Math.abs(a - b))).toBeLessThanOrEqual(1);
   await page.screenshot({ path: test.info().outputPath("desktop-preview.png"), animations: "disabled" });
 
@@ -136,10 +127,9 @@ test("desktop: the preview button lines up with the prompt box and the panel res
 
 for (const colorScheme of ["light", "dark"] as const) {
   test(`desktop ${colorScheme}: a skeleton while building, then the preview opens by itself`, async ({ page }) => {
-    await page.clock.install();
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.emulateMedia({ colorScheme });
-    await page.goto("/projects/building");
+    await page.goto(`/projects/${seedBuilding()}`);
     await loaded(page);
     const toggle = page.locator("header").getByRole("button", { name: "Toggle preview" });
     const panel = page.getByRole("region", { name: "Preview", exact: true });
@@ -150,10 +140,13 @@ for (const colorScheme of ["light", "dark"] as const) {
     await toggle.click();
     await expect.poll(() => width(panel)).toBe(0);
 
-    await page.clock.runFor(60_000);
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // The AI's steps fold away, its answer stays, and the app shows up.
+    await expect(page.getByText("Created page.html")).toBeVisible({ timeout: 15_000 });
+    await expect(toggle).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
     await expect.poll(() => width(panel)).toBe(480);
-    await expect(panel.getByRole("heading", { name: "Salon Booking" })).toBeVisible();
+    await expect(panel.frameLocator("iframe").getByRole("heading", { name: BUILT_HEADING })).toBeVisible();
+    await expect(page.getByText("Created page.html")).toHaveCount(0);
+    await expect(page.getByText("is ready. Take a look, and tell me what to change.")).toBeVisible();
     await expect(page.getByText("Your app is ready", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath(`desktop-built-${colorScheme}.png`), animations: "disabled" });
   });
@@ -161,10 +154,9 @@ for (const colorScheme of ["light", "dark"] as const) {
 
 for (const colorScheme of ["light", "dark"] as const) {
   test(`phone ${colorScheme}: "app is ready" opens the preview, which slides over the chat`, async ({ page }) => {
-    await page.clock.install();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ colorScheme });
-    await page.goto("/projects/building");
+    await page.goto(`/projects/${seedBuilding()}`);
     await loaded(page);
     const header = page.locator("header");
     const toggle = header.getByRole("button", { name: "Toggle preview" });
@@ -179,9 +171,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(toggle).toBeFocused();
 
     // Done: it doesn't cover the chat by itself, but says so above the prompt box.
-    await page.clock.runFor(60_000);
     const ready = page.getByText("Your app is ready", { exact: true });
-    await expect(ready).toBeVisible();
+    await expect(ready).toBeVisible({ timeout: 20_000 });
     await expect(sheet).not.toBeVisible();
     const card = await ready.boundingBox();
     const prompt = await page.getByRole("textbox", { name: "Ask for changes" }).boundingBox();
@@ -190,7 +181,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 
     await page.getByRole("button", { name: "View your app" }).click();
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "Salon Booking" })).toBeVisible();
+    await expect(sheet.frameLocator("iframe").getByRole("heading", { name: BUILT_HEADING })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Open sidebar" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Options for Salon Booking", exact: true })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Toggle preview" })).toHaveAttribute("aria-pressed", "true");
@@ -204,18 +195,25 @@ for (const colorScheme of ["light", "dark"] as const) {
 }
 
 test("phone: the ready card's X dismisses it for good", async ({ page }) => {
-  await page.clock.install();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/projects/building");
+  const id = seedBuilding();
+  await page.goto(`/projects/${id}`);
   await loaded(page);
-  await page.clock.runFor(60_000);
   const ready = page.getByText("Your app is ready", { exact: true });
-  await expect(ready).toBeVisible();
+  await expect(ready).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(ready).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Preview", exact: true })).not.toBeVisible();
+  // Saved on the server, so it stays dismissed.
+  await expect.poll(() => {
+    const database = db();
+    const row = database.prepare("SELECT ready FROM projects WHERE id = ?").get(id) as { ready: number };
+    database.close();
+    return row.ready;
+  }).toBe(0);
   await page.reload();
   await loaded(page);
+  await expect(page.getByText("is ready. Take a look")).toBeVisible();
   await expect(ready).toHaveCount(0);
 });
 
@@ -235,7 +233,7 @@ test.describe("phone swipes", () => {
   }
 
   test("swiping left on the chat opens the preview, swiping right closes it", async ({ page }) => {
-    await page.goto("/projects/built");
+    await page.goto(`/projects/${seedBuilt()}`);
     await expect(page.locator("header").getByRole("button", { name: "Options for Café Menu", exact: true })).toBeVisible();
     const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
     const toggle = page.locator("header").getByRole("button", { name: "Toggle preview" });
@@ -249,13 +247,14 @@ test.describe("phone swipes", () => {
     await swipe(page, { x: 330, y: 400 }, { x: 60, y: 410 });
     await expect(sheet).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    await expect(sheet.getByRole("heading", { name: "Café Menu" })).toBeVisible();
+    await expect(sheet.frameLocator("iframe").getByRole("heading", { name: "Café Menu" })).toBeVisible();
     await expect.poll(() => sheet.evaluate((element) => element.getBoundingClientRect().left)).toBe(0);
 
-    // Left again does nothing; right pushes it back out.
+    // Left again does nothing; right from the app's left edge pushes it back out (the
+    // app's frame keeps touches elsewhere to itself).
     await swipe(page, { x: 330, y: 400 }, { x: 60, y: 400 });
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    await swipe(page, { x: 60, y: 400 }, { x: 330, y: 410 });
+    await swipe(page, { x: 8, y: 400 }, { x: 330, y: 410 });
     await expect(sheet).not.toBeVisible();
     await expect(toggle).toHaveAttribute("aria-pressed", "false");
   });

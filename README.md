@@ -18,7 +18,7 @@ npm run dev
 
 Then open http://localhost:3000. To try it on your phone, connect it to the same Wi-Fi and open `http://<your-computer's-IP>:3000`.
 
-The database is a SQLite file (`data/buildinio.db`), created on first start.
+The database is a SQLite file (`data/buildinio.db`), created on first start. To have the AI build apps, see [AI setup](#ai-setup).
 
 ## Sign-in setup
 
@@ -29,5 +29,15 @@ Sign-up and log-in work without any setup: email codes are printed in the termin
 - **Email**: create a [Resend](https://resend.com/api-keys) API key and put it in `RESEND_API_KEY`. To email anyone besides yourself, verify your domain in Resend and set `EMAIL_FROM` (like `buildinio <hello@yourdomain.com>`).
 
 When deploying, set `APP_URL` to the public address and register the same callback paths on that address.
+
+## AI setup
+
+The AI that builds the apps is an OpenAI model. Without a key, every answer says so. In `.env.local`:
+
+- `OPENAI_API_KEY`: from [OpenAI's API keys page](https://platform.openai.com/api-keys).
+- `OPENAI_MODEL`: any model that works with the Responses API and function calling, like `gpt-6-luna`.
+- `OPENAI_REASONING_EFFORT` (optional): how hard it thinks, like `low`, `medium` or `high`. Empty uses the model's default.
+
+Each project is a real Vite + React app, kept in `data/projects/<id>` until the project or the account is deleted. The AI installs packages and builds the app with npm, which runs in [Docker](https://docs.docker.com/get-docker/) by default: a throwaway container that only sees the app's folder. Have Docker running (the first build downloads the `node:22-slim` image). To skip Docker, set `SANDBOX=host`: commands then run straight on your computer, which is quicker to set up but gives the AI's code the same access you have.
 
 Brand assets and usage rules are in [`brand/`](brand/).

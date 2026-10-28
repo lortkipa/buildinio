@@ -1,27 +1,27 @@
 import { useSyncExternalStore } from "react";
-import { buildPlan, buildSummary, guessIdea, replyFor } from "@/lib/projects/mock";
+import { toast } from "sonner";
+import * as actions from "@/lib/projects/actions";
+import { newId } from "@/lib/projects/ids";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
-import type { Feedback, Message, Project, Step, Turn } from "@/lib/projects/types";
+import type { AssistantMessage, Feedback, Message, Project, ProjectData, Step, Turn, TurnEvent } from "@/lib/projects/types";
 
-// The signed-in user's projects, kept in this browser's localStorage (one key per
-// account). A store outside React, because hidden pages stay alive
-// (cacheComponents): the shared sidebar and every chat see the same projects,
-// and an answer keeps going while you're on another page.
+// The signed-in user's projects, as the server keeps them (lib/projects/server.ts),
+// with the AI's answers in progress. A store outside React, because hidden pages
+// stay alive (cacheComponents): the shared sidebar and every chat see the same
+// projects, and an answer keeps going while you're on another page.
 //
-// The AI is fake (see mock.ts). Text streams by the clock: a step only records when
-// it started, and the UI shows one more letter every CHAR_MS from then on.
+// The AI runs on the server (app/api/projects/[id]/turn), which streams what it does.
+// It's played back here at a readable pace: text shows one more letter every
+// CHAR_MS from when it started, the next step waits for it, and the steps fold away
+// before the answer.
 
 export const CHAR_MS = 14; // Per letter of an answer.
 export const NAME_CHAR_MS = 45; // Per letter of the project's name.
-const THINK_MS = 1600;
-const NAME_MS = 1400; // The name's skeleton.
-const REPLY_THINK_MS = 1100;
-export const CLEAR_MS = 450; // The build's steps fading away before the summary.
-const AFTER_TEXT_MS = 450;
-const AFTER_TOOL_MS = 250;
+export const CLEAR_MS = 450; // The steps fading away before the answer.
+const RETRIES = 3; // Times to reconnect to an answer before giving up.
 
 type State = {
-  loaded: boolean; // False on the server and until the browser's copy is read.
+  loaded: boolean; // False on the server and until the user's projects are in.
   userId: string | null;
   projects: Project[]; // Newest first.
 };
@@ -29,7 +29,7 @@ type State = {
 const NOT_LOADED: State = { loaded: false, userId: null, projects: [] };
 let state = NOT_LOADED;
 const listeners = new Set<() => void>();
-const runs = new Map<string, AbortController>(); // Answers being worked on, by project.
+const follows = new Map<string, AbortController>(); // Answers being listened to, by project.
 const born = new Map<string, number>(); // When projects and prompts were made in this tab.
 const NEW_MS = 5000;
 
@@ -40,36 +40,10 @@ function subscribe(listener: () => void) {
 
 function setState(next: State) {
   state = next;
-  save();
   listeners.forEach((listener) => listener());
 }
 
-function storageKey(userId: string) {
-  return `buildinio:projects:${userId}`;
-}
-
-// Answers in progress aren't saved: one cut off by a reload starts over (see loadProjects).
-function save() {
-  if (!state.userId) return;
-  try {
-    const projects = state.projects.map((project) => ({ ...project, turn: null }));
-    localStorage.setItem(storageKey(state.userId), JSON.stringify(projects));
-  } catch {
-    // Full or blocked storage: keep going in memory.
-  }
-}
-
-function read(userId: string): Project[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(storageKey(userId)) ?? "[]");
-    if (!Array.isArray(value)) return [];
-    return value.filter((project) => typeof project?.id === "string" && Array.isArray(project.messages));
-  } catch {
-    return [];
-  }
-}
-
-/** All projects, newest first. `loaded` is false until the browser's copy is read. */
+/** All projects, newest first. `loaded` is false until they're in. */
 export function useProjects() {
   return useSyncExternalStore(subscribe, () => state, () => NOT_LOADED);
 }
@@ -79,38 +53,37 @@ export function useProject(id: string) {
   return { loaded, project: projects.find((project) => project.id === id) ?? null };
 }
 
-/** Whether a project or prompt was just made here, so it animates in (and ones read from storage don't). */
+/** Whether a project or prompt was just made here, so it animates in (and ones from before don't). */
 export function isNew(id: string) {
   const at = born.get(id);
   return at !== undefined && Date.now() - at < NEW_MS;
 }
 
-/** Reads the user's projects from this browser. Called by AppShell; does nothing if they're already in. */
-export function loadProjects(userId: string) {
+/**
+ * Takes in the user's projects, as the shared layout read them. Does nothing if
+ * they're already in. Joins the answers the AI is working on.
+ */
+export function loadProjects(userId: string, saved: ProjectData[]) {
   if (state.loaded && state.userId === userId) return;
   stopAll();
-  setState({ loaded: true, userId, projects: read(userId) });
-  // Answers that were cut off by leaving the page start again.
-  for (const project of state.projects) {
-    if (project.messages.at(-1)?.role !== "user") continue;
-    if (project.messages.length === 1) build(project.id, project.messages[0].text);
-    else reply(project.id);
-  }
+  // Being answered, or cut off before an answer (the server answers again).
+  const waiting = saved.filter((project) => project.running || project.messages.at(-1)?.role === "user");
+  setState({
+    loaded: true,
+    userId,
+    projects: saved.map((project) => ({ ...project, turn: waiting.includes(project) ? newTurn() : null })),
+  });
+  for (const project of waiting) follow(project.id);
 }
 
-/** Drops the user's projects from this browser, after their account is deleted. */
+/** Forgets the user's projects here, after their account is deleted. */
 export function forgetProjects(userId: string) {
-  try {
-    localStorage.removeItem(storageKey(userId));
-  } catch {}
-  if (state.userId === userId) {
-    stopAll();
-    state = NOT_LOADED;
-    listeners.forEach((listener) => listener());
-  }
+  if (state.userId !== userId) return;
+  stopAll();
+  setState(NOT_LOADED);
 }
 
-/** Starts a project from the first prompt and has the AI build it. Returns its id. */
+/** Starts a project from the first prompt and has the AI answer it. Returns its id. */
 export function createProject(prompt: string) {
   const id = newId();
   const message: Message = { id: newId(), role: "user", text: prompt };
@@ -121,12 +94,14 @@ export function createProject(prompt: string) {
     color: "slate",
     createdAt: Date.now(),
     messages: [message],
-    turn: null,
+    turn: newTurn(),
+    ready: false,
+    appVersion: 0,
   };
   born.set(id, Date.now());
   born.set(message.id, Date.now());
   setState({ ...state, projects: [project, ...state.projects] });
-  build(id, prompt);
+  follow(id, message);
   return id;
 }
 
@@ -136,23 +111,27 @@ export function sendMessage(projectId: string, text: string) {
   if (!project || project.turn) return;
   const message: Message = { id: newId(), role: "user", text };
   born.set(message.id, Date.now());
-  update(projectId, (p) => ({ ...p, messages: [...p.messages, message] }));
-  reply(projectId);
+  update(projectId, (p) => ({ ...p, messages: [...p.messages, message], turn: newTurn() }));
+  follow(projectId, message);
 }
 
 export function editProject(id: string, changes: { name: string; icon: ProjectIcon; color: ProjectColor }) {
   update(id, (project) => ({ ...project, ...changes, namedAt: undefined }));
+  save(actions.editProject(id, changes));
 }
 
+/** Deletes the project, its chat and its code. The AI stops if it's working on it. */
 export function deleteProject(id: string) {
-  runs.get(id)?.abort();
+  follows.get(id)?.abort();
   setState({ ...state, projects: state.projects.filter((project) => project.id !== id) });
+  save(actions.deleteProject(id));
 }
 
 /** The preview of a just-built app was shown, or its "ready" card dismissed. */
 export function markPreviewSeen(id: string) {
   if (!find(id)?.ready) return;
-  update(id, (project) => ({ ...project, ready: undefined }));
+  update(id, (project) => ({ ...project, ready: false }));
+  save(actions.markPreviewSeen(id));
 }
 
 export function setFeedback(projectId: string, messageId: string, feedback: Feedback | null) {
@@ -162,6 +141,12 @@ export function setFeedback(projectId: string, messageId: string, feedback: Feed
       message.id === messageId && message.role === "assistant" ? { ...message, feedback } : message,
     ),
   }));
+  save(actions.setFeedback(projectId, messageId, feedback));
+}
+
+/** Changes show right away; if the server didn't get one, say so. */
+function save(request: Promise<unknown>) {
+  request.catch(() => toast.error("That change wasn’t saved. Check your connection and try again."));
 }
 
 function find(id: string) {
@@ -176,136 +161,200 @@ function update(id: string, change: (project: Project) => Project) {
 }
 
 function updateTurn(id: string, change: (turn: Turn) => Turn) {
-  update(id, (project) => (project.turn ? { ...project, turn: change(project.turn) } : project));
+  update(id, (project) => ({ ...project, turn: change(project.turn ?? newTurn()) }));
 }
 
-/** Random enough for ids in one browser. Not crypto.randomUUID: that's missing over plain http (a phone on the LAN). */
-function newId() {
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
-  return Array.from(bytes, (byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 12);
+function newTurn(): Turn {
+  return { phase: "thinking", startedAt: Date.now(), steps: [], answer: null };
 }
 
 function stopAll() {
-  runs.forEach((run) => run.abort());
-  runs.clear();
-}
-
-/** Runs one fake answer for a project, replacing any it was already running. */
-function run(projectId: string, script: (wait: (ms: number) => Promise<void>) => Promise<void>) {
-  runs.get(projectId)?.abort();
-  const controller = new AbortController();
-  runs.set(projectId, controller);
-  const { signal } = controller;
-
-  const wait = (ms: number) =>
-    new Promise<void>((resolve, reject) => {
-      if (signal.aborted) return reject(signal.reason);
-      const onAbort = () => {
-        window.clearTimeout(timer);
-        reject(signal.reason);
-      };
-      const timer = window.setTimeout(() => {
-        signal.removeEventListener("abort", onAbort);
-        resolve();
-      }, ms);
-      signal.addEventListener("abort", onAbort, { once: true });
-    });
-
-  script(wait)
-    .catch((error) => {
-      if (!signal.aborted) console.error(error);
-    })
-    .finally(() => {
-      if (runs.get(projectId) === controller) runs.delete(projectId);
-    });
+  follows.forEach((follow) => follow.abort());
+  follows.clear();
 }
 
 /**
- * Ends the answer: everything it showed is replaced by `text`, with how long it took.
- * After a build, the app is ready to preview.
+ * Listens to the AI answering a project, from the server: sends `message` first if
+ * there is one. Reconnects if the connection drops, since the answer goes on there.
  */
-function finish(projectId: string, text: string) {
-  update(projectId, (project) => {
-    if (!project.turn) return project;
-    const seconds = Math.max(1, Math.floor((Date.now() - project.turn.startedAt) / 1000));
-    const message: Message = { id: newId(), role: "assistant", text, seconds, feedback: null };
-    const ready = project.turn.kind === "build" || project.ready;
-    return { ...project, messages: [...project.messages, message], turn: null, ready };
+async function follow(projectId: string, message?: Message) {
+  follows.get(projectId)?.abort();
+  const controller = new AbortController();
+  follows.set(projectId, controller);
+  const { signal } = controller;
+  const body = JSON.stringify(message ? { text: message.text, messageId: message.id } : {});
+
+  try {
+    for (let attempt = 0; ; attempt++) {
+      const result = await listen(projectId, body, signal);
+      if (result === "done") return;
+      if (result !== "dropped") {
+        // Turned down: take the prompt back, so it can be sent again.
+        update(projectId, (project) => ({
+          ...project,
+          messages: project.messages.filter((m) => m.id !== message?.id),
+          turn: null,
+        }));
+        if (typeof result === "string") toast.error(result);
+        return;
+      }
+      if (attempt === RETRIES) break;
+      await wait(1000 * 2 ** attempt, signal);
+    }
+    update(projectId, (project) => ({ ...project, turn: null }));
+    toast.error("Lost the connection to the AI. Reload the page to see its answer.");
+  } catch (error) {
+    if (!signal.aborted) console.error(error);
+  } finally {
+    if (follows.get(projectId) === controller) follows.delete(projectId);
+  }
+}
+
+/**
+ * One connection to the answer: "done", "dropped" (try again), or why it was turned
+ * down (null if the project is gone).
+ */
+async function listen(projectId: string, body: string, signal: AbortSignal): Promise<string | null> {
+  const response = await fetch(`/api/projects/${projectId}/turn`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    signal,
+  }).catch((error) => {
+    if (signal.aborted) throw error;
+    return null;
   });
+  if (!response || response.status >= 500) return "dropped";
+  if (!response.ok || !response.body) return response.status === 404 ? null : await response.text();
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) return "dropped";
+      buffer += value;
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line) as TurnEvent;
+        await play(projectId, event, signal);
+        if (event.type === "done") return "done";
+      }
+    }
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return "dropped";
+  } finally {
+    reader.cancel().catch(() => {});
+  }
 }
 
-function startTurn(projectId: string, kind: Turn["kind"]) {
-  const turn: Turn = { kind, phase: "thinking", startedAt: Date.now(), steps: [], answer: null };
-  update(projectId, (project) => ({ ...project, turn }));
+/** Shows one thing the AI did. A new step waits until the text before it has streamed in. */
+async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
+  switch (event.type) {
+    case "snapshot": {
+      // Joining late: what happened so far shows at once.
+      const now = Date.now();
+      const steps = event.steps.map((step): Step =>
+        step.kind === "text" ? { ...step, startedAt: now - step.text.length * CHAR_MS } : step,
+      );
+      updateTurn(projectId, (turn) => ({
+        ...turn,
+        phase: steps.length ? "working" : "thinking",
+        startedAt: now - event.elapsedMs,
+        steps,
+      }));
+      return;
+    }
+    case "named":
+      update(projectId, (project) =>
+        project.name === null
+          ? { ...project, name: event.name, icon: event.icon, color: event.color, namedAt: Date.now() }
+          : project,
+      );
+      return;
+    case "step": {
+      await untilShown(projectId, signal);
+      const step: Step = event.step.kind === "text" ? { ...event.step, startedAt: Date.now() } : event.step;
+      updateTurn(projectId, (turn) => ({ ...turn, phase: "working", steps: [...turn.steps, step] }));
+      return;
+    }
+    case "text":
+      updateTurn(projectId, (turn) => ({
+        ...turn,
+        steps: turn.steps.map((step) =>
+          step.id === event.id && step.kind === "text" ? { ...step, text: step.text + event.delta } : step,
+        ),
+      }));
+      return;
+    case "tool":
+      updateTurn(projectId, (turn) => ({
+        ...turn,
+        steps: turn.steps.map((step) => (step.id === event.step.id ? event.step : step)),
+      }));
+      return;
+    case "done":
+      await untilShown(projectId, signal);
+      await finish(projectId, event, signal);
+  }
 }
 
-function answer(projectId: string, text: string) {
-  updateTurn(projectId, (turn) => ({
-    ...turn,
-    phase: "answering",
-    steps: [],
-    answer: { text, startedAt: Date.now() },
+/**
+ * Ends the answer like the AI wrote it: what it said last stays as the answer while
+ * the rest folds away (if it used tools), and the message is saved once it has all
+ * streamed in. A build makes the app ready to preview.
+ */
+async function finish(
+  projectId: string,
+  { message, appVersion, ready }: { message: AssistantMessage; appVersion: number; ready: boolean },
+  signal: AbortSignal,
+) {
+  const turn = find(projectId)?.turn;
+  if (turn && !find(projectId)?.messages.some((m) => m.id === message.id)) {
+    const last = turn.steps.findLast((step) => step.kind === "text");
+    const kept = last?.kind === "text" && last.text.trim() === message.text.trim() ? last : null;
+    if (turn.steps.some((step) => step.kind === "tool")) {
+      const answer = kept && { text: message.text, startedAt: kept.startedAt };
+      updateTurn(projectId, (t) => ({ ...t, phase: "clearing", steps: t.steps.filter((s) => s !== kept), answer }));
+      await wait(CLEAR_MS, signal);
+    }
+    const answer = { text: message.text, startedAt: kept?.startedAt ?? Date.now() };
+    updateTurn(projectId, (t) => ({ ...t, phase: "answering", steps: [], answer }));
+    await wait(answer.startedAt + message.text.length * CHAR_MS - Date.now(), signal);
+  }
+  // The seconds counted here ran on while the text streamed in: don't go back on them.
+  const seconds = turn ? Math.max(message.seconds, Math.floor((Date.now() - turn.startedAt) / 1000)) : message.seconds;
+  update(projectId, (project) => ({
+    ...project,
+    messages: project.messages.some((m) => m.id === message.id)
+      ? project.messages
+      : [...project.messages, { ...message, seconds }],
+    turn: null,
+    ready: ready || project.ready,
+    appVersion,
   }));
 }
 
-/** The first prompt: think, name the project, build it step by step, then sum up. */
-function build(projectId: string, prompt: string) {
-  run(projectId, async (wait) => {
-    startTurn(projectId, "build");
-    await wait(THINK_MS);
-
-    const idea = guessIdea(prompt);
-    if (find(projectId)?.name === null) {
-      updateTurn(projectId, (turn) => ({ ...turn, phase: "naming" }));
-      await wait(NAME_MS);
-      // Unless it was renamed in the meantime.
-      update(projectId, (project) =>
-        project.name === null
-          ? { ...project, name: idea.name, icon: idea.icon, color: idea.color, namedAt: Date.now() }
-          : project,
-      );
-      await wait(idea.name.length * NAME_CHAR_MS + 300);
-    }
-
-    updateTurn(projectId, (turn) => ({ ...turn, phase: "working" }));
-    for (const plan of buildPlan(idea)) {
-      const id = newId();
-      if (plan.kind === "text") {
-        const step: Step = { id, kind: "text", text: plan.text, startedAt: Date.now() };
-        updateTurn(projectId, (turn) => ({ ...turn, steps: [...turn.steps, step] }));
-        await wait(plan.text.length * CHAR_MS + AFTER_TEXT_MS);
-      } else {
-        const { ms, ...tool } = plan;
-        const step: Step = { ...tool, id, done: false };
-        updateTurn(projectId, (turn) => ({ ...turn, steps: [...turn.steps, step] }));
-        await wait(ms);
-        updateTurn(projectId, (turn) => ({
-          ...turn,
-          steps: turn.steps.map((s) => (s.id === id ? { ...s, done: true } : s)),
-        }));
-        await wait(AFTER_TOOL_MS);
-      }
-    }
-
-    updateTurn(projectId, (turn) => ({ ...turn, phase: "clearing" }));
-    await wait(CLEAR_MS);
-
-    const summary = buildSummary(idea);
-    answer(projectId, summary);
-    await wait(summary.length * CHAR_MS);
-    finish(projectId, summary);
-  });
+/** Waits until the last bit of text has streamed in. */
+async function untilShown(projectId: string, signal: AbortSignal) {
+  const step = find(projectId)?.turn?.steps.findLast((s) => s.kind === "text");
+  if (step?.kind === "text") await wait(step.startedAt + step.text.length * CHAR_MS - Date.now(), signal);
 }
 
-/** A follow-up: think a moment, then answer. No tools. */
-function reply(projectId: string) {
-  run(projectId, async (wait) => {
-    startTurn(projectId, "reply");
-    await wait(REPLY_THINK_MS);
-    const answered = find(projectId)?.messages.filter((message) => message.role === "assistant").length ?? 0;
-    const text = replyFor(answered);
-    answer(projectId, text);
-    await wait(text.length * CHAR_MS);
-    finish(projectId, text);
+function wait(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason);
+    if (ms <= 0) return resolve();
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }
