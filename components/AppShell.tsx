@@ -41,6 +41,7 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, c
   const opener = useRef<HTMLButtonElement | null>(null); // The button that opened the phone sidebar.
   const previewOpenRef = useRef<HTMLButtonElement>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const previewId = `${id}-preview`;
   const panelId = `${id}-panel`;
@@ -112,8 +113,13 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, c
       <DesktopSidebar user={user} state={sidebar} onChange={changeSidebar} onCommit={commitSidebar} />
 
       {/* Out of reach while the phone sidebar or preview covers it. Keeps room for
-          the chat next to the preview on wider screens. */}
-      <div inert={mobileOpen || previewOpen} className="flex min-w-0 flex-1 flex-col md:min-w-90">
+          the chat next to the preview on wider screens. On phones, sideways swipes are
+          left to the preview (see useSwipeSheet). */}
+      <div
+        ref={chatRef}
+        inert={mobileOpen || previewOpen}
+        className="flex min-w-0 flex-1 touch-pan-y touch-pinch-zoom flex-col md:min-w-90 md:touch-auto"
+      >
         {/* With a title it stays on top while the page scrolls under it, and shows on wider
             screens too (just the title and the preview button: the sidebar has the rest).
             No background of its own: the chat fades out behind it (see ProjectChat). */}
@@ -188,6 +194,7 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, c
             onClose={closePreview}
             onOpenSidebar={openMobile}
             closeRef={previewCloseRef}
+            swipeAreaRef={chatRef}
           />
         </>
       )}

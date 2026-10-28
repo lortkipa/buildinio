@@ -146,7 +146,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => width(panel)).toBe(480);
     await expect(panel.getByRole("heading", { name: "Salon Booking" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Your app is ready/ })).toHaveCount(0);
+    await expect(page.getByText("Your app is ready", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath(`desktop-built-${colorScheme}.png`), animations: "disabled" });
   });
 }
@@ -172,7 +172,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 
     // Done: it doesn't cover the chat by itself, but says so above the prompt box.
     await page.clock.runFor(60_000);
-    const ready = page.getByRole("button", { name: /Your app is ready/ });
+    const ready = page.getByText("Your app is ready", { exact: true });
     await expect(ready).toBeVisible();
     await expect(sheet).not.toBeVisible();
     const card = await ready.boundingBox();
@@ -180,7 +180,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     expect(card!.y + card!.height).toBeLessThan(prompt!.y);
     await page.screenshot({ path: test.info().outputPath(`phone-ready-${colorScheme}.png`), animations: "disabled" });
 
-    await ready.click();
+    await page.getByRole("button", { name: "View your app" }).click();
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole("heading", { name: "Salon Booking" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Open sidebar" })).toBeVisible();
@@ -201,7 +201,7 @@ test("phone: the ready card's X dismisses it for good", async ({ page }) => {
   await page.goto("/projects/building");
   await loaded(page);
   await page.clock.runFor(60_000);
-  const ready = page.getByRole("button", { name: /Your app is ready/ });
+  const ready = page.getByText("Your app is ready", { exact: true });
   await expect(ready).toBeVisible();
   await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(ready).toHaveCount(0);
@@ -209,4 +209,46 @@ test("phone: the ready card's X dismisses it for good", async ({ page }) => {
   await page.reload();
   await loaded(page);
   await expect(ready).toHaveCount(0);
+});
+
+test.describe("phone swipes", () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  /** A real finger: touch events through the browser, so touch-action applies. */
+  async function swipe(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [from] });
+    for (let step = 1; step <= 10; step++) {
+      const point = { x: from.x + ((to.x - from.x) * step) / 10, y: from.y + ((to.y - from.y) * step) / 10 };
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point] });
+    }
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await cdp.detach();
+  }
+
+  test("swiping left on the chat opens the preview, swiping right closes it", async ({ page }) => {
+    await page.goto("/projects/built");
+    await expect(page.locator("header").getByRole("button", { name: "Options for Café Menu", exact: true })).toBeVisible();
+    const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
+    const toggle = page.locator("header").getByRole("button", { name: "Toggle preview" });
+
+    // Up and down, or the other way, leave it be.
+    await swipe(page, { x: 200, y: 600 }, { x: 205, y: 300 });
+    await swipe(page, { x: 100, y: 400 }, { x: 330, y: 400 });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(sheet).not.toBeVisible();
+
+    await swipe(page, { x: 330, y: 400 }, { x: 60, y: 410 });
+    await expect(sheet).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(sheet.getByRole("heading", { name: "Café Menu" })).toBeVisible();
+    await expect.poll(() => sheet.evaluate((element) => element.getBoundingClientRect().left)).toBe(0);
+
+    // Left again does nothing; right pushes it back out.
+    await swipe(page, { x: 330, y: 400 }, { x: 60, y: 400 });
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await swipe(page, { x: 60, y: 400 }, { x: 330, y: 410 });
+    await expect(sheet).not.toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
 });

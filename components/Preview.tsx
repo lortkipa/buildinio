@@ -7,6 +7,8 @@ import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
 import { ProjectTile } from "@/components/ProjectTile";
 import { circleButton } from "@/components/styles";
 import { usePlayOnce } from "@/components/usePlayOnce";
+import { setMobilePreview } from "@/components/usePreviewState";
+import { useSwipeSheet } from "@/components/useSwipeSheet";
 import { CHAT_MIN_WIDTH, clampPreviewWidth, PREVIEW_CLOSE_AT, PREVIEW_MIN_WIDTH } from "@/lib/preview";
 import type { PreviewState } from "@/lib/preview";
 import { guessIdea } from "@/lib/projects/mock";
@@ -184,11 +186,13 @@ type MobilePreviewProps = {
   onClose: () => void;
   onOpenSidebar: (event: MouseEvent<HTMLButtonElement>) => void;
   closeRef: RefObject<HTMLButtonElement | null>;
+  swipeAreaRef: RefObject<HTMLElement | null>; // The chat: swiping left on it pulls this in.
 };
 
 /**
  * The preview on phones: slides over the whole screen from the right, with the chat
- * header's buttons on a bar of their own above the app.
+ * header's buttons on a bar of their own above the app. Swiping left on the chat pulls
+ * it in and swiping right pushes it back out, following the finger.
  */
 export function MobilePreview({
   id,
@@ -199,9 +203,12 @@ export function MobilePreview({
   onClose,
   onOpenSidebar,
   closeRef,
+  swipeAreaRef,
 }: MobilePreviewProps) {
   const { project } = useProject(projectId);
   const ready = project?.ready === true;
+  const ref = useRef<HTMLDivElement>(null);
+  useSwipeSheet(swipeAreaRef, ref, open, setMobilePreview);
 
   // Escape closes it, unless the sidebar over it, a menu or a dialog handled it first.
   useEffect(() => {
@@ -222,13 +229,14 @@ export function MobilePreview({
 
   return (
     <div
+      ref={ref}
       id={id}
       role="dialog"
       aria-modal
       aria-label="Preview"
       inert={!open || sidebarOpen}
       // Visible right away when opening, so focus can move in; hidden only once it has slid out.
-      className={`fixed inset-0 z-40 flex flex-col bg-surface duration-300 ease-out motion-reduce:transition-none md:hidden ${
+      className={`fixed inset-0 z-40 flex touch-pan-y touch-pinch-zoom flex-col bg-surface duration-300 ease-out motion-reduce:transition-none md:hidden ${
         open ? "visible translate-x-0 transition-[translate]" : "invisible translate-x-full transition-[translate,visibility]"
       }`}
     >
@@ -249,7 +257,7 @@ export function MobilePreview({
         </div>
         <PreviewToggle ref={closeRef} pressed controls={id} onClick={onClose} />
       </div>
-      <div className="scrollbar-thin @container min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+      <div className="scrollbar-thin @container min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
         <PreviewScreen project={project} />
       </div>
     </div>
