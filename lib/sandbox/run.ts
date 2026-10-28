@@ -39,7 +39,14 @@ export async function runCommand(
     timeoutMs,
     mounts = [],
     image = IMAGE,
-  }: { signal: AbortSignal; timeoutMs: number; mounts?: Mount[]; image?: string },
+    tmp,
+  }: {
+    signal: AbortSignal;
+    timeoutMs: number;
+    mounts?: Mount[];
+    image?: string;
+    tmp?: string; // In Docker, an in-memory /tmp of this size, like "1g", instead of the image's disk.
+  },
 ): Promise<CommandResult> {
   signal.throwIfAborted();
   const dir = projectDir(projectId);
@@ -48,7 +55,7 @@ export async function runCommand(
   const name = `buildinio-${projectId.slice(0, 8)}-${randomBytes(4).toString("hex")}`;
 
   const child = docker
-    ? spawn("docker", dockerArgs(name, dir, command, mounts, image), { stdio: ["ignore", "pipe", "pipe"] })
+    ? spawn("docker", dockerArgs(name, dir, command, mounts, image, tmp), { stdio: ["ignore", "pipe", "pipe"] })
     : spawn(command, {
         cwd: dir,
         shell: true,
@@ -99,7 +106,7 @@ export async function runCommand(
   }
 }
 
-function dockerArgs(name: string, dir: string, command: string, mounts: Mount[], image: string) {
+function dockerArgs(name: string, dir: string, command: string, mounts: Mount[], image: string, tmp?: string) {
   // Run as this user, so files made in the folder stay ours to change and delete.
   const user = process.getuid && process.getgid ? ["--user", `${process.getuid()}:${process.getgid()}`] : [];
   return [
@@ -109,6 +116,7 @@ function dockerArgs(name: string, dir: string, command: string, mounts: Mount[],
     "-v", `${dir}:/app`, "-w", "/app",
     "-v", `${NPM_CACHE}:/npm-cache`,
     ...mounts.flatMap((mount) => ["-v", `${mount.host}:${mount.container}:ro`]),
+    ...(tmp ? ["--tmpfs", `/tmp:rw,size=${tmp}`] : []),
     "-e", "HOME=/tmp", "-e", "npm_config_cache=/npm-cache", "-e", "npm_config_update_notifier=false", "-e", "CI=true",
     "-e", "NO_COLOR=1",
     image, "sh", "-c", command,

@@ -39,12 +39,13 @@ export async function lookAtApp(projectId: string, page: string, signal: AbortSi
   }
   if (result.exitCode !== 0) {
     const output = result.output.trim().split("\n").slice(-5).join("\n");
+    const log = result.output.trim().split("\n").slice(-30).join("\n"); // Enough to see where it failed.
     if (NO_BROWSER.test(result.output)) {
-      console.warn(`\n  ⚠  The AI can't look at apps: no Chromium where commands run (see the README).\n${output}\n`);
+      console.warn(`\n  ⚠  The AI can't look at apps: no Chromium where commands run (see the README).\n${log}\n`);
       unavailable = "Screenshots aren't set up on this server, so you can't look at the app. Carry on without.";
       return { ok: false, reason: unavailable, detail: "Not set up" };
     }
-    console.warn(`\n  ⚠  The AI's screenshots didn't work:\n${output}\n`);
+    console.warn(`\n  ⚠  The AI's screenshots didn't work:\n${log}\n`);
     const why = result.timedOut ? "it took too long" : output;
     return { ok: false, reason: `Taking the screenshots failed: ${why}`, detail: "Didn't work" };
   }
@@ -75,6 +76,8 @@ async function screenshot(projectId: string, route: string, signal: AbortSignal)
     signal,
     timeoutMs: LOOK_MS,
     image: PLAYWRIGHT_IMAGE,
+    // Chromium's profile and shared memory go in /tmp: in memory, not on Docker's disk, which may be full.
+    tmp: "1g",
     mounts: [
       { host: SCRIPT, container: "/buildinio/screenshot.mjs" },
       { host: PLAYWRIGHT, container: "/buildinio/node_modules/playwright-core" },
