@@ -149,6 +149,12 @@ export function deleteProject(id: string) {
   setState({ ...state, projects: state.projects.filter((project) => project.id !== id) });
 }
 
+/** The preview of a just-built app was shown, or its "ready" card dismissed. */
+export function markPreviewSeen(id: string) {
+  if (!find(id)?.ready) return;
+  update(id, (project) => ({ ...project, ready: undefined }));
+}
+
 export function setFeedback(projectId: string, messageId: string, feedback: Feedback | null) {
   update(projectId, (project) => ({
     ...project,
@@ -214,13 +220,17 @@ function run(projectId: string, script: (wait: (ms: number) => Promise<void>) =>
     });
 }
 
-/** Ends the answer: everything it showed is replaced by `text`, with how long it took. */
+/**
+ * Ends the answer: everything it showed is replaced by `text`, with how long it took.
+ * After a build, the app is ready to preview.
+ */
 function finish(projectId: string, text: string) {
   update(projectId, (project) => {
     if (!project.turn) return project;
     const seconds = Math.max(1, Math.floor((Date.now() - project.turn.startedAt) / 1000));
     const message: Message = { id: newId(), role: "assistant", text, seconds, feedback: null };
-    return { ...project, messages: [...project.messages, message], turn: null };
+    const ready = project.turn.kind === "build" || project.ready;
+    return { ...project, messages: [...project.messages, message], turn: null, ready };
   });
 }
 

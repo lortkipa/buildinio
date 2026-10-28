@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { Ref } from "react";
 import { useRouter } from "next/navigation";
 import { AppWindow, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { EditProjectDialog } from "@/components/EditProjectDialog";
 import { DeleteProjectDialog, ProjectMenu, type ProjectMenuAnchor } from "@/components/ProjectActions";
 import { ProjectLabel } from "@/components/ProjectTile";
-import { focusRing } from "@/components/styles";
+import { circleButton, focusRing } from "@/components/styles";
 import { deleteProject, useProject } from "@/lib/projects/store";
 
 /** The rounded project title and shared options on every screen size. */
@@ -73,16 +74,24 @@ export function ProjectTitle({ id }: { id: string }) {
   );
 }
 
-/** Only the toggle state for now; the preview itself will be designed later. */
-export function PreviewToggle() {
-  const [active, setActive] = useState(false);
+type PreviewToggleProps = {
+  pressed: boolean; // The preview is showing.
+  controls: string; // The preview's id.
+  onClick: () => void;
+  ref?: Ref<HTMLButtonElement>;
+};
+
+/** Shows and hides the preview: next to the chat on wider screens, over it on phones. Same look either way. */
+export function PreviewToggle({ pressed, controls, onClick, ref }: PreviewToggleProps) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label="Toggle preview"
-      aria-pressed={active}
-      onClick={() => setActive((value) => !value)}
-      className={`grid size-10 cursor-pointer place-items-center rounded-full bg-surface text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing}`}
+      aria-pressed={pressed}
+      aria-controls={controls}
+      onClick={onClick}
+      className={circleButton}
     >
       <AppWindow size={20} aria-hidden />
     </button>
