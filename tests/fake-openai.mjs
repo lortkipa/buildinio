@@ -4,8 +4,11 @@
 // - a prompt with a "?" just gets an answer;
 // - a prompt with "React" gets the template's src/App.tsx rewritten, for a real Vite build
 //   (npm install needs the network; the tests don't use it);
+// - a prompt with "design" reads the frontend-design skill too, and says so once it has;
 // - any other prompt gets a short plan and file writes for a page with a tiny build script
 //   (no npm install needed), then a summary once the files are written.
+// Every request has to be cacheable like OpenAI's prompt cache wants it: a prompt_cache_key,
+// and the same instructions from one request to the next. If not, the answer says so.
 
 import { createServer } from "node:http";
 
@@ -35,6 +38,9 @@ const REACT_FILES = {
 `,
 };
 
+const SKILL_HEADING = "# Frontend Design"; // In skills/frontend-design/SKILL.md.
+
+const instructionsOf = new Map(); // By response id: the instructions it was made with.
 let count = 0;
 const nextId = (prefix) => `${prefix}_${++count}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,23 +66,35 @@ createServer(async (request, response) => {
   const id = nextId("resp");
   send({ type: "response.created", response: { id, status: "in_progress", output: [] } });
 
-  const prompt = [...(Array.isArray(body.input) ? body.input : [])].reverse().find((item) => item.role === "user")?.content ?? "";
+  const input = Array.isArray(body.input) ? body.input : [];
+  const prompt = [...input].reverse().find((item) => item.role === "user")?.content ?? "";
   const output = [];
-  if (body.previous_response_id) {
-    output.push(streamText(send, "**Test Kitchen** is ready. Take a look, and tell me what to change."));
+  const uncacheable = cacheProblem(body);
+  instructionsOf.set(id, body.instructions);
+  if (uncacheable) {
+    output.push(streamText(send, uncacheable));
+  } else if (body.previous_response_id) {
+    const results = input.filter((item) => item.type === "function_call_output").map((item) => String(item.output));
+    const designed = results.some((result) => result.includes(SKILL_HEADING)) ? ", designed with the guide" : "";
+    output.push(streamText(send, `**Test Kitchen** is ready${designed}. Take a look, and tell me what to change.`));
   } else if (String(prompt).includes("?")) {
     await wait(300);
     output.push(streamText(send, "Good question. I can build websites and apps from a description."));
   } else {
     await wait(DELAY_MS);
     output.push(streamText(send, "I'll make a simple test page."));
-    for (const [path, content] of Object.entries(String(prompt).includes("React") ? REACT_FILES : FILES)) {
+    const calls = Object.entries(String(prompt).includes("React") ? REACT_FILES : FILES).map(([path, content]) => [
+      "write_file",
+      { path, content },
+    ]);
+    if (String(prompt).includes("design")) calls.unshift(["load_skill", { name: "frontend-design", file: "" }]);
+    for (const [name, args] of calls) {
       const item = {
         type: "function_call",
         id: nextId("fc"),
         call_id: nextId("call"),
-        name: "write_file",
-        arguments: JSON.stringify({ path, content }),
+        name,
+        arguments: JSON.stringify(args),
         status: "completed",
       };
       send({ type: "response.output_item.added", output_index: output.length, item });
@@ -99,7 +117,23 @@ function message(text) {
 }
 
 function completed(id, output) {
-  return { id, object: "response", status: "completed", output };
+  const usage = {
+    input_tokens: 2000,
+    input_tokens_details: { cached_tokens: 1800 },
+    output_tokens: 100,
+    output_tokens_details: { reasoning_tokens: 40 },
+    total_tokens: 2100,
+  };
+  return { id, object: "response", status: "completed", output, usage };
+}
+
+/** Why OpenAI couldn't reuse the cached prompt for this request, or null if it could. */
+function cacheProblem(body) {
+  if (!body.prompt_cache_key) return "The request had no prompt_cache_key.";
+  if (String(body.instructions).includes("# This project")) return "The project's files were in the instructions.";
+  const before = body.previous_response_id && instructionsOf.get(body.previous_response_id);
+  if (before !== undefined && before !== body.instructions) return "The instructions changed between requests.";
+  return null;
 }
 
 /** A message, streamed a few letters at a time. */

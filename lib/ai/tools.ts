@@ -2,6 +2,7 @@ import "server-only";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import type { FunctionTool, ResponseFunctionToolCall, Tool } from "openai/resources/responses/responses";
+import { readSkill, SKILLS } from "@/lib/ai/skills";
 import { newId } from "@/lib/projects/ids";
 import type { StepData, ToolStep } from "@/lib/projects/types";
 import { deletePath, editText, FileError, listFiles, readText, writeText } from "@/lib/sandbox/files";
@@ -12,8 +13,10 @@ import { runCommand } from "@/lib/sandbox/run";
 
 const COMMAND_MS = 5 * 60_000;
 
+type Property = { type: "string"; description: string; enum?: string[] };
+
 /** Strict function tools: every property required, nothing else allowed. */
-function tool(name: string, description: string, properties: Record<string, { type: "string"; description: string }>): FunctionTool {
+function tool(name: string, description: string, properties: Record<string, Property>): FunctionTool {
   return {
     type: "function",
     name,
@@ -26,7 +29,7 @@ function tool(name: string, description: string, properties: Record<string, { ty
 const PATH = { type: "string", description: "Relative to the project, like src/App.tsx." } as const;
 
 export const TOOLS: Tool[] = [
-  { type: "web_search" },
+  { type: "web_search", search_context_size: "low" }, // Less of each page to pay for: it searches for facts.
   tool("list_files", "Lists the project's files with their sizes (node_modules and dist left out).", {}),
   tool("read_file", "Reads a file.", { path: PATH }),
   tool("write_file", "Creates a file, or replaces all of it. Folders are made as needed.", {
@@ -41,9 +44,21 @@ export const TOOLS: Tool[] = [
   tool("delete_file", "Deletes a file or a folder.", { path: PATH }),
   tool(
     "run_command",
-    "Runs a shell command in the project's folder, like `npm install lucide-react` or `npm run build`, and returns its exit code and output. Times out after 5 minutes.",
+    "Runs a shell command in the project's folder, like `npm install react-router`, and returns its exit code and output. Times out after 5 minutes.",
     { command: { type: "string", description: "The command." } },
   ),
+  ...(SKILLS.length
+    ? [
+        tool(
+          "load_skill",
+          "Reads one of the skills in your instructions: its SKILL.md, or another of its files. Where a skill links to one of its files online, this reads the copy that comes with it.",
+          {
+            name: { type: "string", description: "The skill.", enum: SKILLS.map((skill) => skill.name) },
+            file: { type: "string", description: "Another of its files, like command.md. Empty for SKILL.md." },
+          },
+        ),
+      ]
+    : []),
 ];
 
 type Context = {
@@ -101,6 +116,10 @@ async function stepFor(name: string, args: Record<string, string>, file: string,
       const command = String(args.command ?? "").trim();
       return { ...base, tool: "run", label: `Running ${command}`, doneLabel: `Ran ${command}` };
     }
+    case "load_skill": {
+      const topic = String(args.name ?? "").replace(/[-_]+/g, " ").trim() || "a skill"; // "frontend design"
+      return { ...base, tool: "skill", label: `Reading up on ${topic}`, doneLabel: `Read up on ${topic}` };
+    }
     default:
       return null;
   }
@@ -131,6 +150,8 @@ async function run(
       const { removed } = await deletePath(dir, file);
       return { output: "Done.", added: 0, removed };
     }
+    case "load_skill":
+      return { output: await readSkill(String(args.name ?? ""), String(args.file ?? "")) };
     default: {
       const command = String(args.command ?? "").trim();
       if (!command) throw new FileError("The command is empty.");

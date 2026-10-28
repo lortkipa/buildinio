@@ -10,6 +10,9 @@ import { NPM_CACHE, projectDir } from "@/lib/sandbox/workspace";
 // environment: quicker to set up, but it can reach everything this server can.
 
 const MAX_OUTPUT = 16_000; // The end of the output is kept: that's where errors are.
+// Color codes: tokens the AI pays for and gets nothing from. NO_COLOR stops most;
+// this cleans up after the rest. (CI=true, which npm wants, turns Vite's colors on.)
+const COLORS = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 const IMAGE = process.env.SANDBOX_IMAGE || "node:22-slim";
 
 export type CommandResult = { exitCode: number; output: string; timedOut: boolean };
@@ -94,6 +97,7 @@ function dockerArgs(name: string, dir: string, command: string) {
     "-v", `${dir}:/app`, "-w", "/app",
     "-v", `${NPM_CACHE}:/npm-cache`,
     "-e", "HOME=/tmp", "-e", "npm_config_cache=/npm-cache", "-e", "npm_config_update_notifier=false", "-e", "CI=true",
+    "-e", "NO_COLOR=1",
     IMAGE, "sh", "-c", command,
   ];
 }
@@ -113,7 +117,12 @@ function dockerProblem(exitCode: number, output: string) {
 const HOST_ENV = /^(path|pathext|home|userprofile|appdata|localappdata|temp|tmp|tmpdir|systemroot|comspec|lang|https?_proxy|no_proxy|node_extra_ca_certs|ssl_cert_file|npm_config_(https?_proxy|proxy|noproxy|cafile|registry))$/i;
 
 function hostEnv() {
-  const env: Record<string, string | undefined> = { CI: "true", npm_config_cache: NPM_CACHE, npm_config_update_notifier: "false" };
+  const env: Record<string, string | undefined> = {
+    CI: "true",
+    NO_COLOR: "1",
+    npm_config_cache: NPM_CACHE,
+    npm_config_update_notifier: "false",
+  };
   for (const [key, value] of Object.entries(process.env)) if (HOST_ENV.test(key)) env[key] = value;
   return env as NodeJS.ProcessEnv;
 }
@@ -129,5 +138,6 @@ function killTree(pid: number | undefined) {
 }
 
 function tail(output: string) {
-  return output.length > MAX_OUTPUT ? `…${output.slice(-MAX_OUTPUT)}` : output;
+  const clean = output.replace(COLORS, "");
+  return clean.length > MAX_OUTPUT ? `…${clean.slice(-MAX_OUTPUT)}` : clean;
 }

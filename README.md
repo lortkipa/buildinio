@@ -37,6 +37,11 @@ The AI that builds the apps is an OpenAI model. Without a key, every answer says
 - `OPENAI_API_KEY`: from [OpenAI's API keys page](https://platform.openai.com/api-keys).
 - `OPENAI_MODEL`: any model that works with the Responses API and function calling, like `gpt-6-luna`.
 - `OPENAI_REASONING_EFFORT` (optional): how hard it thinks, like `low`, `medium` or `high`. Empty uses the model's default.
+- `OPENAI_SMALL_MODEL` and `OPENAI_SMALL_REASONING_EFFORT` (optional): a cheaper model for quick side jobs, like naming a new project. Empty uses the main model.
+
+Every answer logs what it cost in the server console, like `AI answer for 1a2b3c4d: 9 requests, 182,400 input tokens (164,100 cached), …`. Most of the input should be cached: the AI's instructions stay the same between requests so OpenAI's prompt cache can reuse them.
+
+The AI can read up on design when a request needs it, using well-known public skills kept in [`skills/`](skills/).
 
 Each project is a real Vite + React app, kept in `data/projects/<id>` until the project or the account is deleted. The AI installs packages and builds the app with npm, which runs in [Docker](https://docs.docker.com/get-docker/) by default: a throwaway container that only sees the app's folder. Have Docker running (the first build downloads the `node:22-slim` image). To skip Docker, set `SANDBOX=host`: commands then run straight on your computer, which is quicker to set up but gives the AI's code the same access you have.
 
