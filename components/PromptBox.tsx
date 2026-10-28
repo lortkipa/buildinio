@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { focusRing, shown, swap } from "@/components/styles";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
+import { autoBullet, dropEmptyItems, listKey } from "@/lib/lists";
+import type { Edit, ListKey } from "@/lib/lists";
 
 const EXAMPLES = [
   "A booking app for my hair salon…",
@@ -72,6 +74,45 @@ function useTypingPlaceholder(active: boolean) {
   return text;
 }
 
+let editing = false; // While applyEdit types, so its own typing isn't taken for a new "- ".
+
+/**
+ * Puts a list edit in the text box the way typing would, so Undo takes it back:
+ * only the part that changed is typed over. (execCommand is old, but it's the only
+ * way into a text box's undo history.)
+ */
+function applyEdit(textarea: HTMLTextAreaElement, { value, start, end }: Edit) {
+  const old = textarea.value;
+  if (old !== value) {
+    let from = 0;
+    while (from < old.length && from < value.length && old[from] === value[from]) from++;
+    let back = 0;
+    while (back < old.length - from && back < value.length - from && old.at(-1 - back) === value.at(-1 - back)) back++;
+    const text = value.slice(from, value.length - back);
+    textarea.setSelectionRange(from, old.length - back);
+    editing = true;
+    try {
+      const done = document.execCommand(text ? "insertText" : "delete", false, text);
+      if (!done) {
+        textarea.setRangeText(text, from, old.length - back);
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } finally {
+      editing = false;
+    }
+  }
+  textarea.setSelectionRange(start, end);
+}
+
+/** The keys that do something special in a list. */
+function listKeyOf(event: KeyboardEvent<HTMLTextAreaElement>): ListKey | null {
+  if (event.altKey || event.ctrlKey || event.metaKey) return null;
+  if (event.key === "Enter") return event.shiftKey ? "Shift+Enter" : "Enter";
+  if (event.key === "Tab") return event.shiftKey ? "Shift+Tab" : "Tab";
+  if (event.key === "Backspace" && !event.shiftKey) return "Backspace";
+  return null;
+}
+
 const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full ${focusRing}`;
 
 // Grows to 12 lines, then scrolls. lh is one line; 0.75rem is the textarea's pt-2 + pb-1.
@@ -108,7 +149,8 @@ export function PromptBox({
   const [value, setValue] = useState("");
   const { label, placeholder, rows } = VARIANTS[variant];
   const example = useTypingPlaceholder(!placeholder && value.length === 0);
-  const hasText = value.trim().length > 0;
+  const prompt = dropEmptyItems(value).trim();
+  const hasText = prompt.length > 0;
   const canSend = hasText && !busy;
 
   // Put the cursor in the box on desktop. Skipped on touch so the keyboard doesn't pop up.
@@ -124,14 +166,39 @@ export function PromptBox({
     const el = event.target;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
+    // "- " or "* " at the start of a line becomes a bullet: after React is done with
+    // this change (still before the screen updates), or it puts the "-" back.
+    const input = event.nativeEvent as InputEvent;
+    if (!editing && input.inputType === "insertText" && input.data === " " && !input.isComposing) {
+      queueMicrotask(() => {
+        const edit = autoBullet(el.value, el.selectionStart);
+        if (edit && el.selectionStart === el.selectionEnd) applyEdit(el, edit);
+      });
+    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.nativeEvent.isComposing) return;
+    const textarea = event.currentTarget;
+    // Ctrl or Cmd+Enter always sends, even in a list or on a phone's keyboard.
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      if (canSend) textarea.form?.requestSubmit();
+      return;
+    }
+    // In a list, Enter starts the next item, Tab moves it in a level, and so on.
+    const key = listKeyOf(event);
+    const edit = key && listKey(textarea.value, textarea.selectionStart, textarea.selectionEnd, key);
+    if (edit) {
+      event.preventDefault();
+      applyEdit(textarea, edit);
+      return;
+    }
     // On phones Enter adds a new line; the send button is there to submit.
     if (!window.matchMedia("(pointer: fine)").matches) return;
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (canSend) event.currentTarget.form?.requestSubmit();
+      if (canSend) textarea.form?.requestSubmit();
     }
   }
 
@@ -144,7 +211,7 @@ export function PromptBox({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSend) return;
-    onSubmit(value.trim());
+    onSubmit(prompt);
     // Signed out, the prompt stays for when they come back from signing up.
     if (!signedIn) return;
     setValue("");
