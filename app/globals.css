@@ -2,6 +2,7 @@
 
 /* The template for users' apps uses Tailwind too: its classes aren't ours. */
 @source not "../templates";
+@source not "../skills";
 
 /* Brand colors: see brand/README.md */
 :root {

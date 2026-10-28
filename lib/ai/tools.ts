@@ -1,19 +1,30 @@
 import "server-only";
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import type { FunctionTool, ResponseFunctionToolCall, Tool } from "openai/resources/responses/responses";
+import type {
+  FunctionTool,
+  ResponseFunctionCallOutputItemList,
+  ResponseFunctionToolCall,
+  Tool,
+} from "openai/resources/responses/responses";
+import { readSkill, SKILLS } from "@/lib/ai/skills";
 import { newId } from "@/lib/projects/ids";
 import type { StepData, ToolStep } from "@/lib/projects/types";
 import { deletePath, editText, FileError, listFiles, readText, writeText } from "@/lib/sandbox/files";
+import { lookAtApp } from "@/lib/sandbox/look";
 import { runCommand } from "@/lib/sandbox/run";
 
 // The tools the AI can use. Each shows as a line in the chat while it runs
 // ("Editing src/App.tsx") and after ("Edited src/App.tsx +12 −3").
 
 const COMMAND_MS = 5 * 60_000;
+const SKILL_COMMAND_MS = 2 * 60_000; // A skill's own command, like shadcn's `info`.
+const MAX_LOOKS = 2; // Screenshots in one answer.
+
+type Property = { type: "string"; description: string; enum?: string[] };
 
 /** Strict function tools: every property required, nothing else allowed. */
-function tool(name: string, description: string, properties: Record<string, { type: "string"; description: string }>): FunctionTool {
+function tool(name: string, description: string, properties: Record<string, Property>): FunctionTool {
   return {
     type: "function",
     name,
@@ -26,7 +37,7 @@ function tool(name: string, description: string, properties: Record<string, { ty
 const PATH = { type: "string", description: "Relative to the project, like src/App.tsx." } as const;
 
 export const TOOLS: Tool[] = [
-  { type: "web_search" },
+  { type: "web_search", search_context_size: "low" }, // Less of each page to pay for: it searches for facts.
   tool("list_files", "Lists the project's files with their sizes (node_modules and dist left out).", {}),
   tool("read_file", "Reads a file.", { path: PATH }),
   tool("write_file", "Creates a file, or replaces all of it. Folders are made as needed.", {
@@ -41,9 +52,26 @@ export const TOOLS: Tool[] = [
   tool("delete_file", "Deletes a file or a folder.", { path: PATH }),
   tool(
     "run_command",
-    "Runs a shell command in the project's folder, like `npm install lucide-react` or `npm run build`, and returns its exit code and output. Times out after 5 minutes.",
+    "Runs a shell command in the project's folder, like `npm install react-router`, and returns its exit code and output. Times out after 5 minutes.",
     { command: { type: "string", description: "The command." } },
   ),
+  tool(
+    "look_at_app",
+    "Builds the app if it changed, then shows you screenshots of it on a phone (390 px wide) and a desktop (1280 px), up to two screens tall, with any errors in its console and any images or files that didn't load.",
+    { page: { type: "string", description: "Which page: empty (or /) for the start page, or a route like #/settings." } },
+  ),
+  ...(SKILLS.length
+    ? [
+        tool(
+          "load_skill",
+          "Reads one of the skills in your instructions: its SKILL.md, or another of its files. Where a skill links to one of its files online, this reads the copy that comes with it.",
+          {
+            name: { type: "string", description: "The skill.", enum: SKILLS.map((skill) => skill.name) },
+            file: { type: "string", description: "Another of its files, like command.md. Empty for SKILL.md." },
+          },
+        ),
+      ]
+    : []),
 ];
 
 type Context = {
@@ -52,10 +80,14 @@ type Context = {
   signal: AbortSignal;
   emitStep: (step: StepData) => void;
   finishStep: (step: ToolStep) => void;
+  build: () => Promise<{ ok: boolean; output: string } | null>; // Builds the app if it changed (agent.ts).
+  turn: { looks: number }; // This answer so far.
 };
 
+type Output = string | ResponseFunctionCallOutputItemList; // Text, or text and pictures.
+
 /** Runs a function call, showing it in the chat. Returns what the AI gets back. */
-export async function callTool(call: ResponseFunctionToolCall, context: Context): Promise<string> {
+export async function callTool(call: ResponseFunctionToolCall, context: Context): Promise<Output> {
   let args: Record<string, string>;
   try {
     args = JSON.parse(call.arguments);
@@ -76,6 +108,33 @@ export async function callTool(call: ResponseFunctionToolCall, context: Context)
     context.finishStep({ ...step, done: true, failed: true });
     return `Error: ${error.message}`;
   }
+}
+
+/** Builds the app if it changed, then the screenshots, for the AI to look at. */
+async function look(projectId: string, page: string, signal: AbortSignal, build: Context["build"], turn: Context["turn"]) {
+  if (turn.looks >= MAX_LOOKS) throw new FileError(`You've looked ${MAX_LOOKS} times in this answer: that's all for now.`);
+  turn.looks++;
+  const built = await build();
+  if (built && !built.ok) {
+    return {
+      output: `The app didn't build, so there's nothing to look at yet. Fix it first:\n\n${built.output}`,
+      failed: true,
+      detail: "The build failed",
+    };
+  }
+  const shots = await lookAtApp(projectId, page, signal);
+  if (!shots.ok) return { output: shots.reason, failed: true, detail: shots.detail };
+
+  const list = (items: string[]) => (items.length ? items.map((item) => `\n- ${item}`).join("") : " none");
+  const output: ResponseFunctionCallOutputItemList = [
+    {
+      type: "input_text",
+      text: `Your app (${page || "start page"}) on a phone, then on a desktop.\nErrors in its console:${list(shots.errors)}\nImages and files that didn't load:${list(shots.broken)}`,
+    },
+    { type: "input_image", image_url: `data:image/png;base64,${shots.phone}`, detail: "high" },
+    { type: "input_image", image_url: `data:image/png;base64,${shots.desktop}`, detail: "high" },
+  ];
+  return { output };
 }
 
 /** The line in the chat for a tool, before it runs. */
@@ -101,6 +160,12 @@ async function stepFor(name: string, args: Record<string, string>, file: string,
       const command = String(args.command ?? "").trim();
       return { ...base, tool: "run", label: `Running ${command}`, doneLabel: `Ran ${command}` };
     }
+    case "load_skill": {
+      const topic = String(args.name ?? "").replace(/[-_]+/g, " ").trim() || "a skill"; // "frontend design"
+      return { ...base, tool: "skill", label: `Reading up on ${topic}`, doneLabel: `Read up on ${topic}` };
+    }
+    case "look_at_app":
+      return { ...base, tool: "look", label: "Looking at your app", doneLabel: "Looked at your app" };
     default:
       return null;
   }
@@ -110,8 +175,8 @@ async function run(
   name: string,
   args: Record<string, string>,
   file: string,
-  { projectId, dir, signal }: Context,
-): Promise<{ output: string } & Partial<ToolStep>> {
+  { projectId, dir, signal, build, turn }: Context,
+): Promise<{ output: Output } & Partial<ToolStep>> {
   switch (name) {
     case "list_files": {
       const files = await listFiles(dir);
@@ -131,6 +196,15 @@ async function run(
       const { removed } = await deletePath(dir, file);
       return { output: "Done.", added: 0, removed };
     }
+    case "load_skill": {
+      const output = await readSkill(String(args.name ?? ""), String(args.file ?? ""), async (command) => {
+        const result = await runCommand(projectId, command, { signal, timeoutMs: SKILL_COMMAND_MS });
+        return result.exitCode === 0 ? result.output.trim() : `(\`${command}\` didn't work: ${result.output.trim()})`;
+      });
+      return { output };
+    }
+    case "look_at_app":
+      return look(projectId, String(args.page ?? "").trim(), signal, build, turn);
     default: {
       const command = String(args.command ?? "").trim();
       if (!command) throw new FileError("The command is empty.");

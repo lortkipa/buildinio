@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Users' apps: the template and the projects made from it.
     "templates/**",
     "data/**",
+    // Skills, copied from their repos as they are.
+    "skills/**",
   ]),
 ]);
 

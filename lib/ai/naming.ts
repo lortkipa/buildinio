@@ -1,10 +1,10 @@
 import "server-only";
-import { aiConfig } from "@/lib/ai/client";
+import { smallAiConfig } from "@/lib/ai/client";
 import { COLOR_NAMES, ICON_NAMES, MAX_PROJECT_NAME } from "@/lib/projects/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 
 // The first prompt names the project, picking an icon and a color too. It's a quick
-// call of its own, made while the AI starts on the answer.
+// call of its own, made while the AI starts on the answer (with the small model, if set).
 
 export type ProjectLook = { name: string; icon: ProjectIcon; color: ProjectColor };
 
@@ -14,7 +14,7 @@ const INSTRUCTIONS = `Someone is starting a new app with the message below. Name
 
 /** A name, icon and color for the app the prompt asks for. Falls back to words from the prompt. */
 export async function nameProject(prompt: string, signal: AbortSignal): Promise<ProjectLook> {
-  const ai = aiConfig();
+  const ai = smallAiConfig();
   if (!ai) return lookFromPrompt(prompt);
   try {
     const response = await ai.client.responses.create(

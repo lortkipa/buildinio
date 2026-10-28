@@ -27,6 +27,7 @@ export default defineConfig({
         OPENAI_MODEL: "fake",
         OPENAI_BASE_URL: "http://localhost:3101/v1",
         SANDBOX: "host", // The fake's apps build with plain Node: no Docker needed.
+        CHROMIUM_PATH: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "", // For look_at_app's screenshots.
       },
     },
   ],
