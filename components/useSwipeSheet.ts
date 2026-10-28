@@ -43,6 +43,9 @@ export function useSwipeSheet(
       if (event.pointerType !== "touch" || !event.isPrimary) return;
       if (window.matchMedia("(min-width: 48rem)").matches) return;
       if (event.target instanceof Element && event.target.closest("textarea, input, [contenteditable]")) return;
+      // Code and tables that are wider than the screen scroll sideways instead.
+      const wide = event.target instanceof Element ? event.target.closest("[data-scroll-x]") : null;
+      if (wide && wide.scrollWidth > wide.clientWidth) return;
       start = { id: event.pointerId, x: event.clientX, y: event.clientY };
     };
 

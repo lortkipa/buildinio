@@ -2,7 +2,7 @@
 
 import { BookOpen, Check, Eye, FilePen, FilePlus, FileText, FileX, Globe, LoaderCircle, SquareTerminal, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { MessageText } from "@/components/ChatMessage";
+import { MessageText } from "@/components/MessageText";
 import { shown, swap } from "@/components/styles";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { formatSeconds, useNow, useStreamed } from "@/components/useStreamed";
@@ -80,7 +80,8 @@ function Thinking() {
 }
 
 function StreamedText({ text, startedAt }: { text: string; startedAt: number }) {
-  return <MessageText text={useStreamed(text, startedAt, CHAR_MS)} />;
+  const shown = useStreamed(text, startedAt, CHAR_MS);
+  return <MessageText text={shown} streaming={shown.length < text.length} />;
 }
 
 function ToolGroup({ steps }: { steps: ToolStep[] }) {
