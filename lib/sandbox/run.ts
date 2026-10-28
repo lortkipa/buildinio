@@ -15,7 +15,9 @@ const MAX_OUTPUT = 16_000; // The end of the output is kept: that's where errors
 // Color codes: tokens the AI pays for and gets nothing from. NO_COLOR stops most;
 // this cleans up after the rest. (CI=true, which npm wants, turns Vite's colors on.)
 const COLORS = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
-const IMAGE = process.env.SANDBOX_IMAGE || playwrightImage();
+/** Playwright's image, matching our playwright-core: Node, npm and Chromium. Screenshots always use it (look.ts). */
+export const PLAYWRIGHT_IMAGE = playwrightImage();
+const IMAGE = process.env.SANDBOX_IMAGE || PLAYWRIGHT_IMAGE;
 
 export type CommandResult = { exitCode: number; output: string; timedOut: boolean };
 
@@ -32,7 +34,12 @@ export function sandboxMode() {
 export async function runCommand(
   projectId: string,
   command: string,
-  { signal, timeoutMs, mounts = [] }: { signal: AbortSignal; timeoutMs: number; mounts?: Mount[] },
+  {
+    signal,
+    timeoutMs,
+    mounts = [],
+    image = IMAGE,
+  }: { signal: AbortSignal; timeoutMs: number; mounts?: Mount[]; image?: string },
 ): Promise<CommandResult> {
   signal.throwIfAborted();
   const dir = projectDir(projectId);
@@ -41,7 +48,7 @@ export async function runCommand(
   const name = `buildinio-${projectId.slice(0, 8)}-${randomBytes(4).toString("hex")}`;
 
   const child = docker
-    ? spawn("docker", dockerArgs(name, dir, command, mounts), { stdio: ["ignore", "pipe", "pipe"] })
+    ? spawn("docker", dockerArgs(name, dir, command, mounts, image), { stdio: ["ignore", "pipe", "pipe"] })
     : spawn(command, {
         cwd: dir,
         shell: true,
@@ -92,7 +99,7 @@ export async function runCommand(
   }
 }
 
-function dockerArgs(name: string, dir: string, command: string, mounts: Mount[]) {
+function dockerArgs(name: string, dir: string, command: string, mounts: Mount[], image: string) {
   // Run as this user, so files made in the folder stay ours to change and delete.
   const user = process.getuid && process.getgid ? ["--user", `${process.getuid()}:${process.getgid()}`] : [];
   return [
@@ -104,7 +111,7 @@ function dockerArgs(name: string, dir: string, command: string, mounts: Mount[])
     ...mounts.flatMap((mount) => ["-v", `${mount.host}:${mount.container}:ro`]),
     "-e", "HOME=/tmp", "-e", "npm_config_cache=/npm-cache", "-e", "npm_config_update_notifier=false", "-e", "CI=true",
     "-e", "NO_COLOR=1",
-    IMAGE, "sh", "-c", command,
+    image, "sh", "-c", command,
   ];
 }
 
@@ -153,24 +160,26 @@ function playwrightImage() {
     const manifest = path.join(/* turbopackIgnore: true */ process.cwd(), "node_modules", "playwright-core", "package.json");
     return `mcr.microsoft.com/playwright:v${JSON.parse(readFileSync(manifest, "utf8")).version}-noble`;
   } catch {
-    return "node:22-slim"; // No screenshots, then.
+    return "node:22-slim"; // No playwright-core: no screenshots, then.
   }
 }
 
 /**
- * Downloads the Docker image in the background if it isn't here yet, so the first
- * build doesn't spend its time limit on that. Called when the server starts.
+ * Downloads the Docker images in the background if they aren't here yet, so the first
+ * build or screenshot doesn't spend its time limit on that. Called when the server starts.
  */
 export function prepareSandbox() {
   if (sandboxMode() !== "docker") return;
-  let noDocker = false; // The first command says so.
-  const inspect = spawn("docker", ["image", "inspect", IMAGE], { stdio: "ignore" });
-  inspect.on("error", () => (noDocker = true));
-  inspect.on("close", (code) => {
-    if (noDocker || code === 0) return;
-    console.log(`Downloading the sandbox image (${IMAGE}) for the AI's commands…`);
-    spawn("docker", ["pull", IMAGE], { stdio: "ignore" }).on("error", () => {});
-  });
+  for (const image of new Set([IMAGE, PLAYWRIGHT_IMAGE])) {
+    let noDocker = false; // The first command says so.
+    const inspect = spawn("docker", ["image", "inspect", image], { stdio: "ignore" });
+    inspect.on("error", () => (noDocker = true));
+    inspect.on("close", (code) => {
+      if (noDocker || code === 0) return;
+      console.log(`Downloading the sandbox image (${image}) for the AI's commands…`);
+      spawn("docker", ["pull", image], { stdio: "ignore" }).on("error", () => {});
+    });
+  }
 }
 
 function tail(output: string) {

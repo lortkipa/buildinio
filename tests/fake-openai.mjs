@@ -91,7 +91,7 @@ createServer(async (request, response) => {
       { path, content },
     ]);
     if (String(prompt).includes("design")) calls.unshift(["load_skill", { name: "frontend-design", file: "" }]);
-    if (String(prompt).includes("look")) calls.push(["look_at_app", { page: "" }]);
+    if (String(prompt).includes("look")) calls.push(["look_at_app", { page: "/" }]); // "/" is the start page too.
     for (const [name, args] of calls) {
       const item = {
         type: "function_call",

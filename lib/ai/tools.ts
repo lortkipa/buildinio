@@ -58,7 +58,7 @@ export const TOOLS: Tool[] = [
   tool(
     "look_at_app",
     "Builds the app if it changed, then shows you screenshots of it on a phone (390 px wide) and a desktop (1280 px), up to two screens tall, with any errors in its console and any images or files that didn't load.",
-    { page: { type: "string", description: "Which page: empty for the start page, or a hash route like #/settings." } },
+    { page: { type: "string", description: "Which page: empty (or /) for the start page, or a route like #/settings." } },
   ),
   ...(SKILLS.length
     ? [
@@ -116,10 +116,14 @@ async function look(projectId: string, page: string, signal: AbortSignal, build:
   turn.looks++;
   const built = await build();
   if (built && !built.ok) {
-    return { output: `The app didn't build, so there's nothing to look at yet. Fix it first:\n\n${built.output}`, failed: true };
+    return {
+      output: `The app didn't build, so there's nothing to look at yet. Fix it first:\n\n${built.output}`,
+      failed: true,
+      detail: "The build failed",
+    };
   }
   const shots = await lookAtApp(projectId, page, signal);
-  if (!shots.ok) return { output: shots.reason, failed: true };
+  if (!shots.ok) return { output: shots.reason, failed: true, detail: shots.detail };
 
   const list = (items: string[]) => (items.length ? items.map((item) => `\n- ${item}`).join("") : " none");
   const output: ResponseFunctionCallOutputItemList = [
