@@ -13,6 +13,9 @@ export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "s
 
 export type ProjectChanges = Partial<{ name: string; icon: ProjectIcon; color: ProjectColor }>;
 
+/** How a project shows in the sidebar. The name is null until the AI names it. */
+export type ProjectSettings = { name: string | null; icon: ProjectIcon; color: ProjectColor };
+
 type TextStep = { id: string; kind: "text"; text: string; startedAt: number };
 
 export type ToolStep = {
@@ -62,6 +65,8 @@ export type ProjectData = {
 export type Project = Omit<ProjectData, "running"> & {
   namedAt?: number; // When the AI named it, so the name types itself out.
   turn: Turn | null;
+  stopping?: boolean; // Stop was pressed here, and the server is undoing the answer.
+  returned?: string; // A stopped prompt, to put back in the prompt box.
 };
 
 /** What the server streams while the AI answers, one JSON object per line. */
@@ -72,4 +77,5 @@ export type TurnEvent =
   | { type: "step"; step: StepData }
   | { type: "text"; id: string; delta: string } // More of a text step.
   | { type: "tool"; step: ToolStep } // A tool finished.
-  | { type: "done"; message: AssistantMessage; appVersion: number; ready: boolean };
+  | { type: "done"; message: AssistantMessage; appVersion: number; ready: boolean }
+  | { type: "withdrawn"; messageId: string; text: string; settings: ProjectSettings }; // Stopped and undone.

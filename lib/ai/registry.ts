@@ -27,6 +27,15 @@ export function isRunning(projectId: string) {
   return runs.has(projectId);
 }
 
+/** Why an answer was aborted when its user pressed Stop: everything it did is undone. */
+export const STOPPED = "stopped";
+
+/** Stop pressed: the answer ends, undoes what it did and takes the prompt back (see runs.ts). */
+export function stopAnswer(projectId: string, userId: string) {
+  const run = runs.get(projectId);
+  if (run?.userId === userId) run.controller.abort(STOPPED);
+}
+
 /** Stops the AI working on a project, if it is, and waits until it has. */
 export async function stopRun(projectId: string) {
   const run = runs.get(projectId);

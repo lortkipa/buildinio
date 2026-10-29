@@ -3,6 +3,7 @@
 // What the project UI asks the server to do, besides talking to the AI (that's the
 // turn route, app/api/projects/[id]/turn). Each one checks who's asking.
 
+import { stopAnswer as stop } from "@/lib/ai/registry";
 import { getCurrentUser } from "@/lib/auth/session";
 import { COLOR_NAMES, ICON_NAMES, MAX_PROJECT_NAME } from "@/lib/projects/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
@@ -23,6 +24,12 @@ export async function editProject(id: unknown, changes: { name: unknown; icon: u
   const project = await ownProject(id);
   if (!project) return;
   projects.updateProject(project.id, { name, icon: changes.icon as ProjectIcon, color: changes.color as ProjectColor });
+}
+
+/** Stop: the AI's answer ends and everything it did is undone (see lib/ai/runs.ts). */
+export async function stopAnswer(id: unknown) {
+  const user = await getCurrentUser();
+  if (user && isId(id)) stop(id, user.id);
 }
 
 /** Deletes the project with its chat and its code, stopping the AI if it's working on it. */

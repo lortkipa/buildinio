@@ -41,6 +41,7 @@ let state = NOT_LOADED;
 const listeners = new Set<() => void>();
 const follows = new Map<string, AbortController>(); // Answers being listened to, by project.
 const born = new Map<string, number>(); // When projects and prompts were made in this tab.
+const hurry = new Map<string, () => void>(); // Ends the wait for text to stream in, by project.
 const NEW_MS = 5000;
 
 function subscribe(listener: () => void) {
@@ -122,13 +123,30 @@ export function sendMessage(projectId: string, text: string) {
   if (!project || project.turn) return;
   const message: Message = { id: newId(), role: "user", text };
   born.set(message.id, Date.now());
-  update(projectId, (p) => ({ ...p, messages: [...p.messages, message], turn: newTurn() }));
+  update(projectId, (p) => ({ ...p, messages: [...p.messages, message], turn: newTurn(), stopping: false }));
   follow(projectId, message);
 }
 
 export function editProject(id: string, changes: { name: string; icon: ProjectIcon; color: ProjectColor }) {
   update(id, (project) => ({ ...project, ...changes, namedAt: undefined }));
   save(actions.editProject(id, changes));
+}
+
+/**
+ * Stops the AI's answer. The server undoes everything it did and takes the prompt
+ * back out of the chat (a `withdrawn` event), and the prompt goes back in the box.
+ */
+export function stopAnswer(id: string) {
+  const project = find(id);
+  if (!project?.turn || project.stopping) return;
+  update(id, (p) => ({ ...p, stopping: true }));
+  hurry.get(id)?.(); // Don't wait for the text to finish streaming in first.
+  save(actions.stopAnswer(id));
+}
+
+/** The prompt taken back by Stop, once the prompt box has it. */
+export function takeReturned(id: string) {
+  if (find(id)?.returned !== undefined) update(id, (project) => ({ ...project, returned: undefined }));
 }
 
 /** Deletes the project, its chat and its code. The AI stops if it's working on it. */
@@ -257,7 +275,7 @@ async function listen(projectId: string, body: string, signal: AbortSignal): Pro
         if (!line.trim()) continue;
         const event = JSON.parse(line) as TurnEvent;
         await play(projectId, event, signal);
-        if (event.type === "done") return "done";
+        if (event.type === "done" || event.type === "withdrawn") return "done";
       }
     }
   } catch (error) {
@@ -319,6 +337,18 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
     case "done":
       await untilShown(projectId, signal);
       await finish(projectId, event, signal);
+      return;
+    case "withdrawn":
+      // Stopped: as if the prompt was never sent. If it was stopped here, it goes back in the box.
+      update(projectId, (project) => ({
+        ...project,
+        ...event.settings,
+        namedAt: undefined,
+        messages: project.messages.filter((message) => message.id !== event.messageId),
+        turn: null,
+        stopping: false,
+        returned: project.stopping ? event.text : project.returned,
+      }));
   }
 }
 
@@ -353,15 +383,26 @@ async function finish(
       ? project.messages
       : [...project.messages, { ...message, seconds }],
     turn: null,
+    stopping: false, // Too late: the answer was already done.
     ready: ready || project.ready,
     appVersion,
   }));
 }
 
-/** Waits until the last bit of text has streamed in. */
+/** Waits until the last bit of text has streamed in, or Stop is pressed. */
 async function untilShown(projectId: string, signal: AbortSignal) {
-  const step = find(projectId)?.turn?.steps.findLast((s) => s.kind === "text");
-  if (step?.kind === "text") await wait(step.startedAt + step.text.length * CHAR_MS - Date.now(), signal);
+  const project = find(projectId);
+  const step = project?.turn?.steps.findLast((s) => s.kind === "text");
+  if (project?.stopping || step?.kind !== "text") return;
+  const skip = new AbortController();
+  hurry.set(projectId, () => skip.abort());
+  try {
+    await wait(step.startedAt + step.text.length * CHAR_MS - Date.now(), AbortSignal.any([signal, skip.signal]));
+  } catch (error) {
+    if (signal.aborted || !skip.signal.aborted) throw error;
+  } finally {
+    hurry.delete(projectId);
+  }
 }
 
 function wait(ms: number, signal: AbortSignal) {

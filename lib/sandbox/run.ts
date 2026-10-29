@@ -72,9 +72,13 @@ export async function runCommand(
   child.stderr.on("data", collect);
 
   let timedOut = false;
+  let killed: Promise<unknown> = Promise.resolve();
   const stop = () => {
     if (docker) {
-      spawn("docker", ["kill", name], { stdio: "ignore" }).on("error", () => {});
+      // Waited for below, so a stopped command's container can't write anything after this returns.
+      killed = new Promise((resolve) => {
+        spawn("docker", ["kill", name], { stdio: "ignore" }).on("close", resolve).on("error", resolve);
+      });
       child.kill("SIGKILL");
     } else {
       killTree(child.pid);
@@ -103,6 +107,7 @@ export async function runCommand(
   } finally {
     clearTimeout(timer);
     signal.removeEventListener("abort", stop);
+    await killed;
   }
 }
 

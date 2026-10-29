@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, Mic, Plus } from "lucide-react";
+import { ArrowUp, Mic, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
 import { focusRing, shown, swap } from "@/components/styles";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
@@ -162,6 +162,10 @@ type PromptBoxProps = {
   onSubmit: (prompt: string) => void;
   variant?: keyof typeof VARIANTS;
   busy?: boolean; // The AI is still answering: typing works, sending waits.
+  onStop?: () => void; // Shows a Stop button instead of Send while busy.
+  stopping?: boolean; // Stop was pressed and the answer is being undone.
+  returned?: string; // A stopped prompt to put back, if the box is empty. Then `onReturnedTaken`.
+  onReturnedTaken?: () => void;
   signedIn?: boolean;
   className?: string;
 };
@@ -172,6 +176,10 @@ export function PromptBox({
   onSubmit,
   variant = "hero",
   busy = false,
+  onStop,
+  stopping = false,
+  returned,
+  onReturnedTaken,
   signedIn = false,
   className = "",
 }: PromptBoxProps) {
@@ -184,6 +192,7 @@ export function PromptBox({
   const prompt = dropEmptyItems(value).trim();
   const hasText = prompt.length > 0;
   const canSend = hasText && !busy;
+  const canStop = busy && onStop !== undefined;
 
   // Put the cursor in the box on desktop. Skipped on touch so the keyboard doesn't pop up.
   useEffect(() => {
@@ -191,6 +200,22 @@ export function PromptBox({
       textareaRef.current?.focus();
     }
   }, [textareaRef]);
+
+  // A stopped prompt comes back to be changed and sent again, unless something new is typed.
+  useEffect(() => {
+    if (returned === undefined) return;
+    const textarea = textareaRef.current;
+    if (textarea && !textarea.value.trim()) {
+      setValue(returned);
+      requestAnimationFrame(() => {
+        textarea.style.height = "auto";
+        textarea.style.height = `${textarea.scrollHeight}px`;
+        textarea.setSelectionRange(returned.length, returned.length);
+        if (window.matchMedia("(pointer: fine)").matches) textarea.focus();
+      });
+    }
+    onReturnedTaken?.();
+  }, [returned, onReturnedTaken, textareaRef]);
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setValue(event.target.value);
@@ -317,15 +342,16 @@ export function PromptBox({
             <Plus size={20} />
           </button>
 
-          {/* Mic and submit share one spot and swap when there's text. */}
+          {/* Mic and submit share one spot and swap when there's text. While the AI
+              answers, Stop takes it. */}
           <div className="grid">
             <button
               type="button"
               aria-label="Use voice input"
-              inert={hasText}
+              inert={hasText || canStop}
               onClick={() => notYet("Voice input")}
               className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
-                hasText ? "scale-50 -rotate-45 opacity-0" : shown
+                hasText || canStop ? "scale-50 -rotate-45 opacity-0" : shown
               }`}
             >
               <Mic size={20} />
@@ -334,13 +360,26 @@ export function PromptBox({
               type="submit"
               aria-label={variant === "hero" ? "Start building" : "Send"}
               title={busy ? "Wait for the answer to finish" : undefined}
-              inert={!hasText}
+              inert={!hasText || canStop}
               disabled={busy}
               className={`${iconButton} ${swap} bg-foreground text-background enabled:hover:bg-foreground/85 disabled:cursor-not-allowed ${
-                !hasText ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
+                !hasText || canStop ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
               }`}
             >
               <ArrowUp size={18} strokeWidth={2.25} />
+            </button>
+            <button
+              type="button"
+              aria-label="Stop"
+              title="Stop and undo this answer"
+              inert={!canStop}
+              disabled={stopping}
+              onClick={onStop}
+              className={`${iconButton} ${swap} bg-error text-background enabled:hover:bg-error/85 disabled:cursor-default ${
+                !canStop ? "scale-50 opacity-0" : stopping ? "scale-100 opacity-30" : shown
+              }`}
+            >
+              <Square size={12} fill="currentColor" strokeWidth={0} />
             </button>
           </div>
         </div>

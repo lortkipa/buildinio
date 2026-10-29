@@ -71,7 +71,7 @@ function stream(userId: string, projectId: string, signal: AbortSignal) {
       const stop = listen(projectId, (event) => {
         if (event === null) return close();
         send(event);
-        if (event.type === "done") close();
+        if (event.type === "done" || event.type === "withdrawn") close();
       });
       if (stop) {
         unlisten = stop;

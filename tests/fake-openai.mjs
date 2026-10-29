@@ -7,6 +7,8 @@
 //   (npm install needs the network; the tests don't use it);
 // - a prompt with "design" reads the frontend-design skill too, and says so once it has;
 // - a prompt with "look" looks at the app too (real screenshots), and says so once it got them;
+// - a prompt with "slowly" also renames the project, then takes 10 s over its summary (to press Stop);
+// - a prompt with "hold on" waits 10 s before it starts (to press Stop while it's Thinking);
 // - any other prompt gets a short plan and file writes for a page with a tiny build script
 //   (no npm install needed), then a summary once the files are written.
 // Every request has to be cacheable like OpenAI's prompt cache wants it: a prompt_cache_key,
@@ -46,6 +48,7 @@ const MARKDOWN = readFileSync(new URL("./markdown-sample.md", import.meta.url), 
 const SKILL_HEADING = "# Frontend Design"; // In skills/frontend-design/SKILL.md.
 
 const instructionsOf = new Map(); // By response id: the instructions it was made with.
+const slow = new Set(); // Response ids whose next request takes its time.
 let count = 0;
 const nextId = (prefix) => `${prefix}_${++count}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -68,7 +71,10 @@ createServer(async (request, response) => {
   }
 
   response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-  const send = (event) => response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+  response.on("error", () => {}); // Stop hangs up while it waits.
+  const send = (event) => {
+    if (!response.destroyed) response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+  };
   const id = nextId("resp");
   send({ type: "response.created", response: { id, status: "in_progress", output: [] } });
 
@@ -80,6 +86,7 @@ createServer(async (request, response) => {
   if (uncacheable) {
     output.push(streamText(send, uncacheable));
   } else if (body.previous_response_id) {
+    if (slow.has(body.previous_response_id)) await wait(10_000);
     const results = input.filter((item) => item.type === "function_call_output").map((item) => item.output);
     if (results.some((result) => String(result).startsWith("Updated project:"))) await wait(2000);
     const designed = results.some((result) => String(result).includes(SKILL_HEADING)) ? ", designed with the guide" : "";
@@ -102,6 +109,9 @@ createServer(async (request, response) => {
     for (const [name, args] of calls) output.push(streamCall(send, name, args, output.length));
   } else if (String(prompt).includes("Markdown")) {
     output.push(streamText(send, MARKDOWN));
+  } else if (String(prompt).includes("hold on")) {
+    await wait(10_000);
+    output.push(streamText(send, "Sorry for the wait."));
   } else if (String(prompt).includes("?")) {
     await wait(300);
     output.push(streamText(send, "Good question. I can build websites and apps from a description."));
@@ -114,6 +124,10 @@ createServer(async (request, response) => {
     ]);
     if (String(prompt).includes("design")) calls.unshift(["load_skill", { name: "frontend-design", file: "" }]);
     if (String(prompt).includes("look")) calls.push(["look_at_app", { page: "/" }]); // "/" is the start page too.
+    if (String(prompt).includes("slowly")) {
+      calls.unshift(["rename_project", { name: "Moon Garden" }]);
+      slow.add(id);
+    }
     for (const [name, args] of calls) {
       output.push(streamCall(send, name, args, output.length));
     }
