@@ -7,6 +7,7 @@ import { announceChange } from "@/lib/projects/changes";
 import { newId } from "@/lib/projects/ids";
 import {
   addMessage,
+  clearQuestions,
   deleteMessage,
   getProject,
   nameProject,
@@ -80,7 +81,7 @@ async function answer(run: Run, project: ProjectData) {
         })
       : Promise.resolve();
 
-  let result: { text: string; built: boolean } | null = null;
+  let result: Awaited<ReturnType<typeof runTurn>> | null = null;
   try {
     result = await runTurn({
       projectId: project.id,
@@ -120,6 +121,7 @@ async function answer(run: Run, project: ProjectData) {
     text: result.text,
     seconds: Math.max(1, Math.floor((Date.now() - run.startedAt) / 1000)),
     feedback: null,
+    ...(result.questions && { questions: result.questions }),
   };
   addMessage(project.id, message);
   const appVersion = project.appVersion + (result.built ? 1 : 0);
@@ -142,7 +144,10 @@ type Undo = { before: ProjectSettings; set: Partial<ProjectSettings> };
  * the chat so the browser can put it back in the prompt box.
  */
 async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
-  const prompt = project.messages.findLast((message) => message.role === "user");
+  // The prompt, and the skipped questions sent just before it, if any.
+  const answered = project.messages.findLastIndex((message) => message.role === "assistant");
+  const prompts = project.messages.slice(answered + 1);
+  const prompt = prompts.at(-1);
   if (!prompt || !projectExists(project.id)) return;
   await restoreSnapshot(project.id);
 
@@ -153,10 +158,13 @@ async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
     if (now[key] === set[key]) Object.assign(settings, { [key]: before[key] });
   }
   updateProject(project.id, settings);
-  deleteMessage(project.id, prompt.id);
+  for (const message of prompts) deleteMessage(project.id, message.id);
+  // Questions the stopped prompt answered stay answered: the answers go back in the prompt box.
+  const asked = project.messages[answered];
+  if (asked?.role === "assistant" && asked.questions) clearQuestions(project.id, asked.id);
   await dropSnapshot(project.id);
   runs.delete(project.id); // Ready for the next prompt.
-  send(run, { type: "withdrawn", messageId: prompt.id, text: prompt.text, settings });
+  send(run, { type: "withdrawn", messageIds: prompts.map((message) => message.id), text: prompt.text, settings });
 }
 
 /** Tells everyone listening, and keeps the steps for those who join later. */

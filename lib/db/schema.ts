@@ -1,7 +1,7 @@
 import { blob, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { Theme } from "@/lib/account/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
-import type { Feedback, Visibility } from "@/lib/projects/types";
+import type { Feedback, Question, Visibility } from "@/lib/projects/types";
 
 // After changing this file, run `npm run db:generate` to add a migration.
 
@@ -111,6 +111,7 @@ export const messages = sqliteTable(
     text: text("text").notNull(),
     seconds: integer("seconds"), // How long the answer took. Null for prompts.
     feedback: text("feedback").$type<Feedback>(),
+    questions: text("questions", { mode: "json" }).$type<Question[]>(), // What the AI asked at the end of an answer.
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [index("messages_project_id_idx").on(table.projectId, table.createdAt)],

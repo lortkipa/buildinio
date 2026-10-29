@@ -2,6 +2,8 @@
 // The app talks to it like to OpenAI (OPENAI_BASE_URL), so the real code runs end to end:
 // - naming (a json_schema request) gets a fixed name;
 // - a prompt with "Markdown" just gets tests/markdown-sample.md as its answer;
+// - a prompt with "ask me" gets a sentence and two questions (ask_user: pick one, pick any);
+// - the prompt after those questions gets "Thanks for your answers", if the questions were in the chat it sent;
 // - a prompt with a "?" just gets an answer;
 // - a prompt with "React" gets the template's src/App.tsx rewritten, for a real Vite build
 //   (npm install needs the network; the tests don't use it);
@@ -42,6 +44,12 @@ const REACT_FILES = {
 }
 `,
 };
+
+// What a prompt with "ask me" asks, with an "Other" option the app drops (it offers its own).
+const QUESTIONS = [
+  { question: "What should it look like?", multiple: false, options: ["Clean and minimal", "Bold and colorful", "Dark and moody", "Other"] },
+  { question: "Which pages do you need?", multiple: true, options: ["Home", "Menu", "Bookings", "Gallery"] },
+];
 
 const MARKDOWN = readFileSync(new URL("./markdown-sample.md", import.meta.url), "utf8");
 
@@ -112,6 +120,14 @@ createServer(async (request, response) => {
   } else if (String(prompt).includes("hold on")) {
     await wait(10_000);
     output.push(streamText(send, "Sorry for the wait."));
+  } else if (String(prompt).includes("ask me")) {
+    await wait(300);
+    output.push(streamText(send, "Before I build it, a couple of questions."));
+    output.push(streamCall(send, "ask_user", { questions: QUESTIONS }, output.length));
+  } else if (String(input.findLast((item) => item.role === "assistant")?.content).includes("[You asked with ask_user")) {
+    await wait(300);
+    const picked = String(prompt).split("\n").filter((line) => line.startsWith("• "));
+    output.push(streamText(send, `Thanks for your answers: ${picked.map((line) => line.slice(2)).join(", ") || prompt}`));
   } else if (String(prompt).includes("?")) {
     await wait(300);
     output.push(streamText(send, "Good question. I can build websites and apps from a description."));

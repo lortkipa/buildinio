@@ -10,6 +10,7 @@ import type {
 import { readSkill, SKILLS } from "@/lib/ai/skills";
 import { newId } from "@/lib/projects/ids";
 import { COLOR_NAMES, ICON_NAMES, MAX_PROJECT_NAME } from "@/lib/projects/options";
+import { MAX_OPTIONS, MAX_QUESTIONS } from "@/lib/projects/questions";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import type { ProjectChanges, StepData, ToolStep } from "@/lib/projects/types";
 import { deletePath, editText, FileError, listFiles, readText, writeText } from "@/lib/sandbox/files";
@@ -49,6 +50,38 @@ export const TOOLS: Tool[] = [
   tool("set_project_color", "Changes this project's color in Buildinio when the user asks. Does not change colors inside the app.", {
     color: { type: "string", description: "The project's new color.", enum: COLOR_NAMES },
   }),
+  {
+    type: "function",
+    name: "ask_user",
+    description:
+      "Asks the user questions, each with answers to pick from, shown one at a time with buttons. They can also type their own answer or skip, so don't add an \"Other\" option. Ends your answer: call it alone, after what you say, and their answers come as the next message.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        questions: {
+          type: "array",
+          description: `Everything you want to know, at most ${MAX_QUESTIONS}.`,
+          items: {
+            type: "object",
+            properties: {
+              question: { type: "string", description: "Short and plain, like \"What should it look like?\"" },
+              multiple: { type: "boolean", description: "True if they can pick more than one answer." },
+              options: {
+                type: "array",
+                description: `2 to ${MAX_OPTIONS} short answers, a few words each.`,
+                items: { type: "string" },
+              },
+            },
+            required: ["question", "multiple", "options"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["questions"],
+      additionalProperties: false,
+    },
+  },
   tool("list_files", "Lists the project's files with their sizes (node_modules and dist left out).", {}),
   tool("read_file", "Reads a file.", { path: PATH }),
   tool("write_file", "Creates a file, or replaces all of it. Folders are made as needed.", {

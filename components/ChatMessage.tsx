@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { MessageActions } from "@/components/MessageActions";
 import { MessageText } from "@/components/MessageText";
+import { QuestionsCard } from "@/components/QuestionsCard";
 import { UserText } from "@/components/UserText";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { PROJECT_COLORS } from "@/lib/projects/options";
@@ -25,12 +26,25 @@ export function UserMessage({ message, color }: { message: Message; color: Proje
   );
 }
 
-/** A finished answer: no background, with like, dislike and copy under it. */
-export function AssistantMessage({ projectId, message }: { projectId: string; message: Message }) {
+type AssistantMessageProps = {
+  projectId: string;
+  message: Message;
+  onAnswer?: (text: string) => void; // Its questions can be answered: it's the latest, and nothing's being answered.
+  onKeyboard?: (open: boolean) => void; // The phone keyboard opened for an answer of your own, or closed.
+};
+
+/**
+ * A finished answer: no background, with like, dislike and copy under it. The questions
+ * it ends with show until the next prompt, which answers them (or not).
+ */
+export function AssistantMessage({ projectId, message, onAnswer, onKeyboard }: AssistantMessageProps) {
   if (message.role !== "assistant") return null;
   return (
     <div>
       <MessageText text={message.text} />
+      {message.questions && onAnswer && (
+        <QuestionsCard questions={message.questions} onAnswer={onAnswer} onKeyboard={onKeyboard} />
+      )}
       <MessageActions
         text={message.text}
         seconds={message.seconds}
