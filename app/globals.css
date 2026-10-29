@@ -4,19 +4,10 @@
 @source not "../templates";
 @source not "../skills";
 
-/* Dark when the signed-in user picked it, or when the theme follows the system and
-   the system is dark. `data-theme` on <html> is the user's setting (useApplyTheme). */
-@custom-variant dark {
-  &:where([data-theme="dark"], [data-theme="dark"] *) {
-    @slot;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    &:where(:not([data-theme="light"], [data-theme="light"] *)) {
-      @slot;
-    }
-  }
-}
+/* Dark only when <html data-theme="dark">. System is resolved to light or dark before
+   paint (the root layout's script and useApplyTheme), so a chosen light or dark theme
+   never falls through to the system theme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* Brand colors: see brand/README.md */
 :root {

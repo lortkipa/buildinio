@@ -1,6 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { strFromU8, unzipSync } from "fflate";
 import { expect, test, type Page } from "@playwright/test";
 import { clearProjects, db, ORIGIN, PROJECTS, seedProject, testUser } from "./seed";
 
@@ -215,7 +214,8 @@ test("general: the theme is saved, drawn from the first paint, and dropped on lo
   await signIn(page, themeUser.token);
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
+  // "system" is resolved: the attribute itself is only ever light or dark.
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   expect(await background(page)).toBe(LIGHT);
 
   const dialog = await openSettings(page);
@@ -267,7 +267,7 @@ test("general: the theme is saved, drawn from the first paint, and dropped on lo
   database.prepare("UPDATE users SET theme = 'system' WHERE id = ?").run(themeUser.id);
   database.close();
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   expect(await background(page)).toBe(LIGHT);
   expect(await themeCookie()).toBe("system");
 
@@ -279,11 +279,15 @@ test("general: the theme is saved, drawn from the first paint, and dropped on lo
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect.poll(() => background(page)).toBe(LIGHT);
   await expect.poll(() => account(themeUser.id)?.theme).toBe("light");
+  // A chosen light theme stays light while the system is dark, including the logo.
+  await expect(page.locator('img[class*="dark:hidden"]').first()).toBeVisible();
 
-  // System follows the system.
+  // System follows the system, and keeps following it when the system changes.
   await card("System").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect.poll(() => background(page)).toBe(DARK);
   await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect.poll(() => background(page)).toBe(LIGHT);
   await expect.poll(() => account(themeUser.id)?.theme).toBe("system");
 
@@ -300,15 +304,15 @@ test("general: the theme is saved, drawn from the first paint, and dropped on lo
   await page.getByRole("button", { name: "Account", exact: true }).filter({ visible: true }).click();
   await page.getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page.getByText("You’re logged out.")).toBeVisible();
-  await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   expect(await background(page)).toBe(LIGHT);
   await page.reload();
   await expect(page.getByRole("link", { name: "Log in" }).first()).toBeVisible();
-  await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   expect(await themeCookie()).toBeUndefined();
 });
 
-test("data: the export is a zip of the account, its projects, chats and code", async ({ page, request }) => {
+test("data: the export is a json file of the account, its projects, chats and code", async ({ page, request }) => {
   const projectId = seedProject(user.id, {
     name: "Recipe Box",
     messages: [
@@ -332,26 +336,27 @@ test("data: the export is a zip of the account, its projects, chats and code", a
   const downloading = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "Export" }).click();
   const download = await downloading;
-  expect(download.suggestedFilename()).toMatch(/^buildinio-export-\d{4}-\d{2}-\d{2}\.zip$/);
+  expect(download.suggestedFilename()).toMatch(/^buildinio-export-\d{4}-\d{2}-\d{2}\.json$/);
 
-  const files = unzipSync(new Uint8Array(readFileSync((await download.path())!)));
-  const read = (name: string) => JSON.parse(strFromU8(files[name]));
-  expect(read("account.json")).toMatchObject({
+  const exported = JSON.parse(readFileSync((await download.path())!, "utf8"));
+  expect(exported).toMatchObject({
     name: "Settings Test",
     email: `${user.id}@example.test`,
-    avatar: null,
+    avatar: `${ORIGIN}/avatars/default.svg`,
     settings: { theme: "system", autocorrect: true },
     linkedAccounts: [],
   });
-  expect(read("projects/recipe-box/project.json")).toMatchObject({
+  const recipe = exported.projects.find((project: { name: string }) => project.name === "Recipe Box");
+  expect(recipe).toMatchObject({
     name: "Recipe Box",
     chat: [
       { role: "user", text: "Build a recipe app" },
       { role: "assistant", text: "Here's your recipe box.", seconds: 1, feedback: null },
     ],
   });
-  expect(strFromU8(files["projects/recipe-box/code/src/App.tsx"])).toContain("<h1>Recipes</h1>");
-  expect(Object.keys(files).filter((name) => name.includes("node_modules") || name.includes("/dist/"))).toEqual([]);
+  expect(recipe.code["src/App.tsx"]).toContain("<h1>Recipes</h1>");
+  expect(JSON.stringify(exported)).not.toContain("node_modules");
+  expect(Object.keys(recipe.code).some((file: string) => file.startsWith("dist/"))).toBe(false);
 });
 
 test("data: deleting the account asks first, then removes it", async ({ page }) => {

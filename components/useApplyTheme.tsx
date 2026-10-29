@@ -4,8 +4,9 @@ import { THEME_COLORS } from "@/lib/account/options";
 import type { Theme } from "@/lib/account/options";
 
 /**
- * Shows the app in the user's theme while it's mounted: `data-theme` on <html> (which
- * globals.css follows) and the browser's bar color to match. Back to the system's after.
+ * Shows the app in the user's theme while it's mounted: `data-theme` on <html> is only
+ * ever `light` or `dark` (globals.css follows that, not the system directly) and the
+ * browser's bar color matches. "system" is resolved here, and follows the system changing.
  */
 export function useApplyTheme(theme: Theme) {
   // On the first load, a script right where the app starts in the page. The root layout's
@@ -20,19 +21,35 @@ export function useApplyTheme(theme: Theme) {
   });
 
   useLayoutEffect(() => {
-    apply(theme, THEME_COLORS);
-    return () => apply(null, THEME_COLORS);
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    let resolved = "";
+    const run = () => {
+      apply(theme, THEME_COLORS);
+      resolved = document.documentElement.dataset.theme ?? "";
+    };
+    run();
+    // The first script and a refresh can write the saved choice ("system") onto <html>.
+    // That value doesn't select a theme, so put the resolved one back.
+    const observer = new MutationObserver(() => {
+      if (document.documentElement.dataset.theme !== resolved) document.documentElement.dataset.theme = resolved;
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    mq.addEventListener("change", run);
+    return () => {
+      mq.removeEventListener("change", run);
+      observer.disconnect();
+      apply(null, THEME_COLORS); // Signed out: follow the system again.
+    };
   }, [theme]);
 }
 
 /** Runs on its own in the page's first script too, so it uses nothing from outside. */
 function apply(theme: string | null, colors: Record<string, string>) {
   const root = document.documentElement;
-  if (theme) root.dataset.theme = theme;
-  else delete root.dataset.theme;
-  // There's a tag for each system theme (the root layout's `viewport`); a picked theme sets both.
+  // "system" (and signed out) take the system's light or dark. A chosen theme is used as it is.
+  const resolved = theme === "light" || theme === "dark" ? theme : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  root.dataset.theme = resolved;
   document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
-    const system = meta.media.includes("dark") ? "dark" : "light";
-    meta.content = colors[theme === "light" || theme === "dark" ? theme : system];
+    meta.content = colors[resolved];
   });
 }

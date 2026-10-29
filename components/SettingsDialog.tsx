@@ -504,7 +504,7 @@ function DataTab({ user }: { user: CurrentUser }) {
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = name ?? "buildinio-export.zip";
+      link.download = name ?? "buildinio-export.json";
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (error) {
@@ -517,7 +517,7 @@ function DataTab({ user }: { user: CurrentUser }) {
 
   return (
     <div className="flex flex-col">
-      <SettingRow title="Export data" description="Your account, projects, chats and code, in a .zip file.">
+      <SettingRow title="Export data" description="Your account, projects, chats and code, in a .json file.">
         <button type="button" onClick={handleExport} disabled={exporting} className={outlineButton}>
           {exporting ? <LoaderCircle size={16} className="motion-safe:animate-spin" /> : <Download size={16} />}
           Export

@@ -15,9 +15,11 @@ export const THEME_COLORS = { light: "#fafaf9", dark: "#111113" };
  * the first (the same for everyone) before the second has the user's theme (useApplyTheme).
  * So proxy.ts copies the database's theme into this cookie with every page, and the root
  * layout's first script draws the page in it from the start. Only the server writes it.
+ * The cookie keeps the choice (`system`, `light` or `dark`); the script resolves `system`
+ * to light or dark, which is the only thing `data-theme` is ever set to.
  */
 export const THEME_COOKIE = "theme";
-export const THEME_HINT = `try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE}=(system|light|dark)(?:;|$)/);if(m)document.documentElement.dataset.theme=m[1]}catch(e){}`;
+export const THEME_HINT = `try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE}=(system|light|dark)(?:;|$)/);var t=m?m[1]:"system";document.documentElement.dataset.theme=t==="light"||t==="dark"?t:(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}`;
 
 export const MAX_NAME = 80;
 
