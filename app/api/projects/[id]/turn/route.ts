@@ -23,13 +23,17 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
 
   const body = await request.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
-  if (text.length > MAX_PROMPT) return new Response("That’s too long.", { status: 413 });
+  // The AI's questions, all skipped, when a prompt was typed instead of answering them.
+  const skipped = typeof body?.skipped?.text === "string" ? body.skipped.text.trim() : "";
+  if (text.length > MAX_PROMPT || skipped.length > MAX_PROMPT) return new Response("That’s too long.", { status: 413 });
 
   let project = getProject(user.id, id);
   // Sent again after the connection dropped: it's already here.
   const resent = project?.messages.some((message) => message.id === body?.messageId);
   if (text && !resent) {
-    if (!isId(body.messageId)) return new Response("Bad message id.", { status: 400 });
+    if (!isId(body.messageId) || (skipped && !isId(body.skipped.messageId))) {
+      return new Response("Bad message id.", { status: 400 });
+    }
     if (!project) {
       if (projectExists(id)) return new Response("Not found.", { status: 404 });
       insertProject(user.id, id);
@@ -37,6 +41,7 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
     } else if (isRunning(id)) {
       return new Response("The AI is still answering.", { status: 409 });
     }
+    if (skipped && project) addMessage(id, { id: body.skipped.messageId, role: "user", text: skipped });
     addMessage(id, { id: body.messageId, role: "user", text });
     project = getProject(user.id, id)!;
     startRun(project, user.id);

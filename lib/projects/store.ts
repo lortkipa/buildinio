@@ -117,14 +117,19 @@ export function createProject(prompt: string) {
   return id;
 }
 
-/** A follow-up prompt. Ignored while the AI is still answering the last one. */
-export function sendMessage(projectId: string, text: string) {
+/**
+ * A follow-up prompt. Ignored while the AI is still answering the last one. `skipped`
+ * goes just before it: the AI's questions, all skipped, when a prompt was typed instead.
+ */
+export function sendMessage(projectId: string, text: string, skipped?: string) {
   const project = find(projectId);
   if (!project || project.turn) return;
   const message: Message = { id: newId(), role: "user", text };
-  born.set(message.id, Date.now());
-  update(projectId, (p) => ({ ...p, messages: [...p.messages, message], turn: newTurn(), stopping: false }));
-  follow(projectId, message);
+  const before: Message | undefined = skipped ? { id: newId(), role: "user", text: skipped } : undefined;
+  const sent = before ? [before, message] : [message];
+  for (const m of sent) born.set(m.id, Date.now());
+  update(projectId, (p) => ({ ...p, messages: [...p.messages, ...sent], turn: newTurn(), stopping: false }));
+  follow(projectId, message, before);
 }
 
 export function editProject(id: string, changes: { name: string; icon: ProjectIcon; color: ProjectColor }) {
@@ -210,14 +215,23 @@ function stopAll() {
 
 /**
  * Listens to the AI answering a project, from the server: sends `message` first if
- * there is one. Reconnects if the connection drops, since the answer goes on there.
+ * there is one (with `skipped` before it). Reconnects if the connection drops, since
+ * the answer goes on there.
  */
-async function follow(projectId: string, message?: Message) {
+async function follow(projectId: string, message?: Message, skipped?: Message) {
   follows.get(projectId)?.abort();
   const controller = new AbortController();
   follows.set(projectId, controller);
   const { signal } = controller;
-  const body = JSON.stringify(message ? { text: message.text, messageId: message.id } : {});
+  const body = JSON.stringify(
+    message
+      ? {
+          text: message.text,
+          messageId: message.id,
+          ...(skipped && { skipped: { text: skipped.text, messageId: skipped.id } }),
+        }
+      : {},
+  );
 
   try {
     for (let attempt = 0; ; attempt++) {
@@ -227,7 +241,7 @@ async function follow(projectId: string, message?: Message) {
         // Turned down: take the prompt back, so it can be sent again.
         update(projectId, (project) => ({
           ...project,
-          messages: project.messages.filter((m) => m.id !== message?.id),
+          messages: project.messages.filter((m) => m.id !== message?.id && m.id !== skipped?.id),
           turn: null,
         }));
         if (typeof result === "string") toast.error(result);
@@ -344,7 +358,7 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
         ...project,
         ...event.settings,
         namedAt: undefined,
-        messages: withoutQuestions(project.messages.filter((message) => message.id !== event.messageId)),
+        messages: withoutQuestions(project.messages.filter((message) => !event.messageIds.includes(message.id))),
         turn: null,
         stopping: false,
         returned: project.stopping ? event.text : project.returned,

@@ -22,14 +22,21 @@ async function ask(page: Page) {
   return { id: new URL(page.url()).pathname.split("/").at(-1)!, card };
 }
 
-function lastPrompt(id: string) {
+/** The user's prompts, newest first. */
+function prompts(id: string) {
   const database = db();
-  const row = database
+  const rows = database
     .prepare("SELECT text FROM messages WHERE project_id = ? AND role = 'user' ORDER BY created_at DESC, rowid DESC")
-    .get(id) as { text: string };
+    .all(id) as { text: string }[];
   database.close();
-  return row.text;
+  return rows.map((row) => row.text);
 }
+
+function lastPrompt(id: string) {
+  return prompts(id)[0];
+}
+
+const ALL_SKIPPED = "What should it look like?\n• Skipped: you decide\n\nWhich pages do you need?\n• Skipped: you decide";
 
 test("questions are answered one at a time, with picks and an answer of your own", async ({ page }) => {
   const { id, card } = await ask(page);
@@ -101,20 +108,23 @@ test("questions can be skipped, all of them too, or answered by typing a prompt"
   await expect(card).toHaveCount(0);
   await expect
     .poll(() => lastPrompt(id))
-    .toBe("What should it look like?\n• Skipped: you decide\n\nWhich pages do you need?\n• Skipped: you decide");
+    .toBe(ALL_SKIPPED);
   await expect(page.getByText("Thanks for your answers: Skipped: you decide, Skipped: you decide")).toBeVisible({
     timeout: 15_000,
   });
 
-  // A prompt of your own instead: the questions go away, for good.
+  // A prompt of your own instead: the questions go too, all skipped, just before it.
   await page.locator("textarea:visible").fill("ask me once more");
   await page.locator("textarea:visible").press("Enter");
   await expect(card).toBeVisible({ timeout: 15_000 });
   await page.locator("textarea:visible").fill("Just make it blue");
   await page.locator("textarea:visible").press("Enter");
   await expect(card).toHaveCount(0);
+  await expect.poll(() => prompts(id).slice(0, 2)).toEqual(["Just make it blue", ALL_SKIPPED]);
+  await expect(page.getByText("Thanks for your answers: Just make it blue")).toBeVisible({ timeout: 15_000 });
   await page.reload();
-  await expect(page.getByText("Just make it blue")).toBeVisible();
+  await expect(page.getByText("Which pages do you need?")).toHaveCount(3); // Each time it asked, in the answers.
+  await expect(page.getByText("Just make it blue", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Questions" })).toHaveCount(0);
 });
 
@@ -136,6 +146,20 @@ test("Stop on the answers puts them back in the prompt box, and the questions st
   await page.reload();
   await expect(page.getByText("Before I build it, a couple of questions.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Questions" })).toHaveCount(0);
+});
+
+test("Stop on a prompt typed instead of answering takes both messages back", async ({ page }) => {
+  const { id, card } = await ask(page);
+  await page.locator("textarea:visible").fill("hold on, make it blue"); // The fake takes 10 s.
+  await page.locator("textarea:visible").press("Enter");
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText("Skipped: you decide").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.locator("textarea:visible")).toHaveValue("hold on, make it blue");
+  await expect(page.getByText("Skipped: you decide")).toHaveCount(0);
+  await expect(card).toHaveCount(0);
+  await expect.poll(() => prompts(id)).toEqual(["A cafe site, ask me first"]);
 });
 
 test.describe("on a phone", () => {

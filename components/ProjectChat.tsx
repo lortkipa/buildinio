@@ -10,6 +10,7 @@ import { focusRing } from "@/components/styles";
 import { useKeyboardDock } from "@/components/useKeyboardDock";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { setMobilePreview } from "@/components/usePreviewState";
+import { formatAnswers } from "@/lib/projects/questions";
 import { markPreviewSeen, sendMessage, stopAnswer, takeReturned, useProject } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
 
@@ -80,7 +81,16 @@ function Chat({ project }: { project: Project }) {
     };
   }, [project.id]);
 
+  // A prompt typed instead of answering the AI's questions goes with them, all skipped.
+  const last = project.messages.at(-1);
+  const waiting = last?.role === "assistant" && !project.turn ? last.questions : undefined;
+
   function handleSend(text: string) {
+    following.current = true;
+    sendMessage(project.id, text, waiting && formatAnswers(waiting, waiting.map(() => null)));
+  }
+
+  function handleAnswer(text: string) {
     following.current = true;
     sendMessage(project.id, text);
   }
@@ -108,7 +118,7 @@ function Chat({ project }: { project: Project }) {
               key={message.id}
               projectId={project.id}
               message={message}
-              onAnswer={index === project.messages.length - 1 && !project.turn ? handleSend : undefined}
+              onAnswer={index === project.messages.length - 1 && !project.turn ? handleAnswer : undefined}
               onKeyboard={setAnswering}
             />
           ),

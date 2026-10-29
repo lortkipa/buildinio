@@ -88,4 +88,4 @@ export type TurnEvent =
   | { type: "text"; id: string; delta: string } // More of a text step.
   | { type: "tool"; step: ToolStep } // A tool finished.
   | { type: "done"; message: AssistantMessage; appVersion: number; ready: boolean }
-  | { type: "withdrawn"; messageId: string; text: string; settings: ProjectSettings }; // Stopped and undone.
+  | { type: "withdrawn"; messageIds: string[]; text: string; settings: ProjectSettings }; // Stopped and undone.
