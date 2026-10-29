@@ -10,6 +10,15 @@ export function isTheme(value: unknown): value is Theme {
 /** The page's background in each theme (`--background` in globals.css), for the browser's own bars. */
 export const THEME_COLORS = { light: "#fafaf9", dark: "#111113" };
 
+/**
+ * The theme is kept in the database. The page arrives in two parts, and the browser paints
+ * the first (the same for everyone) before the second has the user's theme (useApplyTheme).
+ * So proxy.ts copies the database's theme into this cookie with every page, and the root
+ * layout's first script draws the page in it from the start. Only the server writes it.
+ */
+export const THEME_COOKIE = "theme";
+export const THEME_HINT = `try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE}=(system|light|dark)(?:;|$)/);if(m)document.documentElement.dataset.theme=m[1]}catch(e){}`;
+
 export const MAX_NAME = 80;
 
 /** A name as it's kept: trimmed, with single spaces. */

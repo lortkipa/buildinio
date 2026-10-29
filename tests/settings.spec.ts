@@ -235,13 +235,41 @@ test("general: the theme is saved, drawn from the first paint, and dropped on lo
   await expect.poll(() => account(themeUser.id)?.theme).toBe("dark");
   await page.screenshot({ path: test.info().outputPath("theme-dark.png"), animations: "disabled" });
 
+  // Every frame of a reload is dark, the first one too: the server sends the database's theme
+  // in a cookie with the page, and the page's first script reads it.
+  const themeCookie = async () => (await page.context().cookies()).find((cookie) => cookie.name === "theme")?.value;
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    Object.assign(window, { backgrounds: seen });
+    const frame = () => {
+      if (document.body) seen.push(getComputedStyle(document.body).backgroundColor);
+      if (seen.length < 20) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+  for (let load = 0; load < 3; load++) {
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "What should we build, Theme?" })).toBeVisible();
+    const backgrounds = await page.evaluate(() => (window as unknown as { backgrounds: string[] }).backgrounds);
+    expect(new Set(backgrounds)).toEqual(new Set([DARK]));
+  }
+  expect(await themeCookie()).toBe("dark");
+
   // In the page as it arrives: dark before any of the app's scripts run.
   await page.route("**/_next/static/chunks/*.js", (route) => route.abort());
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(await background(page)).toBe(DARK);
   await page.unrouteAll();
+
+  // Changed somewhere else: the database's theme wins over the cookie, which follows it.
+  const database = db();
+  database.prepare("UPDATE users SET theme = 'system' WHERE id = ?").run(themeUser.id);
+  database.close();
   await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
+  expect(await background(page)).toBe(LIGHT);
+  expect(await themeCookie()).toBe("system");
 
   // Light even when the system is dark.
   await page.emulateMedia({ colorScheme: "dark" });
@@ -274,6 +302,10 @@ test("general: the theme is saved, drawn from the first paint, and dropped on lo
   await expect(page.getByText("You’re logged out.")).toBeVisible();
   await expect(page.locator("html")).not.toHaveAttribute("data-theme");
   expect(await background(page)).toBe(LIGHT);
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Log in" }).first()).toBeVisible();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+  expect(await themeCookie()).toBeUndefined();
 });
 
 test("data: the export is a zip of the account, its projects, chats and code", async ({ page, request }) => {

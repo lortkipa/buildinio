@@ -4,7 +4,7 @@ import favicon from "@/brand/favicon.svg";
 import favicon32 from "@/brand/favicon-32.png";
 import appleTouchIcon from "@/brand/apple-touch-icon.png";
 import { Toaster } from "@/components/Toaster";
-import { THEME_COLORS } from "@/lib/account/options";
+import { THEME_COLORS, THEME_HINT } from "@/lib/account/options";
 import "./globals.css";
 
 // Onest is the brand wordmark font.
@@ -44,6 +44,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // The signed-in user's theme is set on it before it hydrates (see useApplyTheme).
     <html lang="en" suppressHydrationWarning className={`${onest.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_HINT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
         {children}
         <Toaster />

@@ -8,8 +8,9 @@ import type { Theme } from "@/lib/account/options";
  * globals.css follows) and the browser's bar color to match. Back to the system's after.
  */
 export function useApplyTheme(theme: Theme) {
-  // On the first load, a script right where the app starts in the page, so it's drawn
-  // in the right theme from the start.
+  // On the first load, a script right where the app starts in the page. The root layout's
+  // first script has usually set the theme already (see THEME_COOKIE); this one is the
+  // database's word on it, and sets the bar color too.
   const inserted = useRef(false);
   useServerInsertedHTML(() => {
     if (inserted.current) return null;
