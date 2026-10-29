@@ -14,7 +14,6 @@ const OWN = /^(other|something else|type your own|write your own|none of (these|
 /** What someone picked for a question: options, and what they typed. Null if they skipped it. */
 export type Answer = { picked: string[]; own: string } | null;
 
-export const SKIPPED_ALL = "Skip the questions: you decide.";
 const SKIPPED = "Skipped: you decide";
 
 /** The AI's questions, tidied up, or what's wrong with them (for the AI). */

@@ -31,6 +31,7 @@ function Chat({ project }: { project: Project }) {
   const following = useRef(true); // Keep scrolling down as the answer grows.
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(true);
+  const [answering, setAnswering] = useState(false); // Typing an answer of your own to the AI's questions, on a phone.
 
   // The tab shows the project's name. Next.js puts the page's own title ("Project - Buildinio")
   // back whenever it mounts its <title>, which can happen after this (navigating here again,
@@ -108,6 +109,7 @@ function Chat({ project }: { project: Project }) {
               projectId={project.id}
               message={message}
               onAnswer={index === project.messages.length - 1 && !project.turn ? handleSend : undefined}
+              onKeyboard={setAnswering}
             />
           ),
         )}
@@ -117,7 +119,10 @@ function Chat({ project }: { project: Project }) {
       <div
         ref={inputRef}
         style={dock ? { height: dock.keptHeight } : undefined}
-        className="sticky bottom-0 z-10 -mx-4 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6"
+        // Out of the way while the keyboard is open for an answer to the AI's questions.
+        className={`sticky bottom-0 z-10 -mx-4 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6 ${
+          answering ? "hidden" : ""
+        }`}
       >
         {/* Above the prompt box, the same for what's further down. */}
         <div

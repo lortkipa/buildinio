@@ -30,18 +30,21 @@ type AssistantMessageProps = {
   projectId: string;
   message: Message;
   onAnswer?: (text: string) => void; // Its questions can be answered: it's the latest, and nothing's being answered.
+  onKeyboard?: (open: boolean) => void; // The phone keyboard opened for an answer of your own, or closed.
 };
 
 /**
  * A finished answer: no background, with like, dislike and copy under it. The questions
  * it ends with show until the next prompt, which answers them (or not).
  */
-export function AssistantMessage({ projectId, message, onAnswer }: AssistantMessageProps) {
+export function AssistantMessage({ projectId, message, onAnswer, onKeyboard }: AssistantMessageProps) {
   if (message.role !== "assistant") return null;
   return (
     <div>
       <MessageText text={message.text} />
-      {message.questions && onAnswer && <QuestionsCard questions={message.questions} onAnswer={onAnswer} />}
+      {message.questions && onAnswer && (
+        <QuestionsCard questions={message.questions} onAnswer={onAnswer} onKeyboard={onKeyboard} />
+      )}
       <MessageActions
         text={message.text}
         seconds={message.seconds}

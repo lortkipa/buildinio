@@ -5,11 +5,13 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { Check, ChevronLeft, PenLine } from "lucide-react";
 import { focusRing } from "@/components/styles";
 import { usePlayOnce } from "@/components/usePlayOnce";
-import { formatAnswers, SKIPPED_ALL } from "@/lib/projects/questions";
+import { useKeyboardDock } from "@/components/useKeyboardDock";
+import type { Dock } from "@/components/useKeyboardDock";
+import { formatAnswers } from "@/lib/projects/questions";
 import type { Answer } from "@/lib/projects/questions";
 import type { Question } from "@/lib/projects/types";
 
-const ADVANCE_MS = 250; // After picking the one answer, before the next question.
+const KEYBOARD_GAP = 12; // px between the card and the phone keyboard.
 
 /** What's picked so far: options, and their own answer (`ownOn` while it's chosen). */
 type Draft = { picked: string[]; own: string; ownOn: boolean };
@@ -25,15 +27,22 @@ function answered(draft: Draft) {
   return draft.picked.length > 0 || (draft.ownOn && draft.own.trim() !== "");
 }
 
+type QuestionsCardProps = {
+  questions: Question[];
+  onAnswer: (text: string) => void;
+  onKeyboard?: (open: boolean) => void; // The phone keyboard opened for your own answer, or closed.
+};
+
 /**
- * The AI's questions, one at a time: pick one (or any), or type your own. Skip one, or
- * all of them. The answers are sent as the next prompt.
+ * The AI's questions, one at a time: pick one (or any), or type your own, then Next, or
+ * Skip. The answers (skipped ones too) are sent as the next prompt.
  */
-export function QuestionsCard({ questions, onAnswer }: { questions: Question[]; onAnswer: (text: string) => void }) {
+export function QuestionsCard({ questions, onAnswer, onKeyboard }: QuestionsCardProps) {
   const [step, setStep] = useState(0);
   const [moved, setMoved] = useState(false); // Animate questions in only once moving between them.
   const [drafts, setDrafts] = useState<Draft[]>(() => questions.map(() => EMPTY));
-  const advance = useRef<number | undefined>(undefined);
+  const [keyboard, setKeyboard] = useState<Dock | null>(null);
+  const card = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const enter = usePlayOnce("motion-safe:animate-enter");
 
@@ -41,15 +50,33 @@ export function QuestionsCard({ questions, onAnswer }: { questions: Question[]; 
   const draft = drafts[step];
   const last = step === questions.length - 1;
 
-  useEffect(() => () => window.clearTimeout(advance.current), []);
+  // While the phone keyboard is open for your own answer, the prompt box steps aside and
+  // the card scrolls up above the keyboard, buttons and all (but never the field out of sight).
+  const typing = keyboard !== null;
+  useEffect(() => {
+    if (!typing || !onKeyboard) return;
+    onKeyboard(true);
+    return () => onKeyboard(false);
+  }, [typing, onKeyboard]);
+
+  useEffect(() => {
+    if (!keyboard) return;
+    const frame = requestAnimationFrame(() => {
+      const field = card.current?.querySelector("input");
+      if (!card.current || !field) return;
+      const below = card.current.getBoundingClientRect().bottom - (window.innerHeight - keyboard.keyboardInset - KEYBOARD_GAP);
+      const above = field.getBoundingClientRect().top - (keyboard.visibleTop + KEYBOARD_GAP);
+      const by = Math.min(below, above);
+      if (by > 0) window.scrollBy({ top: by });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [keyboard]);
 
   function change(next: Draft) {
-    window.clearTimeout(advance.current);
     setDrafts((all) => all.map((d, i) => (i === step ? next : d)));
   }
 
   function go(to: number) {
-    window.clearTimeout(advance.current);
     setStep(to);
     setMoved(true);
     requestAnimationFrame(() => heading.current?.focus({ preventScroll: true }));
@@ -79,7 +106,6 @@ export function QuestionsCard({ questions, onAnswer }: { questions: Question[]; 
       return change({ ...draft, picked });
     }
     change({ ...draft, picked: [option], ownOn: false });
-    if (!last) advance.current = window.setTimeout(() => go(step + 1), ADVANCE_MS);
   }
 
   function toggleOwn() {
@@ -98,94 +124,87 @@ export function QuestionsCard({ questions, onAnswer }: { questions: Question[]; 
   }
 
   return (
-    <section
-      aria-label="Questions"
-      onKeyDown={handleKey}
-      onAnimationEnd={enter.onAnimationEnd}
-      className={`mt-4 rounded-3xl border border-border bg-surface p-4 sm:p-5 ${enter.className}`}
-    >
-      <Step key={step} play={moved}>
-        <div className="flex items-start justify-between gap-4">
-          <h3 ref={heading} tabIndex={-1} className="font-semibold outline-none">
-            {question.question}
-          </h3>
-          {questions.length > 1 && (
-            <span className="mt-0.5 shrink-0 text-sm text-muted tabular-nums">
-              {step + 1} of {questions.length}
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 text-sm text-muted">{question.multiple ? "Pick any" : "Pick one"}</p>
-
-        <div
-          role={question.multiple ? "group" : "radiogroup"}
-          aria-label={question.question}
-          className="mt-4 flex flex-col gap-2"
-        >
-          {question.options.map((option) => {
-            const on = draft.picked.includes(option);
-            return (
-              <button
-                key={option}
-                type="button"
-                role={question.multiple ? "checkbox" : "radio"}
-                aria-checked={on}
-                onClick={() => pick(option)}
-                className={`${row} ${on ? rowOn : rowOff}`}
-              >
-                <Mark on={on} multiple={question.multiple} />
-                <span className="min-w-0 flex-1 wrap-anywhere">{option}</span>
-              </button>
-            );
-          })}
-          <OwnAnswer
-            draft={draft}
-            multiple={question.multiple}
-            onToggle={toggleOwn}
-            onChange={(own) => change({ ...draft, own })}
-            onEnter={() => answered(draft) && next()}
-          />
-        </div>
-      </Step>
-
-      <div className="mt-5 flex items-center gap-1">
-        {questions.length > 1 && (
-          <div aria-hidden className="mr-2 hidden items-center gap-1.5 sm:flex">
-            {questions.map((q, i) => (
-              <span
-                key={i}
-                className={`size-1.5 rounded-full transition-colors ${i === step ? "bg-foreground" : "bg-foreground/20"}`}
-              />
-            ))}
+    <>
+      <section
+        ref={card}
+        aria-label="Questions"
+        onKeyDown={handleKey}
+        onAnimationEnd={enter.onAnimationEnd}
+        className={`mt-4 rounded-3xl border border-border bg-surface p-4 sm:p-5 ${enter.className}`}
+      >
+        <Step key={step} play={moved}>
+          <div className="flex items-start justify-between gap-4">
+            <h3 ref={heading} tabIndex={-1} className="font-semibold outline-none">
+              {question.question}
+            </h3>
+            {questions.length > 1 && (
+              <span className="mt-0.5 shrink-0 text-sm text-muted tabular-nums">
+                {step + 1} of {questions.length}
+              </span>
+            )}
           </div>
-        )}
-        <button type="button" onClick={() => onAnswer(SKIPPED_ALL)} className={`${textButton} -ml-3 sm:ml-0`}>
-          Skip all
-        </button>
-        <span className="flex-1" />
-        {step > 0 && (
+          <p className="mt-0.5 text-sm text-muted">{question.multiple ? "Pick any" : "Pick one"}</p>
+
+          <div
+            role={question.multiple ? "group" : "radiogroup"}
+            aria-label={question.question}
+            className="mt-4 flex flex-col gap-2"
+          >
+            {question.options.map((option) => {
+              const on = draft.picked.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role={question.multiple ? "checkbox" : "radio"}
+                  aria-checked={on}
+                  onClick={() => pick(option)}
+                  className={`${row} ${on ? rowOn : rowOff}`}
+                >
+                  <Mark on={on} multiple={question.multiple} />
+                  <span className="min-w-0 flex-1 wrap-anywhere">{option}</span>
+                </button>
+              );
+            })}
+            <OwnAnswer
+              draft={draft}
+              multiple={question.multiple}
+              onToggle={toggleOwn}
+              onChange={(own) => change({ ...draft, own })}
+              onEnter={() => answered(draft) && next()}
+              onKeyboard={setKeyboard}
+            />
+          </div>
+        </Step>
+
+        <div className="mt-5 flex items-center gap-1">
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={() => go(step - 1)}
+              className={`${textButton} -ml-2 flex items-center gap-1 pl-2`}
+            >
+              <ChevronLeft size={18} aria-hidden />
+              Back
+            </button>
+          )}
+          <span className="flex-1" />
+          <button type="button" onClick={skip} className={textButton}>
+            Skip
+          </button>
           <button
             type="button"
-            aria-label="Back"
-            onClick={() => go(step - 1)}
-            className={`grid size-9 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-foreground/5 hover:text-foreground ${focusRing}`}
+            disabled={!answered(draft)}
+            onClick={() => next()}
+            className={`ml-1 h-9 cursor-pointer rounded-full bg-foreground px-4 text-sm font-medium text-background transition-colors enabled:hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-30 ${focusRing}`}
           >
-            <ChevronLeft size={18} />
+            {last ? "Send" : "Next"}
           </button>
-        )}
-        <button type="button" onClick={skip} className={textButton}>
-          Skip
-        </button>
-        <button
-          type="button"
-          disabled={!answered(draft)}
-          onClick={() => next()}
-          className={`ml-1 h-9 cursor-pointer rounded-full bg-foreground px-4 text-sm font-medium text-background transition-colors enabled:hover:bg-foreground/85 disabled:cursor-not-allowed disabled:opacity-30 ${focusRing}`}
-        >
-          {last ? "Send" : "Next"}
-        </button>
-      </div>
-    </section>
+        </div>
+      </section>
+      {/* Room to scroll the card above the keyboard, where it covers the page (iOS). */}
+      {keyboard && keyboard.keyboardInset > 0 && <div aria-hidden style={{ height: keyboard.keyboardInset }} />}
+    </>
   );
 }
 
@@ -219,10 +238,11 @@ type OwnAnswerProps = {
   onToggle: () => void;
   onChange: (own: string) => void;
   onEnter: () => void;
+  onKeyboard: (dock: Dock | null) => void;
 };
 
 /** The last row: "Type your own…", which turns into a text field once chosen. */
-function OwnAnswer({ draft, multiple, onToggle, onChange, onEnter }: OwnAnswerProps) {
+function OwnAnswer({ draft, multiple, onToggle, onChange, onEnter, onKeyboard }: OwnAnswerProps) {
   if (!draft.ownOn) {
     return (
       <button
@@ -253,21 +273,35 @@ function OwnAnswer({ draft, multiple, onToggle, onChange, onEnter }: OwnAnswerPr
       ) : (
         <Mark on multiple={false} />
       )}
-      <input
-        autoFocus
-        value={draft.own}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            onEnter();
-          }
-        }}
-        aria-label="Your own answer"
-        placeholder="Type your own…"
-        maxLength={500}
-        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
-      />
+      <OwnInput value={draft.own} onChange={onChange} onEnter={onEnter} onKeyboard={onKeyboard} />
     </div>
+  );
+}
+
+type OwnInputProps = Pick<OwnAnswerProps, "onChange" | "onEnter" | "onKeyboard"> & { value: string };
+
+/** The field for your own answer. Says where the phone keyboard is while it's open for it. */
+function OwnInput({ value, onChange, onEnter, onKeyboard }: OwnInputProps) {
+  const field = useRef<HTMLInputElement>(null);
+  const dock = useKeyboardDock(field, field);
+  useEffect(() => onKeyboard(dock), [dock, onKeyboard]);
+  useEffect(() => () => onKeyboard(null), [onKeyboard]);
+  return (
+    <input
+      ref={field}
+      autoFocus
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          onEnter();
+        }
+      }}
+      aria-label="Your own answer"
+      placeholder="Type your own…"
+      maxLength={500}
+      className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted"
+    />
   );
 }
