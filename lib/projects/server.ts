@@ -73,10 +73,15 @@ export function addMessage(projectId: string, message: Message) {
     .run();
 }
 
+/** Takes a prompt back out of the chat (Stop, see runs.ts). */
+export function deleteMessage(projectId: string, messageId: string) {
+  db.delete(messages).where(and(eq(messages.id, messageId), eq(messages.projectId, projectId))).run();
+}
+
 export function updateProject(
   id: string,
   changes: Partial<{
-    name: string;
+    name: string | null;
     icon: ProjectIcon;
     color: ProjectColor;
     ready: boolean;

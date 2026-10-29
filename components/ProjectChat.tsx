@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { AssistantMessage, UserMessage } from "@/components/ChatMessage";
@@ -10,7 +10,7 @@ import { focusRing } from "@/components/styles";
 import { useKeyboardDock } from "@/components/useKeyboardDock";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { setMobilePreview } from "@/components/usePreviewState";
-import { markPreviewSeen, sendMessage, useProject } from "@/lib/projects/store";
+import { markPreviewSeen, sendMessage, stopAnswer, takeReturned, useProject } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
 
 const FOLLOW_SLACK = 96; // px from the bottom that still counts as reading the latest.
@@ -84,6 +84,9 @@ function Chat({ project }: { project: Project }) {
     sendMessage(project.id, text);
   }
 
+  const handleStop = useCallback(() => stopAnswer(project.id), [project.id]);
+  const handleReturnedTaken = useCallback(() => takeReturned(project.id), [project.id]);
+
   return (
     <main className="flex flex-1 flex-col px-4 sm:px-6">
       {/* A gentle fade behind the header, like the one above the prompt box.
@@ -126,6 +129,10 @@ function Chat({ project }: { project: Project }) {
           onSubmit={handleSend}
           variant="chat"
           busy={project.turn !== null}
+          onStop={handleStop}
+          stopping={project.stopping}
+          returned={project.returned}
+          onReturnedTaken={handleReturnedTaken}
           signedIn
           className="mx-auto"
         />

@@ -33,10 +33,13 @@ type ProjectLabelProps = {
   ellipsis?: boolean; // Mobile chat titles end in dots instead of fading.
 };
 
-/** The tile and the name. Skeletons while the AI picks a name; then it types itself out. */
+/**
+ * The tile and the name. Skeletons while the AI picks a name; then it types itself out.
+ * "New project" if nothing's naming it: its first prompt was stopped.
+ */
 export function ProjectLabel({ project, tile = true, className = "", ellipsis = false }: ProjectLabelProps) {
-  const name = useStreamed(project.name ?? "", project.namedAt, NAME_CHAR_MS);
-  if (project.name === null) {
+  const name = useStreamed(project.name ?? "New project", project.namedAt, NAME_CHAR_MS);
+  if (project.name === null && project.turn) {
     return (
       <>
         {tile && <span className="skeleton size-5 shrink-0 rounded-md motion-safe:animate-shimmer" />}

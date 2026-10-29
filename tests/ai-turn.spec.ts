@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { clearProjects, db, ORIGIN, PROJECTS, seedProject, testUser, newId } from "./seed";
@@ -195,4 +195,62 @@ test("rejoining a turn replays changed settings, including after it finishes", a
   const finalEvents = (await finished.text()).trim().split("\n").map((line) => JSON.parse(line));
   expect(finalEvents[0]).toEqual({ type: "project_updated", changes: { name: "Moon Garden", icon: "leaf", color: "violet" } });
   expect(finalEvents[1].type).toBe("done");
+});
+
+test("Stop undoes the answer: the code, the built app and the settings, and the prompt goes back in the box", async ({
+  page,
+}) => {
+  const id = seedProject(user.id, { name: "Old Garden", icon: "coffee", color: "amber", built: "<h1>Old app</h1>" });
+  const prompt = "A page for my test kitchen, then look at it, slowly";
+  await page.goto(`/projects/${id}`);
+  const box = page.locator("textarea:visible");
+  await box.fill(prompt);
+  await box.press("Enter");
+
+  // Mid-answer: renamed, files written and the app built to look at it.
+  await expect(page.getByText("Looked at your app")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("link", { name: "Moon Garden", exact: true })).toBeVisible();
+  expect(existsSync(path.join(PROJECTS, id, "page.html"))).toBe(true);
+  expect(readFileSync(path.join(PROJECTS, id, "dist", "index.html"), "utf8")).toContain(BUILT_HEADING);
+
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(box).toHaveValue(prompt);
+  await expect(page.locator("[aria-busy]")).toHaveCount(0);
+  await expect(page.getByText("Looked at your app")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Old Garden", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
+  expect(saved(id)).toEqual({ appVersion: 1, roles: [] });
+  expect(projectLook(id)).toEqual({ name: "Old Garden", icon: "coffee", color: "amber" });
+  expect(existsSync(path.join(PROJECTS, id, "page.html"))).toBe(false);
+  expect(readFileSync(path.join(PROJECTS, id, "dist", "index.html"), "utf8")).toBe("<h1>Old app</h1>");
+
+  // Nothing starts again after a reload.
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Old Garden", exact: true })).toBeVisible();
+  await expect(page.getByText("Thinking")).toHaveCount(0);
+  expect(saved(id).roles).toEqual([]);
+});
+
+test("Stop while Thinking takes the first prompt back, and the project's name with it", async ({ page }) => {
+  const prompt = "A page for my test kitchen, hold on";
+  const id = await startProject(page, prompt);
+  await expect(page.getByText("Thinking")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Test Kitchen", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.locator("textarea:visible")).toHaveValue(prompt);
+  await expect(page.getByText("Thinking")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "New project", exact: true })).toBeVisible();
+  expect(saved(id).roles).toEqual([]);
+  expect(projectLook(id)).toEqual({ name: null, icon: "sparkles", color: "slate" });
+});
+
+test("Stop keeps what was typed in the meantime", async ({ page }) => {
+  await startProject(page, "A page for my test kitchen, hold on");
+  await expect(page.getByText("Thinking")).toBeVisible();
+  const box = page.locator("textarea:visible");
+  await box.fill("Something else");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByText("Thinking")).toHaveCount(0);
+  await expect(box).toHaveValue("Something else");
 });

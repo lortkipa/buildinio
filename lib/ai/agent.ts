@@ -1,5 +1,5 @@
 import "server-only";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import OpenAI from "openai";
 import type {
@@ -16,7 +16,7 @@ import type { Message, ProjectChanges, ProjectData, StepData, ToolStep, TurnEven
 import { buildApp } from "@/lib/sandbox/build";
 import { fingerprint, listFiles } from "@/lib/sandbox/files";
 import { SandboxError } from "@/lib/sandbox/run";
-import { createWorkspace, projectDir } from "@/lib/sandbox/workspace";
+import { ensureWorkspace, projectDir } from "@/lib/sandbox/workspace";
 
 // One answer from the AI: it talks, uses tools (files, commands, web search) for as
 // long as it needs, and once it's done, the app is built if anything changed.
@@ -49,7 +49,7 @@ export async function runTurn({ projectId, name, icon, color, messages, hasApp, 
   }
 
   const dir = projectDir(projectId);
-  if (!(await stat(dir).catch(() => null))) await createWorkspace(projectId);
+  await ensureWorkspace(projectId);
   const startedAs = await fingerprint(dir);
 
   const emitStep = (step: StepData) => emit({ type: "step", step });
