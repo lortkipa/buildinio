@@ -26,6 +26,19 @@ function seedBuilt(visibility: "private" | "public" = "private") {
   });
 }
 
+/** One the AI hasn't answered yet: it starts building when its chat opens (tests/fake-openai.mjs). */
+function seedBuilding(visibility: "private" | "public" = "private") {
+  return seedProject(user.id, {
+    name: "Salon Booking",
+    icon: "scissors",
+    color: "pink",
+    messages: [{ role: "user", text: "A booking app for my hair salon" }],
+    visibility,
+  });
+}
+
+const BUILT_HEADING = "Built by the test AI";
+
 function savedVisibility(id: string) {
   const database = db();
   const row = database.prepare("SELECT visibility FROM projects WHERE id = ?").get(id) as { visibility: string };
@@ -74,13 +87,15 @@ test("desktop: Share sits by the open preview, makes the link public and copies 
   const titleBox = await title.boundingBox();
   expect(titleBox!.x + titleBox!.width).toBeLessThan(shareBox!.x);
 
-  // Private to start with.
+  // Private to start with, shown in the drop-down, which has focus.
   await share.click();
   const popup = page.getByRole("dialog", { name: "Share", exact: true });
-  const isPrivate = popup.getByRole("radio", { name: /Private/ });
-  const isPublic = popup.getByRole("radio", { name: /Public/ });
-  await expect(isPrivate).toBeChecked();
-  await expect(isPrivate).toBeFocused();
+  const picker = popup.getByRole("button", { name: /^Who can open the link/ });
+  const menu = popup.getByRole("menu", { name: "Who can open the link" });
+  const isPrivate = menu.getByRole("menuitemradio", { name: /Private/ });
+  const isPublic = menu.getByRole("menuitemradio", { name: /Public/ });
+  await expect(picker).toHaveAccessibleName("Who can open the link Private");
+  await expect(picker).toBeFocused();
   await expect(popup.getByText(`localhost:3100/share/${id}`)).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("desktop-share.png"), animations: "disabled" });
 
@@ -90,12 +105,34 @@ test("desktop: Share sits by the open preview, makes the link public and copies 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${ORIGIN}/share/${id}`);
   await expect(popup.getByRole("button", { name: "Copy link" })).toBeVisible();
 
-  // Public, saved on the server, and still so after a reload.
-  await popup.getByText("Public", { exact: true }).click();
-  await expect(isPublic).toBeChecked();
-  await expect(isPrivate).not.toBeChecked();
+  // The drop-down opens on the chosen one; Escape closes just it.
+  await picker.click();
+  await expect(picker).toHaveAttribute("aria-expanded", "true");
+  await expect(isPrivate).toHaveAttribute("aria-checked", "true");
+  await expect(isPrivate).toBeFocused();
+  await page.screenshot({ path: test.info().outputPath("desktop-share-menu.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(popup).toBeVisible();
+  await expect(picker).toBeFocused();
+
+  // Public by keyboard, saved on the server, and still so after a reload.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await expect(isPublic).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menu).toHaveCount(0);
+  await expect(picker).toHaveAccessibleName("Who can open the link Public");
+  await expect(picker).toBeFocused();
   await expect.poll(() => savedVisibility(id)).toBe("public");
+  await picker.click();
+  await expect(isPublic).toHaveAttribute("aria-checked", "true");
+  await expect(isPrivate).toHaveAttribute("aria-checked", "false");
   await page.screenshot({ path: test.info().outputPath("desktop-share-public.png"), animations: "disabled" });
+  // A click elsewhere in the pop-up closes just the drop-down.
+  await popup.getByText("Who can open the link", { exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(popup).toBeVisible();
 
   // Escape closes it, giving the button its focus back.
   await page.keyboard.press("Escape");
@@ -104,7 +141,7 @@ test("desktop: Share sits by the open preview, makes the link public and copies 
 
   await page.reload();
   await share.click();
-  await expect(isPublic).toBeChecked();
+  await expect(picker).toHaveAccessibleName("Who can open the link Public");
 
   // A click in the app closes it too.
   await panel.frameLocator("iframe").getByRole("heading", { name: "Café Menu" }).click();
@@ -138,7 +175,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     // The pop-up stays on screen; Escape closes it, and only it.
     await share.click();
     const popup = page.getByRole("dialog", { name: "Share", exact: true });
-    await expect(popup.getByRole("radio", { name: /Private/ })).toBeChecked();
+    await expect(popup.getByRole("button", { name: "Who can open the link Private" })).toBeVisible();
     const box = await popup.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(8);
     expect(box!.x + box!.width).toBeLessThanOrEqual(390 - 8);
@@ -210,4 +247,44 @@ test("the link of an app that isn't built yet, or doesn't exist", async ({ page 
     await page.goto(`/share/${missing}`);
     await expect(page.getByRole("heading", { name: "This app isn’t available" })).toBeVisible();
   }
+});
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`${colorScheme}: while the first version builds, Share says so, then shows the link by itself`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.emulateMedia({ colorScheme });
+    await page.goto(`/projects/${seedBuilding()}`);
+    const header = page.locator("header");
+    await expect(header.getByRole("button", { name: "Options for Salon Booking", exact: true })).toBeVisible();
+    await header.getByRole("button", { name: "Toggle preview" }).click();
+    await header.getByRole("button", { name: "Share", exact: true }).click();
+
+    const popup = page.getByRole("dialog", { name: "Share", exact: true });
+    await expect(popup.getByRole("status")).toContainText("Building your app");
+    await expect(popup.getByRole("button", { name: /^Who can open the link/ })).toHaveCount(0);
+    await expect(popup.getByRole("button", { name: "Copy link" })).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath(`share-building-${colorScheme}.png`), animations: "disabled" });
+
+    // Built: the same pop-up turns into the link.
+    await expect(popup.getByRole("button", { name: "Who can open the link Private" })).toBeVisible({ timeout: 20_000 });
+    await expect(popup.getByRole("button", { name: "Copy link" })).toBeVisible();
+    await expect(popup.getByRole("status")).toHaveCount(0);
+  });
+}
+
+test("the link shows a new build without a refresh", async ({ page, browser }) => {
+  const id = seedBuilding("public");
+  const visitors = await browser.newContext({ baseURL: ORIGIN });
+  const visitor = await visitors.newPage();
+  await visitor.goto(`/share/${id}`);
+  await expect(visitor.getByRole("heading", { name: "Nothing to see yet" })).toBeVisible();
+
+  // Its owner's chat opening starts the AI, which builds the app: it shows up on its own.
+  await page.goto(`/projects/${id}`);
+  await expect(visitor.frameLocator("iframe").getByRole("heading", { name: BUILT_HEADING })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(visitor.getByRole("complementary", { name: "Buildinio" })).toBeVisible();
+  await expect(visitor.locator("iframe")).toHaveAttribute("src", `/preview/${id}/index.html?v=1`);
+  await visitors.close();
 });

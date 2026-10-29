@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { KeyboardEvent, PointerEvent, RefObject } from "react";
 import { AppWindow, ArrowLeft } from "lucide-react";
+import { Bone } from "@/components/Bone";
 import { ProjectTitle } from "@/components/ProjectHeader";
 import { ShareButton } from "@/components/ShareButton";
 import { circleButton } from "@/components/styles";
@@ -297,21 +298,6 @@ function NothingYet() {
         Your app shows up here once there&rsquo;s something to see. Ask for what you&rsquo;d like to build.
       </p>
     </div>
-  );
-}
-
-// The shimmer's length (animate-shimmer in globals.css), and how far behind the one
-// before it each bone's sweep runs, so the light moves down the page in a wave.
-const SHIMMER_MS = 2000;
-const WAVE_MS = 70;
-
-/** A grey block standing in for part of the app; `at` is its place in the wave. */
-function Bone({ at, className }: { at: number; className: string }) {
-  return (
-    <span
-      style={{ animationDelay: `${at * WAVE_MS - SHIMMER_MS}ms` }}
-      className={`skeleton block motion-safe:animate-shimmer ${className}`}
-    />
   );
 }
 

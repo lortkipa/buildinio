@@ -1,10 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SharedApp } from "@/components/SharedApp";
 import { focusRing } from "@/components/styles";
-import { Watermark } from "@/components/Watermark";
 import { getCurrentUser } from "@/lib/auth/session";
-import { APP_SANDBOX } from "@/lib/preview";
 import { isId } from "@/lib/projects/ids";
 import { getSharedApp } from "@/lib/projects/server";
 
@@ -29,28 +28,22 @@ export async function generateMetadata({ params }: PageProps<"/share/[id]">): Pr
 export default function SharePage({ params }: PageProps<"/share/[id]">) {
   return (
     <Suspense>
-      <SharedApp params={params} />
+      <SharedAppPage params={params} />
     </Suspense>
   );
 }
 
-async function SharedApp({ params }: { params: Promise<{ id: string }> }) {
+async function SharedAppPage({ params }: { params: Promise<{ id: string }> }) {
   const app = await sharedApp(params);
   // The same for a private app as for one that doesn't exist.
   if (!app) return <Notice title="This app isn’t available" text="It may be private, or it was deleted." />;
-  if (app.appVersion === 0) return <Notice title="Nothing to see yet" text="This app hasn’t been built yet." />;
-
   return (
-    <>
-      {/* Sandboxed like the preview (app/preview checks who's asking too). */}
-      <iframe
-        src={`/preview/${app.id}/index.html?v=${app.appVersion}`}
-        title={app.name ?? "App"}
-        sandbox={APP_SANDBOX}
-        className="fixed inset-0 size-full bg-white"
-      />
-      <Watermark />
-    </>
+    <SharedApp
+      id={app.id}
+      name={app.name}
+      appVersion={app.appVersion}
+      notBuilt={<Notice title="Nothing to see yet" text="This app hasn’t been built yet. It shows up here once it is." />}
+    />
   );
 }
 

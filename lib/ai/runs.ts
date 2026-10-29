@@ -3,6 +3,7 @@ import { problem, runTurn } from "@/lib/ai/agent";
 import { nameProject as pickName } from "@/lib/ai/naming";
 import { runs } from "@/lib/ai/registry";
 import type { Listener, Run } from "@/lib/ai/registry";
+import { announceBuild } from "@/lib/projects/builds";
 import { newId } from "@/lib/projects/ids";
 import { addMessage, getProject, nameProject, projectExists, updateProject } from "@/lib/projects/server";
 import type { AssistantMessage, ProjectData, TurnEvent } from "@/lib/projects/types";
@@ -97,7 +98,10 @@ async function answer(run: Run, project: ProjectData) {
   };
   addMessage(project.id, message);
   const appVersion = project.appVersion + (result.built ? 1 : 0);
-  if (result.built) updateProject(project.id, { appVersion, ready: true });
+  if (result.built) {
+    updateProject(project.id, { appVersion, ready: true });
+    announceBuild(project.id, appVersion); // The app's share page shows it.
+  }
   runs.delete(project.id); // Ready for the next prompt as soon as this one is answered.
   emit({ type: "done", message, appVersion, ready: result.built });
 }
