@@ -9,8 +9,10 @@ import { DesktopPreview, MobilePreview } from "@/components/Preview";
 import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { circleButton } from "@/components/styles";
+import { useApplyTheme } from "@/components/useApplyTheme";
 import { setMobilePreview, setPreviewState, useMobilePreview, usePreviewState } from "@/components/usePreviewState";
 import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
+import { loadAccount, useAccount } from "@/lib/account/store";
 import type { CurrentUser } from "@/lib/auth/session";
 import type { PreviewState } from "@/lib/preview";
 import { loadProjects, useProject } from "@/lib/projects/store";
@@ -64,10 +66,14 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const closePreview = useCallback(() => setMobilePreview(false), []);
 
-  // From here on the store keeps them up to date (see lib/projects/store.ts).
+  // From here on the stores keep them up to date (see lib/projects/store.ts and lib/account/store.ts).
   useEffect(() => {
     loadProjects(user.id, projects);
   }, [user.id, projects]);
+  useEffect(() => {
+    loadAccount(user);
+  }, [user]);
+  useApplyTheme(useAccount(user).theme);
 
   // Focus moves into the phone sidebar when it opens, and back to the button that
   // opened it when it closes. After rendering: until then, one or the other is still

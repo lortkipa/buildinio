@@ -7,6 +7,9 @@ export function isTheme(value: unknown): value is Theme {
   return THEMES.includes(value as Theme);
 }
 
+/** The page's background in each theme (`--background` in globals.css), for the browser's own bars. */
+export const THEME_COLORS = { light: "#fafaf9", dark: "#111113" };
+
 export const MAX_NAME = 80;
 
 /** A name as it's kept: trimmed, with single spaces. */
