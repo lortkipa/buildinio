@@ -6,6 +6,7 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { COLOR_NAMES, ICON_NAMES, MAX_PROJECT_NAME } from "@/lib/projects/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
+import { announceChange } from "@/lib/projects/changes";
 import * as projects from "@/lib/projects/server";
 import { isId } from "@/lib/projects/ids";
 
@@ -34,6 +35,15 @@ export async function setFeedback(projectId: unknown, messageId: unknown, feedba
   if (feedback !== "like" && feedback !== "dislike" && feedback !== null) return;
   const project = await ownProject(projectId);
   if (project && typeof messageId === "string") projects.setFeedback(project.id, messageId, feedback);
+}
+
+/** Who can open the app's share link: only its owner, or anyone with the link. */
+export async function setVisibility(id: unknown, visibility: unknown) {
+  if (visibility !== "private" && visibility !== "public") return;
+  const project = await ownProject(id);
+  if (!project) return;
+  projects.updateProject(project.id, { visibility });
+  announceChange(project.id); // Its share page opens or closes at once.
 }
 
 /** The app's preview was seen, or its "ready" card dismissed. */

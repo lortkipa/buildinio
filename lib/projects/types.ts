@@ -2,6 +2,9 @@ import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 
 export type Feedback = "like" | "dislike";
 
+/** Who can open the app's share link (/share/<id>): only its owner, or anyone with the link. */
+export type Visibility = "private" | "public";
+
 export type AssistantMessage = { id: string; role: "assistant"; text: string; seconds: number; feedback: Feedback | null };
 
 export type Message = { id: string; role: "user"; text: string } | AssistantMessage;
@@ -39,6 +42,9 @@ export type Turn = {
   answer: { text: string; startedAt: number } | null;
 };
 
+/** What an app's share page shows (app/share), as /api/share/[id] tells it. */
+export type SharedAppState = { available: true; name: string | null; appVersion: number } | { available: false };
+
 /** A project as the server keeps it. */
 export type ProjectData = {
   id: string;
@@ -49,6 +55,7 @@ export type ProjectData = {
   messages: Message[];
   ready: boolean; // The AI just built the app and its preview hasn't been seen yet.
   appVersion: number; // Goes up with every build of the app; 0 until there is one.
+  visibility: Visibility;
   running: boolean; // The AI is working on an answer.
 };
 

@@ -26,19 +26,11 @@ type ProjectMenuProps = {
 export function ProjectMenu({ anchor, trigger, onClose, onEdit, onDelete }: ProjectMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Below the anchor, or above if there's no room; kept on screen. Then focus moves in.
+  // Placed next to the anchor, then focus moves in.
   useLayoutEffect(() => {
     const menu = ref.current;
     if (!menu) return;
-    const { width, height } = menu.getBoundingClientRect();
-    const { rect, from, align } = anchor;
-    const gap = from === "button" ? 4 : 0;
-    const fitsBelow = rect.bottom + gap + height <= window.innerHeight - EDGE;
-    const top = fitsBelow ? rect.bottom + gap : rect.top - gap - height;
-    const left = align === "center" ? (rect.left + rect.right - width) / 2 : from === "button" ? rect.right - width : rect.left;
-    menu.style.top = `${clamp(top, EDGE, window.innerHeight - height - EDGE)}px`;
-    menu.style.left = `${clamp(left, EDGE, window.innerWidth - width - EDGE)}px`;
-    menu.style.transformOrigin = `${align === "center" ? "center" : from === "button" ? "right" : "left"} ${fitsBelow ? "top" : "bottom"}`;
+    placeMenu(menu, anchor);
     menu.querySelector("button")?.focus();
   }, [anchor]);
 
@@ -90,6 +82,22 @@ export function ProjectMenu({ anchor, trigger, onClose, onEdit, onDelete }: Proj
     </div>,
     container,
   );
+}
+
+/**
+ * Puts a fixed pop-up below its anchor, or above if there's no room, kept on screen;
+ * it grows from the side nearest the anchor.
+ */
+export function placeMenu(menu: HTMLElement, { rect, from, align }: ProjectMenuAnchor) {
+  // Its size without the pop-in animation, which starts it a little smaller.
+  const { offsetWidth: width, offsetHeight: height } = menu;
+  const gap = from === "button" ? 4 : 0;
+  const fitsBelow = rect.bottom + gap + height <= window.innerHeight - EDGE;
+  const top = fitsBelow ? rect.bottom + gap : rect.top - gap - height;
+  const left = align === "center" ? (rect.left + rect.right - width) / 2 : from === "button" ? rect.right - width : rect.left;
+  menu.style.top = `${clamp(top, EDGE, window.innerHeight - height - EDGE)}px`;
+  menu.style.left = `${clamp(left, EDGE, window.innerWidth - width - EDGE)}px`;
+  menu.style.transformOrigin = `${align === "center" ? "center" : from === "button" ? "right" : "left"} ${fitsBelow ? "top" : "bottom"}`;
 }
 
 function clamp(value: number, min: number, max: number) {

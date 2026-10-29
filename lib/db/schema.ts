@@ -1,7 +1,7 @@
 import { blob, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { Theme } from "@/lib/account/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
-import type { Feedback } from "@/lib/projects/types";
+import type { Feedback, Visibility } from "@/lib/projects/types";
 
 // After changing this file, run `npm run db:generate` to add a migration.
 
@@ -94,6 +94,7 @@ export const projects = sqliteTable(
     color: text("color").$type<ProjectColor>().notNull(),
     ready: integer("ready", { mode: "boolean" }).notNull().default(false), // Built, and the preview not seen yet.
     appVersion: integer("app_version").notNull().default(0), // Goes up with every build; 0 until the first.
+    visibility: text("visibility").$type<Visibility>().notNull().default("private"), // Who can open its share link.
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [index("projects_user_id_idx").on(table.userId)],

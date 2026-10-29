@@ -49,6 +49,7 @@ type SeedProject = {
   createdAt?: number;
   messages?: { role: "user" | "assistant"; text: string }[];
   built?: string; // The built app's index.html.
+  visibility?: "private" | "public"; // Who can open its share link; private by default.
 };
 
 /** A project of the user's. With `built`, its app is built and ready to preview. */
@@ -57,8 +58,19 @@ export function seedProject(userId: string, project: SeedProject) {
   const createdAt = project.createdAt ?? Date.now();
   const database = db();
   database
-    .prepare("INSERT INTO projects (id,user_id,name,icon,color,ready,app_version,created_at) VALUES (?,?,?,?,?,0,?,?)")
-    .run(id, userId, project.name, project.icon ?? "sparkles", project.color ?? "slate", project.built ? 1 : 0, createdAt);
+    .prepare(
+      "INSERT INTO projects (id,user_id,name,icon,color,ready,app_version,visibility,created_at) VALUES (?,?,?,?,?,0,?,?,?)",
+    )
+    .run(
+      id,
+      userId,
+      project.name,
+      project.icon ?? "sparkles",
+      project.color ?? "slate",
+      project.built ? 1 : 0,
+      project.visibility ?? "private",
+      createdAt,
+    );
   (project.messages ?? []).forEach((message, index) => {
     database
       .prepare("INSERT INTO messages (id,project_id,role,text,seconds,feedback,created_at) VALUES (?,?,?,?,?,NULL,?)")

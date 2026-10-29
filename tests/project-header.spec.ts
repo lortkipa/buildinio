@@ -36,7 +36,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     });
     await preview.click();
     await expect(preview).toHaveAttribute("aria-pressed", "true");
-    // It slides the preview over the chat, whose own pressed toggle closes it again.
+    // It slides the preview over the chat, whose back button closes it again.
     const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
     await expect(sheet).toBeVisible();
     await page.mouse.move(0, 100);
@@ -44,7 +44,8 @@ for (const colorScheme of ["light", "dark"] as const) {
       const style = getComputedStyle(element);
       return [style.backgroundColor, style.color];
     })).toEqual(previewColors);
-    await sheet.getByRole("button", { name: "Toggle preview" }).click();
+    await expect(sheet.getByRole("button", { name: "Close preview" })).toBeFocused();
+    await sheet.getByRole("button", { name: "Close preview" }).click();
     await expect(sheet).not.toBeVisible();
     await expect(preview).toHaveAttribute("aria-pressed", "false");
     await expect(preview).toBeFocused();
@@ -121,14 +122,17 @@ for (const colorScheme of ["light", "dark"] as const) {
 
 test("the phone preview closes on navigation and the title menu works across screen sizes", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto(`/projects/${projectId}`);
+  await page.goto(`/projects/${otherId}`);
   const header = page.locator("header");
   const preview = header.getByRole("button", { name: "Toggle preview" });
+  await header.getByRole("button", { name: "Open sidebar" }).click();
+  await page.getByRole("dialog", { name: "Sidebar", exact: true }).getByRole("link", { name: projectName, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
   await preview.click();
-  // The preview has the chat header's sidebar button; the sidebar slides over it.
+  // Going back to the other project closes it.
   const sheet = page.getByRole("dialog", { name: "Preview", exact: true });
-  await sheet.getByRole("button", { name: "Open sidebar" }).click();
-  await page.getByRole("dialog", { name: "Sidebar", exact: true }).getByRole("link", { name: "Other app", exact: true }).click();
+  await expect(sheet).toBeVisible();
+  await page.goBack();
   await expect(page).toHaveURL(new RegExp(`/projects/${otherId}$`));
   await expect(sheet).not.toBeVisible();
   await expect(preview).toHaveAttribute("aria-pressed", "false");

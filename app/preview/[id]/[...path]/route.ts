@@ -1,8 +1,10 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import type { NextRequest } from "next/server";
+import { getSessionUser, SESSION_COOKIE } from "@/lib/auth/session";
+import { APP_SANDBOX } from "@/lib/preview";
 import { isId } from "@/lib/projects/ids";
-import { projectExists } from "@/lib/projects/server";
+import { getSharedApp, projectExists } from "@/lib/projects/server";
 import { projectDir } from "@/lib/sandbox/workspace";
 
 const TYPES: Record<string, string> = {
@@ -32,12 +34,15 @@ const TYPES: Record<string, string> = {
 };
 
 /**
- * The built app (a project's dist/), shown in the preview's frame. Sandboxed even
- * when opened on its own: its scripts get an origin of their own, so they can't
- * reach this site or the signed-in user. No sign-in needed, so the long random
- * project id is what keeps it private.
+ * The built app (a project's dist/), shown in the preview's frame and on its share link
+ * (app/share). Sandboxed even when opened on its own: its scripts get an origin of their
+ * own, so they can't reach this site or the signed-in user.
+ *
+ * Its pages are the owner's alone unless the app is public. Its other files load from the
+ * app's own origin, which sends no cookies, so they can't check who's asking: they're found
+ * through its pages, and the long random project id keeps them hidden.
  */
-export async function GET(_request: NextRequest, { params }: RouteContext<"/preview/[id]/[...path]">) {
+export async function GET(request: NextRequest, { params }: RouteContext<"/preview/[id]/[...path]">) {
   const { id, path: parts } = await params;
   if (!isId(id) || parts.some((part) => part.startsWith(".")) || !projectExists(id)) return notFound();
 
@@ -56,10 +61,16 @@ export async function GET(_request: NextRequest, { params }: RouteContext<"/prev
   ]);
   if (!real || !root || !real.startsWith(root + path.sep)) return notFound();
 
+  const type = path.extname(real).toLowerCase();
+  if (type === ".html") {
+    const user = getSessionUser(request.cookies.get(SESSION_COOKIE)?.value);
+    if (!getSharedApp(id, user?.id ?? null)) return notFound();
+  }
+
   return new Response(new Uint8Array(await readFile(/* turbopackIgnore: true */ real)), {
     headers: {
-      "Content-Type": TYPES[path.extname(real).toLowerCase()] ?? "application/octet-stream",
-      "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-modals allow-popups; frame-ancestors 'self'",
+      "Content-Type": TYPES[type] ?? "application/octet-stream",
+      "Content-Security-Policy": `sandbox ${APP_SANDBOX}; frame-ancestors 'self'`,
       // Its own origin makes its scripts and styles cross-origin requests (Vite marks them crossorigin).
       "Access-Control-Allow-Origin": "*",
       "X-Content-Type-Options": "nosniff",

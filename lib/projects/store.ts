@@ -3,7 +3,17 @@ import { toast } from "sonner";
 import * as actions from "@/lib/projects/actions";
 import { newId } from "@/lib/projects/ids";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
-import type { AssistantMessage, Feedback, Message, Project, ProjectData, Step, Turn, TurnEvent } from "@/lib/projects/types";
+import type {
+  AssistantMessage,
+  Feedback,
+  Message,
+  Project,
+  ProjectData,
+  Step,
+  Turn,
+  TurnEvent,
+  Visibility,
+} from "@/lib/projects/types";
 
 // The signed-in user's projects, as the server keeps them (lib/projects/server.ts),
 // with the AI's answers in progress. A store outside React, because hidden pages
@@ -97,6 +107,7 @@ export function createProject(prompt: string) {
     turn: newTurn(),
     ready: false,
     appVersion: 0,
+    visibility: "private",
   };
   born.set(id, Date.now());
   born.set(message.id, Date.now());
@@ -125,6 +136,12 @@ export function deleteProject(id: string) {
   follows.get(id)?.abort();
   setState({ ...state, projects: state.projects.filter((project) => project.id !== id) });
   save(actions.deleteProject(id));
+}
+
+/** Who can open the app's share link: only its owner, or anyone with the link. */
+export function setVisibility(id: string, visibility: Visibility) {
+  update(id, (project) => ({ ...project, visibility }));
+  save(actions.setVisibility(id, visibility));
 }
 
 /** The preview of a just-built app was shown, or its "ready" card dismissed. */
