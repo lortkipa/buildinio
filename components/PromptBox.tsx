@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowUp, Mic, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
 import { focusRing, shown, swap } from "@/components/styles";
+import { Tooltip } from "@/components/Tooltip";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
 import { useAutocorrect } from "@/lib/account/store";
@@ -333,54 +334,64 @@ export function PromptBox({
           className="flex items-center justify-between px-3 pb-3"
         >
           {/* Plus and mic aren't built yet. */}
-          <button
-            type="button"
-            aria-label="Add files"
-            onClick={() => notYet("Adding files")}
-            className={`${iconButton} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground`}
-          >
-            <Plus size={20} />
-          </button>
+          <Tooltip label="Add files" side="top">
+            <button
+              type="button"
+              aria-label="Add files"
+              onClick={() => notYet("Adding files")}
+              className={`${iconButton} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground`}
+            >
+              <Plus size={20} />
+            </button>
+          </Tooltip>
 
           {/* Mic and submit share one spot and swap when there's text. While the AI
               answers, Stop takes it. */}
           <div className="grid">
-            <button
-              type="button"
-              aria-label="Use voice input"
-              inert={hasText || canStop}
-              onClick={() => notYet("Voice input")}
-              className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
-                hasText || canStop ? "scale-50 -rotate-45 opacity-0" : shown
-              }`}
+            <Tooltip label="Voice input" side="top">
+              <button
+                type="button"
+                aria-label="Use voice input"
+                inert={hasText || canStop}
+                onClick={() => notYet("Voice input")}
+                className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
+                  hasText || canStop ? "scale-50 -rotate-45 opacity-0" : shown
+                }`}
+              >
+                <Mic size={20} />
+              </button>
+            </Tooltip>
+            <Tooltip
+              label={busy ? "Wait for the answer to finish" : variant === "hero" ? "Start building" : "Send"}
+              keys={busy ? undefined : ["↵"]}
+              side="top"
             >
-              <Mic size={20} />
-            </button>
-            <button
-              type="submit"
-              aria-label={variant === "hero" ? "Start building" : "Send"}
-              title={busy ? "Wait for the answer to finish" : undefined}
-              inert={!hasText || canStop}
-              disabled={busy}
-              className={`${iconButton} ${swap} bg-foreground text-background enabled:hover:bg-foreground/85 disabled:cursor-not-allowed ${
-                !hasText || canStop ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
-              }`}
-            >
-              <ArrowUp size={18} strokeWidth={2.25} />
-            </button>
-            <button
-              type="button"
-              aria-label="Stop"
-              title="Stop and undo this answer"
-              inert={!canStop}
-              disabled={stopping}
-              onClick={onStop}
-              className={`${iconButton} ${swap} bg-error text-background enabled:hover:bg-error/85 disabled:cursor-default ${
-                !canStop ? "scale-50 opacity-0" : stopping ? "scale-100 opacity-30" : shown
-              }`}
-            >
-              <Square size={12} fill="currentColor" strokeWidth={0} />
-            </button>
+              <button
+                type="submit"
+                aria-label={variant === "hero" ? "Start building" : "Send"}
+                inert={!hasText || canStop}
+                disabled={busy}
+                className={`${iconButton} ${swap} bg-foreground text-background enabled:hover:bg-foreground/85 disabled:cursor-not-allowed ${
+                  !hasText || canStop ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
+                }`}
+              >
+                <ArrowUp size={18} strokeWidth={2.25} />
+              </button>
+            </Tooltip>
+            <Tooltip label="Stop and undo this answer" side="top">
+              <button
+                type="button"
+                aria-label="Stop"
+                inert={!canStop}
+                disabled={stopping}
+                onClick={onStop}
+                className={`${iconButton} ${swap} bg-error text-background enabled:hover:bg-error/85 disabled:cursor-default ${
+                  !canStop ? "scale-50 opacity-0" : stopping ? "scale-100 opacity-30" : shown
+                }`}
+              >
+                <Square size={12} fill="currentColor" strokeWidth={0} />
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>

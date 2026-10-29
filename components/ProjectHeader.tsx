@@ -9,6 +9,7 @@ import { EditProjectDialog } from "@/components/EditProjectDialog";
 import { DeleteProjectDialog, ProjectMenu, type ProjectMenuAnchor } from "@/components/ProjectActions";
 import { ProjectLabel } from "@/components/ProjectTile";
 import { circleButton, focusRing } from "@/components/styles";
+import { Tooltip } from "@/components/Tooltip";
 import { deleteProject, useProject } from "@/lib/projects/store";
 
 /** The rounded project title and shared options on every screen size. */
@@ -84,16 +85,18 @@ type PreviewToggleProps = {
 /** Shows and hides the preview: next to the chat on wider screens, over it on phones. Same look either way. */
 export function PreviewToggle({ pressed, controls, onClick, ref }: PreviewToggleProps) {
   return (
-    <button
-      ref={ref}
-      type="button"
-      aria-label="Toggle preview"
-      aria-pressed={pressed}
-      aria-controls={controls}
-      onClick={onClick}
-      className={circleButton}
-    >
-      <AppWindow size={20} aria-hidden />
-    </button>
+    <Tooltip label={pressed ? "Hide preview" : "Show preview"}>
+      <button
+        ref={ref}
+        type="button"
+        aria-label="Toggle preview"
+        aria-pressed={pressed}
+        aria-controls={controls}
+        onClick={onClick}
+        className={circleButton}
+      >
+        <AppWindow size={20} aria-hidden />
+      </button>
+    </Tooltip>
   );
 }

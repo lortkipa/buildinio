@@ -23,6 +23,7 @@
   --glow-warm: rgb(251 146 60 / 0.07);
   --scrollbar: rgb(28 28 31 / 0.2);
   --code: #f4f4f2;
+  --tooltip: #1c1c1f;
 
   @variant dark {
     color-scheme: dark;
@@ -37,6 +38,7 @@
     --glow-warm: rgb(251 146 60 / 0.06);
     --scrollbar: rgb(255 255 255 / 0.2);
     --code: #18181b;
+    --tooltip: #2c2c31;
   }
 }
 
@@ -48,6 +50,7 @@
   --color-border: var(--border);
   --color-error: var(--error);
   --color-code: var(--code);
+  --color-tooltip: var(--tooltip);
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
 
   /* `backwards`, not `both`: a transform kept after the animation would trap
@@ -68,6 +71,16 @@
     from {
       opacity: 0;
       transform: scale(0.96);
+    }
+  }
+
+  /* Tooltips showing: a little nudge from the button's side (set by Tooltip). */
+  --animate-tip: tip 0.14s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+
+  @keyframes tip {
+    from {
+      opacity: 0;
+      transform: translate(var(--tip-x, 0), var(--tip-y, 0)) scale(0.96);
     }
   }
 

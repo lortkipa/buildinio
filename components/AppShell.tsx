@@ -12,6 +12,7 @@ import { SearchDialog } from "@/components/SearchDialog";
 import { ShareButton } from "@/components/ShareButton";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { circleButton } from "@/components/styles";
+import { Tooltip } from "@/components/Tooltip";
 import { useApplyTheme } from "@/components/useApplyTheme";
 import { setMobilePreview, setPreviewState, useMobilePreview, usePreviewState } from "@/components/usePreviewState";
 import { setSidebarState, useSidebarState } from "@/components/useSidebarState";
@@ -167,17 +168,19 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
             projectId ? "sticky top-0 z-20 md:px-6" : "md:hidden"
           }`}
         >
-          <button
-            ref={openRef}
-            type="button"
-            aria-label="Open sidebar"
-            aria-expanded={mobileOpen}
-            aria-controls={id}
-            onClick={openMobile}
-            className={`${circleButton} md:hidden`}
-          >
-            <PanelLeft size={20} />
-          </button>
+          <Tooltip label="Open sidebar">
+            <button
+              ref={openRef}
+              type="button"
+              aria-label="Open sidebar"
+              aria-expanded={mobileOpen}
+              aria-controls={id}
+              onClick={openMobile}
+              className={`${circleButton} md:hidden`}
+            >
+              <PanelLeft size={20} />
+            </button>
+          </Tooltip>
           {projectId ? (
             // On wider screens, as wide as the prompt box (see ProjectChat), so the
             // preview button lines up with its right edge.
