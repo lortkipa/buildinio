@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { focusRing, shown, swap } from "@/components/styles";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
+import { useAutocorrect } from "@/lib/account/store";
 import { autoBullet, dropEmptyItems, listKey } from "@/lib/lists";
 import type { Edit, ListKey } from "@/lib/lists";
 
@@ -177,6 +178,7 @@ export function PromptBox({
   const router = useRouter();
   const id = useId();
   const [value, setValue] = useState("");
+  const autocorrect = useAutocorrect(); // The user's setting: the browser's spell check and, on Apple devices, autocorrect.
   const { label, placeholder, rows } = VARIANTS[variant];
   const example = useTypingPlaceholder(!placeholder && value.length === 0);
   const prompt = dropEmptyItems(value).trim();
@@ -284,6 +286,8 @@ export function PromptBox({
             name="prompt"
             rows={rows}
             enterKeyHint="enter"
+            spellCheck={autocorrect}
+            autoCorrect={autocorrect ? "on" : "off"}
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
