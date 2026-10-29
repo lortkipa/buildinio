@@ -160,7 +160,7 @@ type SearchRowProps = {
 
 /**
  * A project found: its tile and name, and under the name where its chat matched, with
- * the words marked (if it was found there). Every row is as tall either way. Opens it. The options button, top right, works like the sidebar's.
+ * the words marked (if it was found there). Every row is as tall either way. Opens it. The options button, at the right in the middle, works like the sidebar's.
  */
 function SearchRow({ result: { project, snippet }, words, current, menuOpen, onMenu, onNavigate }: SearchRowProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -203,7 +203,7 @@ function SearchRow({ result: { project, snippet }, words, current, menuOpen, onM
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={openFromButton}
-        className={`absolute right-2 ${snippet ? "top-1" : "top-1/2 -translate-y-1/2"} ${rowOptions} ${rowOptionsOnHover}`}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 ${rowOptions} ${rowOptionsOnHover}`}
       >
         <Ellipsis size={16} />
       </button>

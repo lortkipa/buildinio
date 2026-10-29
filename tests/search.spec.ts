@@ -96,6 +96,9 @@ test("desktop: finds projects by name and by what was said in their chats", asyn
   await expect(found.locator("mark")).toHaveText(["watering", "tomatoes"]);
   // As tall as a row without it.
   expect((await found.boundingBox())!.height).toBe(plainHeight);
+  // Its options button stays in the middle of the row.
+  const [dots, box] = [(await found.getByRole("button", { name: "Options for Moon Garden" }).boundingBox())!, (await found.boundingBox())!];
+  expect(Math.abs(dots.y + dots.height / 2 - (box.y + box.height / 2))).toBeLessThan(1);
   await page.screenshot({ path: test.info().outputPath("by-chat.png"), animations: "disabled" });
 
   // Your own messages too, whatever the case.
