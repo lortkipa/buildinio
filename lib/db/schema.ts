@@ -1,4 +1,5 @@
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { Theme } from "@/lib/settings";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import type { Feedback } from "@/lib/projects/types";
 
@@ -11,7 +12,15 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(), // Always lowercase.
   name: text("name").notNull(),
   avatarUrl: text("avatar_url").notNull(),
+  theme: text("theme").$type<Theme>().notNull().default("system"),
+  reducedMotion: integer("reduced_motion", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+/** Uploaded photos are decoded and resized to WebP before being stored. */
+export const userPhotos = sqliteTable("user_photos", {
+  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  data: blob("data", { mode: "buffer" }).notNull(),
 });
 
 /** A Google or GitHub account linked to a user. Email sign-ins need no row here. */

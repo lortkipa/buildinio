@@ -7,6 +7,7 @@ import { ArrowUp, Mic, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { focusRing, shown, swap } from "@/components/styles";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
+import { useReducedMotion } from "@/components/AppearanceProvider";
 import type { Dock } from "@/components/useKeyboardDock";
 import { autoBullet, dropEmptyItems, listKey } from "@/lib/lists";
 import type { Edit, ListKey } from "@/lib/lists";
@@ -30,13 +31,13 @@ const NEXT_MS = 400;
  * Shows the first example without animating if the user prefers reduced motion.
  */
 function useTypingPlaceholder(active: boolean) {
+  const reducedMotion = useReducedMotion();
   const [text, setText] = useState(EXAMPLES[0]);
   // Start on a fully typed first example, so the loop begins by deleting it.
   const state = useRef({ index: 0, length: EXAMPLES[0].length, deleting: true });
 
   useEffect(() => {
-    if (!active) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!active || reducedMotion) return;
 
     let timer: number;
     const tick = () => {
@@ -69,9 +70,9 @@ function useTypingPlaceholder(active: boolean) {
 
     timer = window.setTimeout(tick, HOLD_MS);
     return () => window.clearTimeout(timer);
-  }, [active]);
+  }, [active, reducedMotion]);
 
-  return text;
+  return reducedMotion ? EXAMPLES[0] : text;
 }
 
 let editing = false; // While applyEdit types, so its own typing isn't taken for a new "- ".

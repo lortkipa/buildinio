@@ -4,12 +4,12 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LoaderCircle, LogOut, Trash2 } from "lucide-react";
+import { LoaderCircle, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
-import { dialogButton, dialogPanel, focusRing, menuItem, menuPanel } from "@/components/styles";
-import { deleteAccount, logOut } from "@/lib/auth/actions";
+import { focusRing, menuItem, menuPanel } from "@/components/styles";
+import { SettingsDialog } from "@/components/SettingsDialog";
+import { logOut } from "@/lib/auth/actions";
 import type { CurrentUser } from "@/lib/auth/session";
-import { forgetProjects } from "@/lib/projects/store";
 
 // The animation starts at the corner nearest the account button.
 const PLACEMENTS = {
@@ -25,7 +25,7 @@ type AccountMenuProps = {
   collapsed?: boolean; // Row only: hide the name and email, leaving the avatar.
 };
 
-/** The signed-in user's avatar; opens a menu to log out or delete the account. */
+/** The signed-in user's avatar; opens Settings and Log out. */
 export function AccountMenu({
   user,
   trigger = "avatar",
@@ -35,19 +35,18 @@ export function AccountMenu({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
-  const [busy, setBusy] = useState<"logout" | "delete" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const id = useId();
 
   // Close everything on navigation and when the containing layout is hidden.
   useLayoutEffect(() => {
-    const dialog = dialogRef.current;
     return () => {
       setOpen(false);
-      dialog?.close();
+      setSettingsOpen(false);
     };
   }, [pathname]);
 
@@ -94,17 +93,14 @@ export function AccountMenu({
 
   // Clearing the session cookie re-renders the home page, which swaps the app for the landing page.
   async function handleLogOut() {
-    setBusy("logout");
-    await logOut();
-    toast.success("You’re logged out.");
-  }
-
-  async function handleDelete() {
-    setBusy("delete");
-    await deleteAccount();
-    forgetProjects(user.id);
-    dialogRef.current?.close();
-    toast.success("Your account was deleted.");
+    setBusy(true);
+    try {
+      await logOut();
+      toast.success("You’re logged out.");
+    } catch {
+      setBusy(false);
+      toast.error("We couldn’t log you out. Please try again.");
+    }
   }
 
   return (
@@ -148,70 +144,40 @@ export function AccountMenu({
           <div aria-hidden className="mx-1.5 mb-1.5 h-px bg-border" />
           <button
             type="button"
-            onClick={handleLogOut}
-            disabled={busy !== null}
+            onClick={() => {
+              setOpen(false);
+              setSettingsOpen(true);
+            }}
+            disabled={busy}
             className={`${menuItem} text-foreground`}
           >
-            {busy === "logout" ? (
+            <Settings size={16} />
+            Settings
+          </button>
+          <button
+            type="button"
+            onClick={handleLogOut}
+            disabled={busy}
+            className={`${menuItem} text-foreground`}
+          >
+            {busy ? (
               <LoaderCircle size={16} className="motion-safe:animate-spin" />
             ) : (
               <LogOut size={16} />
             )}
             Log out
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              dialogRef.current?.showModal();
-            }}
-            disabled={busy !== null}
-            className={`${menuItem} text-error`}
-          >
-            <Trash2 size={16} />
-            Delete account
-          </button>
         </div>,
         portalContainer,
       )}
 
-      <dialog
-        ref={dialogRef}
-        aria-labelledby={`${id}-title`}
-        aria-describedby={`${id}-text`}
-        // Stay open while the account is being deleted.
-        onCancel={(event) => busy && event.preventDefault()}
-        className={`max-w-sm ${dialogPanel}`}
-      >
-        <h2 id={`${id}-title`} className="text-lg font-semibold tracking-[-0.01em]">
-          Delete your account?
-        </h2>
-        <p id={`${id}-text`} className="mt-2 text-sm text-balance text-muted">
-          This permanently deletes your account for{" "}
-          <span className="font-medium wrap-anywhere text-foreground">{user.email}</span>. It
-          can&rsquo;t be undone.
-        </p>
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
-          <button
-            type="button"
-            autoFocus
-            onClick={() => dialogRef.current?.close()}
-            disabled={busy === "delete"}
-            className={`${dialogButton} border border-border bg-surface enabled:hover:border-foreground/25`}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={busy === "delete"}
-            className={`${dialogButton} bg-error text-background enabled:hover:bg-error/85`}
-          >
-            {busy === "delete" && <LoaderCircle size={16} className="motion-safe:animate-spin" />}
-            Delete account
-          </button>
-        </div>
-      </dialog>
+      {settingsOpen && (
+        <SettingsDialog user={user} onClose={() => {
+          setSettingsOpen(false);
+          buttonRef.current?.focus();
+        }} />
+      )}
+
     </div>
   );
 }

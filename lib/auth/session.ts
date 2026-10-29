@@ -7,11 +7,12 @@ import { connection } from "next/server";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { sessions, users } from "@/lib/db/schema";
+import type { Appearance } from "@/lib/settings";
 
 export const SESSION_COOKIE = "session";
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-export type CurrentUser = {
+export type CurrentUser = Appearance & {
   id: string;
   name: string;
   email: string;
@@ -41,7 +42,7 @@ export function cookieOptions(expires: Date) {
 export function getSessionUser(token: string | undefined): CurrentUser | null {
   if (!token) return null;
   const user = db
-    .select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
+    .select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl, theme: users.theme, reducedMotion: users.reducedMotion })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date())))

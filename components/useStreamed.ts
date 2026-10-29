@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useReducedMotion } from "@/components/AppearanceProvider";
 
 /**
  * The part of `text` that has streamed in: one more letter every `charMs` since
@@ -6,7 +7,8 @@ import { useEffect, useState } from "react";
  * page and come back. Without `startedAt` it's all there at once.
  */
 export function useStreamed(text: string, startedAt: number | undefined, charMs: number) {
-  const end = startedAt === undefined ? 0 : startedAt + text.length * charMs;
+  const reducedMotion = useReducedMotion();
+  const end = startedAt === undefined || reducedMotion ? 0 : startedAt + text.length * charMs;
   const now = useFrameTime(end);
   if (startedAt === undefined || now >= end) return text;
   return text.slice(0, Math.max(0, Math.floor((now - startedAt) / charMs)));

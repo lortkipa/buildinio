@@ -3,13 +3,15 @@
 import { CircleCheck, CircleX, Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { Toaster as Sonner } from "sonner";
 import type { CSSProperties } from "react";
+import { useAppearance } from "@/components/AppearanceProvider";
 
-/** Toast messages (from `toast` in sonner), in the app's colors. Follows the system theme. */
+/** Toast messages in the app's colors and the account's saved theme. */
 export function Toaster() {
+  const { theme } = useAppearance();
   return (
     <Sonner
       position="top-center"
-      theme="system"
+      theme={theme}
       icons={{
         success: <CircleCheck size={18} className="text-emerald-600 dark:text-emerald-400" />,
         error: <CircleX size={18} className="text-error" />,
