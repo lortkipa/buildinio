@@ -36,6 +36,13 @@ export async function setFeedback(projectId: unknown, messageId: unknown, feedba
   if (project && typeof messageId === "string") projects.setFeedback(project.id, messageId, feedback);
 }
 
+/** Who can open the app's share link: only its owner, or anyone with the link. */
+export async function setVisibility(id: unknown, visibility: unknown) {
+  if (visibility !== "private" && visibility !== "public") return;
+  const project = await ownProject(id);
+  if (project) projects.updateProject(project.id, { visibility });
+}
+
 /** The app's preview was seen, or its "ready" card dismissed. */
 export async function markPreviewSeen(id: unknown) {
   const project = await ownProject(id);

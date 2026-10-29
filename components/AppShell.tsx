@@ -7,6 +7,7 @@ import { PanelLeft } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
 import { DesktopPreview, MobilePreview } from "@/components/Preview";
 import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
+import { ShareButton } from "@/components/ShareButton";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { circleButton } from "@/components/styles";
 import { useApplyTheme } from "@/components/useApplyTheme";
@@ -151,7 +152,12 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
             // On wider screens, as wide as the prompt box (see ProjectChat), so the
             // preview button lines up with its right edge.
             <div className="contents md:relative md:mx-auto md:flex md:h-full md:w-full md:max-w-2xl md:items-center md:justify-end">
-              <div className="absolute inset-x-16 inset-y-0 flex items-center justify-center md:inset-x-12">
+              {/* Clear of the buttons on both sides, so it stays centered. */}
+              <div
+                className={`absolute inset-x-16 inset-y-0 flex items-center justify-center ${
+                  previewProject && preview.open ? "md:inset-x-24" : "md:inset-x-12"
+                }`}
+              >
                 <ProjectTitle key={projectId} id={projectId} />
               </div>
               {previewProject && (
@@ -164,7 +170,9 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
                       onClick={() => setMobilePreview(true)}
                     />
                   </div>
-                  <div className="hidden md:block">
+                  {/* Sharing the app sits next to it while the panel shows. */}
+                  <div className="hidden items-center gap-2 md:flex">
+                    {preview.open && <ShareButton key={previewProject} projectId={previewProject} />}
                     <PreviewToggle
                       pressed={preview.open}
                       controls={panelId}
@@ -197,17 +205,13 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
             id={previewId}
             projectId={previewProject}
             open={previewOpen}
-            sidebarId={id}
-            sidebarOpen={mobileOpen}
             onClose={closePreview}
-            onOpenSidebar={openMobile}
             closeRef={previewCloseRef}
             swipeAreaRef={chatRef}
           />
         </>
       )}
 
-      {/* After the preview, so it slides over it too. */}
       <MobileSidebar id={id} user={user} open={mobileOpen} onClose={closeMobile} closeRef={closeRef} />
     </div>
   );

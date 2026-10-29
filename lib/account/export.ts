@@ -43,6 +43,7 @@ export async function exportAccount(userId: string, origin: string) {
       name: project.name,
       icon: project.icon,
       color: project.color,
+      visibility: project.visibility,
       createdAt: project.createdAt.toISOString(),
       chat: chat.map((message) => ({
         role: message.role,

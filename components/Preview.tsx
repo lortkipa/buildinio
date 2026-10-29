@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { KeyboardEvent, MouseEvent, PointerEvent, RefObject } from "react";
-import { AppWindow, PanelLeft } from "lucide-react";
-import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
+import type { KeyboardEvent, PointerEvent, RefObject } from "react";
+import { AppWindow, ArrowLeft } from "lucide-react";
+import { ProjectTitle } from "@/components/ProjectHeader";
+import { ShareButton } from "@/components/ShareButton";
 import { circleButton } from "@/components/styles";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { setMobilePreview } from "@/components/usePreviewState";
 import { useSwipeSheet } from "@/components/useSwipeSheet";
-import { CHAT_MIN_WIDTH, clampPreviewWidth, PREVIEW_CLOSE_AT, PREVIEW_MIN_WIDTH } from "@/lib/preview";
+import { APP_SANDBOX, CHAT_MIN_WIDTH, clampPreviewWidth, PREVIEW_CLOSE_AT, PREVIEW_MIN_WIDTH } from "@/lib/preview";
 import type { PreviewState } from "@/lib/preview";
 import { markPreviewSeen, useProject } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
@@ -194,39 +195,26 @@ type MobilePreviewProps = {
   id: string;
   projectId: string;
   open: boolean;
-  sidebarId: string;
-  sidebarOpen: boolean; // Over this, so this is out of reach.
   onClose: () => void;
-  onOpenSidebar: (event: MouseEvent<HTMLButtonElement>) => void;
-  closeRef: RefObject<HTMLButtonElement | null>;
+  closeRef: RefObject<HTMLButtonElement | null>; // The back button, which gets focus when it opens.
   swipeAreaRef: RefObject<HTMLElement | null>; // The chat: swiping left on it pulls this in.
 };
 
 /**
- * The preview on phones: slides over the whole screen from the right, with the chat
- * header's buttons on a bar of their own above the app. Swiping left on the chat pulls
- * it in and swiping right pushes it back out, following the finger.
+ * The preview on phones: slides over the whole screen from the right, with a bar of its
+ * own above the app: back to the chat, the title, and sharing the app. Swiping left on the
+ * chat pulls it in and swiping right pushes it back out, following the finger.
  */
-export function MobilePreview({
-  id,
-  projectId,
-  open,
-  sidebarId,
-  sidebarOpen,
-  onClose,
-  onOpenSidebar,
-  closeRef,
-  swipeAreaRef,
-}: MobilePreviewProps) {
+export function MobilePreview({ id, projectId, open, onClose, closeRef, swipeAreaRef }: MobilePreviewProps) {
   const { project } = useProject(projectId);
   const wide = useWide();
   const ready = project?.ready === true;
   const ref = useRef<HTMLDivElement>(null);
   useSwipeSheet(swipeAreaRef, ref, open, setMobilePreview);
 
-  // Escape closes it, unless the sidebar over it, a menu or a dialog handled it first.
+  // Escape closes it, unless a menu or a dialog handled it first.
   useEffect(() => {
-    if (!open || sidebarOpen) return;
+    if (!open) return;
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (event.target instanceof Element && event.target.closest("dialog")) return;
@@ -234,7 +222,7 @@ export function MobilePreview({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, sidebarOpen, onClose]);
+  }, [open, onClose]);
 
   // The app was seen: no "ready" card once it's closed.
   useEffect(() => {
@@ -248,7 +236,7 @@ export function MobilePreview({
       role="dialog"
       aria-modal
       aria-label="Preview"
-      inert={!open || sidebarOpen}
+      inert={!open}
       // Visible right away when opening, so focus can move in; hidden only once it has slid out.
       className={`fixed inset-0 z-40 flex touch-pan-y touch-pinch-zoom flex-col bg-surface duration-300 ease-out motion-reduce:transition-none md:hidden ${
         open ? "visible translate-x-0 transition-[translate]" : "invisible translate-x-full transition-[translate,visibility]"
@@ -256,20 +244,13 @@ export function MobilePreview({
     >
       {/* Like the chat header, on a solid bar so it stands apart from the app. */}
       <div className="relative flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3">
-        <button
-          type="button"
-          aria-label="Open sidebar"
-          aria-expanded={sidebarOpen}
-          aria-controls={sidebarId}
-          onClick={onOpenSidebar}
-          className={circleButton}
-        >
-          <PanelLeft size={20} />
+        <button ref={closeRef} type="button" aria-label="Close preview" onClick={onClose} className={circleButton}>
+          <ArrowLeft size={20} />
         </button>
         <div className="absolute inset-x-16 inset-y-0 flex items-center justify-center">
           <ProjectTitle key={projectId} id={projectId} />
         </div>
-        <PreviewToggle ref={closeRef} pressed controls={id} onClick={onClose} />
+        <ShareButton key={projectId} projectId={projectId} />
       </div>
       <div className="relative min-h-0 flex-1 pb-[env(safe-area-inset-bottom)]">
         {!wide && <PreviewScreen project={project} />}
@@ -300,7 +281,7 @@ function AppFrame({ project }: { project: Project }) {
     <iframe
       src={`/preview/${project.id}/index.html?v=${project.appVersion}`}
       title={project.name ?? "Your app"}
-      sandbox="allow-scripts allow-forms allow-modals allow-popups"
+      sandbox={APP_SANDBOX}
       onAnimationEnd={enter.onAnimationEnd}
       className={`block size-full bg-white ${enter.className}`}
     />

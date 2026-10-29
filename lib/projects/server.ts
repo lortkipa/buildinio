@@ -6,7 +6,7 @@ import { messages, projects } from "@/lib/db/schema";
 import { isRunning, stopRun, stopUserRuns } from "@/lib/ai/registry";
 import { removeWorkspace } from "@/lib/sandbox/workspace";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
-import type { Feedback, Message, ProjectData } from "@/lib/projects/types";
+import type { Feedback, Message, ProjectData, Visibility } from "@/lib/projects/types";
 
 // The user's projects and chats in the database. Their code is on disk (lib/sandbox).
 
@@ -35,6 +35,25 @@ export function projectExists(id: string) {
   return db.select({ id: projects.id }).from(projects).where(eq(projects.id, id)).get() !== undefined;
 }
 
+/**
+ * A project's app, for its share link and its pages in the preview: anyone's if it's
+ * public, only its owner's (`userId`, null when signed out) if it's private. Null otherwise.
+ */
+export function getSharedApp(id: string, userId: string | null) {
+  const row = db
+    .select({
+      userId: projects.userId,
+      name: projects.name,
+      appVersion: projects.appVersion,
+      visibility: projects.visibility,
+    })
+    .from(projects)
+    .where(eq(projects.id, id))
+    .get();
+  if (!row || (row.visibility !== "public" && row.userId !== userId)) return null;
+  return { name: row.name, appVersion: row.appVersion };
+}
+
 export function insertProject(userId: string, id: string) {
   db.insert(projects).values({ id, userId, icon: "sparkles", color: "slate", createdAt: new Date() }).run();
 }
@@ -55,7 +74,14 @@ export function addMessage(projectId: string, message: Message) {
 
 export function updateProject(
   id: string,
-  changes: Partial<{ name: string; icon: ProjectIcon; color: ProjectColor; ready: boolean; appVersion: number }>,
+  changes: Partial<{
+    name: string;
+    icon: ProjectIcon;
+    color: ProjectColor;
+    ready: boolean;
+    appVersion: number;
+    visibility: Visibility;
+  }>,
 ) {
   db.update(projects).set(changes).where(eq(projects.id, id)).run();
 }
@@ -111,6 +137,7 @@ function toProject(row: Row, chat: Message[]): ProjectData {
     messages: chat,
     ready: row.ready,
     appVersion: row.appVersion,
+    visibility: row.visibility,
     running: isRunning(row.id),
   };
 }

@@ -182,13 +182,14 @@ for (const colorScheme of ["light", "dark"] as const) {
     await page.getByRole("button", { name: "View your app" }).click();
     await expect(sheet).toBeVisible();
     await expect(sheet.frameLocator("iframe").getByRole("heading", { name: BUILT_HEADING })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "Open sidebar" })).toBeVisible();
+    // Its bar: back to the chat (focused), the title, and sharing the app.
+    await expect(sheet.getByRole("button", { name: "Close preview" })).toBeFocused();
     await expect(sheet.getByRole("button", { name: "Options for Salon Booking", exact: true })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "Toggle preview" })).toHaveAttribute("aria-pressed", "true");
+    await expect(sheet.getByRole("button", { name: "Share", exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath(`phone-preview-${colorScheme}.png`), animations: "disabled" });
 
     // Seen, so no card once it's closed.
-    await sheet.getByRole("button", { name: "Toggle preview" }).click();
+    await sheet.getByRole("button", { name: "Close preview" }).click();
     await expect(sheet).not.toBeVisible();
     await expect(ready).toHaveCount(0);
   });
