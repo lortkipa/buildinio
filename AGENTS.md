@@ -61,6 +61,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Projects and AI
 
+- The AI identifies itself as the AI assistant in Buildinio when asked who it is or which AI/model it is, rather than taking a model or provider's name. This identity is set in `lib/ai/instructions.ts` and takes precedence over chat history and loaded skills.
 - Projects and their chats are in the database (`projects`, `messages`); each project's code is a folder in `PROJECTS_PATH` (`data/projects/<id>`), kept until the project or the account is deleted. Deleting stops the AI if it's working on the project.
 - The shared layout reads the user's projects (`listProjects`) and `AppShell` hands them to `lib/projects/store.ts`, a store outside React (`useSyncExternalStore`), so the shared sidebar and every chat see the same projects. Changes show right away and go to the server through `lib/projects/actions.ts`.
 - Ids are made in the browser (`ids.ts`, 128 random bits), so a new chat opens at once. A project's id is also its preview's address, which needs no sign-in (the sandboxed frame sends no cookies), so it must stay long and random.
