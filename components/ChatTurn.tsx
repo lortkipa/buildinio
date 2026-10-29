@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Check, Eye, FilePen, FilePlus, FileText, FileX, Globe, LoaderCircle, SquareTerminal, X } from "lucide-react";
+import { BookOpen, Check, Eye, FilePen, FilePlus, FileText, FileX, Globe, LoaderCircle, Pencil, SquareTerminal, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { MessageText } from "@/components/MessageText";
 import { shown, swap } from "@/components/styles";
@@ -21,6 +21,7 @@ const TOOL_ICONS: Record<Tool, LucideIcon> = {
   run: SquareTerminal,
   skill: BookOpen,
   look: Eye,
+  project: Pencil,
 };
 
 /**

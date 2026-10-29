@@ -1,5 +1,5 @@
 import "server-only";
-import type { StepData, TurnEvent } from "@/lib/projects/types";
+import type { ProjectChanges, StepData, TurnEvent } from "@/lib/projects/types";
 
 /** Hears what the AI does; null once the answer is over (done, or stopped). */
 export type Listener = (event: TurnEvent | null) => void;
@@ -14,6 +14,7 @@ export type Run = {
   controller: AbortController;
   startedAt: number;
   steps: StepData[]; // So far, for those who join late.
+  projectChanges?: ProjectChanges; // Settings changed during this answer, replayed on reconnect.
   listeners: Set<Listener>;
   finished: Promise<void>;
 };

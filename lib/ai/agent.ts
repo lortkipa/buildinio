@@ -12,7 +12,7 @@ import { aiConfig, SETUP_MESSAGE } from "@/lib/ai/client";
 import { INSTRUCTIONS, projectState } from "@/lib/ai/instructions";
 import { callTool, TOOLS } from "@/lib/ai/tools";
 import { newId } from "@/lib/projects/ids";
-import type { Message, StepData, ToolStep, TurnEvent } from "@/lib/projects/types";
+import type { Message, ProjectChanges, ProjectData, StepData, ToolStep, TurnEvent } from "@/lib/projects/types";
 import { buildApp } from "@/lib/sandbox/build";
 import { fingerprint, listFiles } from "@/lib/sandbox/files";
 import { SandboxError } from "@/lib/sandbox/run";
@@ -30,15 +30,18 @@ const UPDATED = "Your app is updated. Take a look at the preview.";
 
 type TurnInput = {
   projectId: string;
-  name: string | null;
+  name: ProjectData["name"];
+  icon: ProjectData["icon"];
+  color: ProjectData["color"];
   messages: Message[]; // The chat so far, ending with the prompt to answer.
   hasApp: boolean; // There's a build from before.
   signal: AbortSignal;
   emit: (event: TurnEvent) => void;
+  changeProject: (changes: ProjectChanges) => Promise<boolean>;
 };
 
 /** Answers the last prompt. Returns the answer, and whether the app was built anew. */
-export async function runTurn({ projectId, name, messages, hasApp, signal, emit }: TurnInput) {
+export async function runTurn({ projectId, name, icon, color, messages, hasApp, signal, emit, changeProject }: TurnInput) {
   const ai = aiConfig();
   if (!ai) {
     console.warn(`\n  ⚠  ${SETUP_MESSAGE}\n`);
@@ -57,7 +60,7 @@ export async function runTurn({ projectId, name, messages, hasApp, signal, emit 
     if (result?.ok) turn.built = true;
     return result;
   };
-  const context = { projectId, dir, signal, emitStep, finishStep, build, turn };
+  const context = { projectId, dir, signal, emitStep, finishStep, build, turn, changeProject };
 
   // The project as it is now goes just before the prompt, so what comes before it (the
   // instructions and the chat) stays the same from answer to answer, and cached.
@@ -66,7 +69,7 @@ export async function runTurn({ projectId, name, messages, hasApp, signal, emit 
     .map(({ role, text }) => ({ role, content: text }));
   let input: ResponseInputItem[] = [
     ...history.slice(0, -1),
-    { role: "developer", content: projectState({ name, files: await listFiles(dir) }) },
+    { role: "developer", content: projectState({ name, icon, color, files: await listFiles(dir) }) },
     ...history.slice(-1),
   ];
   let previous: string | undefined;

@@ -60,6 +60,7 @@ createServer(async (request, response) => {
   const body = JSON.parse(raw);
 
   if (body.text?.format?.type === "json_schema") {
+    if (String(body.input).includes("project color only")) await wait(2500);
     const text = JSON.stringify({ name: "Test Kitchen", icon: "utensils", color: "orange" });
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify(completed(nextId("resp"), [message(text)])));
@@ -80,10 +81,25 @@ createServer(async (request, response) => {
     output.push(streamText(send, uncacheable));
   } else if (body.previous_response_id) {
     const results = input.filter((item) => item.type === "function_call_output").map((item) => item.output);
+    if (results.some((result) => String(result).startsWith("Updated project:"))) await wait(2000);
     const designed = results.some((result) => String(result).includes(SKILL_HEADING)) ? ", designed with the guide" : "";
     const pictures = results.flatMap((result) => (Array.isArray(result) ? result : [])).filter(isScreenshot);
     const looked = pictures.length === 2 ? ", and I checked how it looks" : "";
     output.push(streamText(send, `**Test Kitchen** is ready${designed}${looked}. Take a look, and tell me what to change.`));
+  } else if (String(prompt).includes("project settings") || String(prompt).includes("project color only")) {
+    await wait(DELAY_MS);
+    output.push(streamText(send, "I'll update your project settings."));
+    const invalid = String(prompt).includes("invalid");
+    const calls = String(prompt).includes("project color only")
+      ? [["set_project_color", { color: "violet" }]]
+      : String(prompt).includes("name only")
+        ? [["rename_project", { name: "  Moon   Garden  " }]]
+        : [
+            ["rename_project", { name: invalid ? "x".repeat(61) : "  Moon   Garden  " }],
+            ["set_project_icon", { icon: invalid ? "missing" : "leaf" }],
+            ["set_project_color", { color: invalid ? "missing" : "violet" }],
+          ];
+    for (const [name, args] of calls) output.push(streamCall(send, name, args, output.length));
   } else if (String(prompt).includes("Markdown")) {
     output.push(streamText(send, MARKDOWN));
   } else if (String(prompt).includes("?")) {
@@ -99,17 +115,7 @@ createServer(async (request, response) => {
     if (String(prompt).includes("design")) calls.unshift(["load_skill", { name: "frontend-design", file: "" }]);
     if (String(prompt).includes("look")) calls.push(["look_at_app", { page: "/" }]); // "/" is the start page too.
     for (const [name, args] of calls) {
-      const item = {
-        type: "function_call",
-        id: nextId("fc"),
-        call_id: nextId("call"),
-        name,
-        arguments: JSON.stringify(args),
-        status: "completed",
-      };
-      send({ type: "response.output_item.added", output_index: output.length, item });
-      send({ type: "response.output_item.done", output_index: output.length, item });
-      output.push(item);
+      output.push(streamCall(send, name, args, output.length));
     }
   }
   send({ type: "response.completed", response: completed(id, output) });
@@ -159,5 +165,20 @@ function streamText(send, text) {
     send({ type: "response.output_text.delta", item_id: item.id, output_index: 0, content_index: 0, delta: text.slice(at, at + 8) });
   }
   send({ type: "response.output_item.done", output_index: 0, item });
+  return item;
+}
+
+/** A completed function call, like OpenAI streams it. */
+function streamCall(send, name, args, index) {
+  const item = {
+    type: "function_call",
+    id: nextId("fc"),
+    call_id: nextId("call"),
+    name,
+    arguments: JSON.stringify(args),
+    status: "completed",
+  };
+  send({ type: "response.output_item.added", output_index: index, item });
+  send({ type: "response.output_item.done", output_index: index, item });
   return item;
 }

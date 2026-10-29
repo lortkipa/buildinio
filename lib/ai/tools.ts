@@ -9,7 +9,9 @@ import type {
 } from "openai/resources/responses/responses";
 import { readSkill, SKILLS } from "@/lib/ai/skills";
 import { newId } from "@/lib/projects/ids";
-import type { StepData, ToolStep } from "@/lib/projects/types";
+import { COLOR_NAMES, ICON_NAMES, MAX_PROJECT_NAME } from "@/lib/projects/options";
+import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
+import type { ProjectChanges, StepData, ToolStep } from "@/lib/projects/types";
 import { deletePath, editText, FileError, listFiles, readText, writeText } from "@/lib/sandbox/files";
 import { lookAtApp } from "@/lib/sandbox/look";
 import { runCommand } from "@/lib/sandbox/run";
@@ -38,6 +40,15 @@ const PATH = { type: "string", description: "Relative to the project, like src/A
 
 export const TOOLS: Tool[] = [
   { type: "web_search", search_context_size: "low" }, // Less of each page to pay for: it searches for facts.
+  tool("rename_project", "Changes this project's name in Buildinio when the user asks. Does not change the app's files.", {
+    name: { type: "string", description: `The new name, 1 to ${MAX_PROJECT_NAME} characters.` },
+  }),
+  tool("set_project_icon", "Changes this project's icon in Buildinio when the user asks. Does not change icons inside the app.", {
+    icon: { type: "string", description: "The project's new icon.", enum: ICON_NAMES },
+  }),
+  tool("set_project_color", "Changes this project's color in Buildinio when the user asks. Does not change colors inside the app.", {
+    color: { type: "string", description: "The project's new color.", enum: COLOR_NAMES },
+  }),
   tool("list_files", "Lists the project's files with their sizes (node_modules and dist left out).", {}),
   tool("read_file", "Reads a file.", { path: PATH }),
   tool("write_file", "Creates a file, or replaces all of it. Folders are made as needed.", {
@@ -80,6 +91,7 @@ type Context = {
   signal: AbortSignal;
   emitStep: (step: StepData) => void;
   finishStep: (step: ToolStep) => void;
+  changeProject: (changes: ProjectChanges) => Promise<boolean>;
   build: () => Promise<{ ok: boolean; output: string } | null>; // Builds the app if it changed (agent.ts).
   turn: { looks: number }; // This answer so far.
 };
@@ -142,6 +154,12 @@ async function stepFor(name: string, args: Record<string, string>, file: string,
   const id = newId();
   const base = { id, kind: "tool", done: false } as const;
   switch (name) {
+    case "rename_project":
+      return { ...base, tool: "project", label: "Renaming project", doneLabel: "Renamed project" };
+    case "set_project_icon":
+      return { ...base, tool: "project", label: "Changing project icon", doneLabel: "Changed project icon" };
+    case "set_project_color":
+      return { ...base, tool: "project", label: "Changing project color", doneLabel: "Changed project color" };
     case "list_files":
       return { ...base, tool: "read", label: "Looking at the files", doneLabel: "Looked at the files" };
     case "read_file":
@@ -175,9 +193,31 @@ async function run(
   name: string,
   args: Record<string, string>,
   file: string,
-  { projectId, dir, signal, build, turn }: Context,
+  { projectId, dir, signal, build, turn, changeProject }: Context,
 ): Promise<{ output: Output } & Partial<ToolStep>> {
   switch (name) {
+    case "rename_project":
+    case "set_project_icon":
+    case "set_project_color": {
+      let changes: ProjectChanges;
+      let detail: string;
+      if (name === "rename_project") {
+        const value = typeof args.name === "string" ? args.name.trim().replace(/\s+/g, " ") : "";
+        if (!value || value.length > MAX_PROJECT_NAME) throw new FileError(`The name must be 1 to ${MAX_PROJECT_NAME} characters.`);
+        changes = { name: value };
+        detail = value;
+      } else if (name === "set_project_icon") {
+        if (!ICON_NAMES.includes(args.icon as ProjectIcon)) throw new FileError("Choose one of the available project icons.");
+        changes = { icon: args.icon as ProjectIcon };
+        detail = args.icon;
+      } else {
+        if (!COLOR_NAMES.includes(args.color as ProjectColor)) throw new FileError("Choose one of the available project colors.");
+        changes = { color: args.color as ProjectColor };
+        detail = args.color;
+      }
+      if (!(await changeProject(changes))) throw new FileError("The project no longer exists.");
+      return { output: `Updated project: ${JSON.stringify(changes)}.`, detail };
+    }
     case "list_files": {
       const files = await listFiles(dir);
       return { output: files.map((info) => `${info.path} (${info.size} bytes)`).join("\n") || "(no files)" };

@@ -81,6 +81,10 @@ function stream(userId: string, projectId: string, signal: AbortSignal) {
         const project = getProject(userId, projectId);
         const last = project?.messages.at(-1);
         if (project && last?.role === "assistant") {
+          send({
+            type: "project_updated",
+            changes: { ...(project.name !== null ? { name: project.name } : {}), icon: project.icon, color: project.color },
+          });
           send({ type: "done", message: last, appVersion: project.appVersion, ready: project.ready });
         }
         close();

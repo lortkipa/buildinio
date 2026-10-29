@@ -6,7 +6,9 @@ export type AssistantMessage = { id: string; role: "assistant"; text: string; se
 
 export type Message = { id: string; role: "user"; text: string } | AssistantMessage;
 
-export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "skill" | "look";
+export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "skill" | "look" | "project";
+
+export type ProjectChanges = Partial<{ name: string; icon: ProjectIcon; color: ProjectColor }>;
 
 type TextStep = { id: string; kind: "text"; text: string; startedAt: number };
 
@@ -57,8 +59,9 @@ export type Project = Omit<ProjectData, "running"> & {
 
 /** What the server streams while the AI answers, one JSON object per line. */
 export type TurnEvent =
-  | { type: "snapshot"; elapsedMs: number; steps: StepData[] } // Joining an answer that's under way.
+  | { type: "snapshot"; elapsedMs: number; steps: StepData[]; changes?: ProjectChanges } // Joining an answer that's under way.
   | { type: "named"; name: string; icon: ProjectIcon; color: ProjectColor }
+  | { type: "project_updated"; changes: ProjectChanges }
   | { type: "step"; step: StepData }
   | { type: "text"; id: string; delta: string } // More of a text step.
   | { type: "tool"; step: ToolStep } // A tool finished.

@@ -1,5 +1,6 @@
 import "server-only";
 import { skillList, SKILLS } from "@/lib/ai/skills";
+import type { ProjectData } from "@/lib/projects/types";
 import type { FileInfo } from "@/lib/sandbox/files";
 
 // What the AI is told before every request. It never changes, so OpenAI's prompt cache
@@ -43,16 +44,19 @@ export const INSTRUCTIONS = `You are the builder inside Buildinio, where people 
 - Don't run \`npm run build\` yourself: look_at_app builds the app, and so does finishing; if a build fails, you're told why.
 
 # Tools
+- When asked to rename this project or change its icon or color in Buildinio, use rename_project, set_project_icon or set_project_color. Change only what they ask for. These settings are separate from the app's title, icons and design: a request to restyle the app changes its files, not the project's settings. A project-settings-only request needs no file edits, build or look_at_app.
 - Read a file before you edit it, but not again after you write it: you know what's in it. Use edit_file for small changes and write_file for new files or full rewrites. Always write whole files, never placeholders like "rest stays the same".
 - When you need several tools and none of them depends on another, call them all at once.
 - After you build the app or change how it looks, check it with look_at_app before you finish, and fix what looks wrong, broken or cramped. You can look twice per answer.
 - Commands run in the project's folder, in a sandbox with Node.js and npm that can't see anything else on the computer. Nothing interactive or never-ending: no \`npm run dev\`.${SKILLS_SECTION}`;
 
 /** The project as it is now, sent just before the prompt it answers. */
-export function projectState({ name, files }: { name: string | null; files: FileInfo[] }) {
+export function projectState({ name, icon, color, files }: Pick<ProjectData, "name" | "icon" | "color"> & { files: FileInfo[] }) {
   const tree = files.map((file) => `- ${file.path} (${file.size} bytes)`).join("\n") || "(no files)";
   return `# This project
 Name: ${name ?? "(not named yet)"}
+Icon: ${icon}
+Color: ${color}
 Files (node_modules and dist left out):
 ${tree}`;
 }
