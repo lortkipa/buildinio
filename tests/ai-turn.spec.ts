@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { clearProjects, db, ORIGIN, PROJECTS, testUser } from "./seed";
+import { clearProjects, db, ORIGIN, PROJECTS, seedProject, testUser, newId } from "./seed";
 
 // The AI end to end, with tests/fake-openai.mjs standing in for OpenAI: the turn route,
 // the AI's tools writing files, the build, the preview, and deleting it all again.
@@ -112,4 +112,87 @@ test("the AI keeps working through a reload, and answers once", async ({ page })
   await expect(toggle).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
   await expect(page.getByText("is ready. Take a look")).toBeVisible();
   expect(saved(id)).toEqual({ appVersion: 1, roles: ["user", "assistant"] });
+});
+
+function projectLook(id: string) {
+  const database = db();
+  const look = database.prepare("SELECT name, icon, color FROM projects WHERE id = ?").get(id);
+  database.close();
+  return look;
+}
+
+test("the AI changes project settings with visible tool rows and keeps them after reload", async ({ page }) => {
+  const id = seedProject(user.id, { name: "Old Garden", icon: "coffee", color: "amber" });
+  await page.goto(`/projects/${id}`);
+  await page.locator("textarea:visible").fill("Change project settings to Moon Garden, leaf icon and violet color");
+  await page.locator("textarea:visible").press("Enter");
+  for (const label of ["Renamed project", "Changed project icon", "Changed project color"]) {
+    const row = page.getByRole("listitem").filter({ hasText: label });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row.getByLabel("Done", { exact: true })).toBeVisible();
+  }
+  await expect(page.locator("header").getByRole("button", { name: "Options for Moon Garden", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Moon Garden", exact: true })).toBeVisible();
+  await expect(page.locator("[aria-busy]")).toHaveCount(0, { timeout: 15_000 });
+  expect(projectLook(id)).toEqual({ name: "Moon Garden", icon: "leaf", color: "violet" });
+  expect(saved(id).appVersion).toBe(0);
+  await page.reload();
+  const title = page.locator("header").getByRole("button", { name: "Options for Moon Garden", exact: true });
+  await expect(title).toBeVisible();
+  await expect(page).toHaveTitle("Moon Garden - Buildinio");
+  await title.click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("radio", { name: "Leaf", exact: true })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Violet", exact: true })).toBeChecked();
+});
+
+test("renaming alone preserves the project's icon and color", async ({ page }) => {
+  const id = seedProject(user.id, { name: "Old Garden", icon: "coffee", color: "amber" });
+  await page.goto(`/projects/${id}`);
+  await page.locator("textarea:visible").fill("Change project settings: name only to Moon Garden");
+  await page.locator("textarea:visible").press("Enter");
+  await expect(page.getByText("Renamed project", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[aria-busy]")).toHaveCount(0, { timeout: 15_000 });
+  expect(projectLook(id)).toEqual({ name: "Moon Garden", icon: "coffee", color: "amber" });
+  expect(saved(id).appVersion).toBe(0);
+});
+
+test("invalid AI project settings show failed tools and leave settings unchanged", async ({ page }) => {
+  const id = seedProject(user.id, { name: "Old Garden", icon: "coffee", color: "amber" });
+  await page.goto(`/projects/${id}`);
+  await page.locator("textarea:visible").fill("Try invalid project settings");
+  await page.locator("textarea:visible").press("Enter");
+  await expect(page.getByLabel("Failed", { exact: true })).toHaveCount(3, { timeout: 15_000 });
+  await expect(page.locator("[aria-busy]")).toHaveCount(0, { timeout: 15_000 });
+  expect(projectLook(id)).toEqual({ name: "Old Garden", icon: "coffee", color: "amber" });
+  expect(saved(id).appVersion).toBe(0);
+});
+
+test("an explicit color on the first prompt wins over initial naming", async ({ page }) => {
+  const id = await startProject(page, "Change project color only to violet");
+  await expect(page.getByText("Changed project color", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[aria-busy]")).toHaveCount(0, { timeout: 15_000 });
+  expect(projectLook(id)).toEqual({ name: "Test Kitchen", icon: "utensils", color: "violet" });
+  expect(saved(id).appVersion).toBe(0);
+});
+
+
+test("rejoining a turn replays changed settings, including after it finishes", async ({ page }) => {
+  const id = seedProject(user.id, { name: "Old Garden", icon: "coffee", color: "amber" });
+  const endpoint = `/api/projects/${id}/turn`;
+  const answering = page.request.post(endpoint, {
+    data: { text: "Change project settings", messageId: newId() },
+  });
+  await expect.poll(() => projectLook(id), { timeout: 15_000 }).toEqual({ name: "Moon Garden", icon: "leaf", color: "violet" });
+  const joined = await page.request.post(endpoint, { data: {} });
+  const events = (await joined.text()).trim().split("\n").map((line) => JSON.parse(line));
+  expect(events[0]).toMatchObject({
+    type: "snapshot",
+    changes: { name: "Moon Garden", icon: "leaf", color: "violet" },
+  });
+  expect((await answering).ok()).toBe(true);
+  const finished = await page.request.post(endpoint, { data: {} });
+  const finalEvents = (await finished.text()).trim().split("\n").map((line) => JSON.parse(line));
+  expect(finalEvents[0]).toEqual({ type: "project_updated", changes: { name: "Moon Garden", icon: "leaf", color: "violet" } });
+  expect(finalEvents[1].type).toBe("done");
 });

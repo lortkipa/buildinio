@@ -4,7 +4,7 @@ import { nameProject as pickName } from "@/lib/ai/naming";
 import { runs } from "@/lib/ai/registry";
 import type { Listener, Run } from "@/lib/ai/registry";
 import { newId } from "@/lib/projects/ids";
-import { addMessage, nameProject, projectExists, updateProject } from "@/lib/projects/server";
+import { addMessage, getProject, nameProject, projectExists, updateProject } from "@/lib/projects/server";
 import type { AssistantMessage, ProjectData, TurnEvent } from "@/lib/projects/types";
 
 /**
@@ -38,7 +38,7 @@ export function startRun(project: ProjectData, userId: string) {
 export function listen(projectId: string, listener: Listener) {
   const run = runs.get(projectId);
   if (!run) return null;
-  listener({ type: "snapshot", elapsedMs: Date.now() - run.startedAt, steps: run.steps });
+  listener({ type: "snapshot", elapsedMs: Date.now() - run.startedAt, steps: run.steps, changes: run.projectChanges });
   run.listeners.add(listener);
   return () => {
     run.listeners.delete(listener);
@@ -63,10 +63,21 @@ async function answer(run: Run, project: ProjectData) {
     result = await runTurn({
       projectId: project.id,
       name: project.name,
+      icon: project.icon,
+      color: project.color,
       messages: project.messages,
       hasApp: project.appVersion > 0,
       signal,
       emit,
+      changeProject: async (changes) => {
+        // Finish initial naming first so it can't overwrite an explicit icon or color.
+        await naming;
+        signal.throwIfAborted();
+        if (!getProject(run.userId, project.id)) return false;
+        updateProject(project.id, changes);
+        emit({ type: "project_updated", changes });
+        return true;
+      },
     });
   } catch (error) {
     if (signal.aborted) throw error;
@@ -93,7 +104,9 @@ async function answer(run: Run, project: ProjectData) {
 
 /** Tells everyone listening, and keeps the steps for those who join later. */
 function send(run: Run, event: TurnEvent) {
-  if (event.type === "step") {
+  if (event.type === "project_updated") {
+    run.projectChanges = { ...run.projectChanges, ...event.changes };
+  } else if (event.type === "step") {
     run.steps.push(event.step);
   } else if (event.type === "text") {
     run.steps = run.steps.map((step) =>

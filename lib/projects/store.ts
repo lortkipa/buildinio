@@ -256,6 +256,7 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
   switch (event.type) {
     case "snapshot": {
       // Joining late: what happened so far shows at once.
+      if (event.changes) update(projectId, (project) => ({ ...project, ...event.changes, namedAt: undefined }));
       const now = Date.now();
       const steps = event.steps.map((step): Step =>
         step.kind === "text" ? { ...step, startedAt: now - step.text.length * CHAR_MS } : step,
@@ -274,6 +275,9 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
           ? { ...project, name: event.name, icon: event.icon, color: event.color, namedAt: Date.now() }
           : project,
       );
+      return;
+    case "project_updated":
+      update(projectId, (project) => ({ ...project, ...event.changes, namedAt: undefined }));
       return;
     case "step": {
       await untilShown(projectId, signal);
