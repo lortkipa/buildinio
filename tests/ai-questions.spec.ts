@@ -118,6 +118,26 @@ test("questions can be skipped, all of them too, or answered by typing a prompt"
   await expect(page.getByRole("region", { name: "Questions" })).toHaveCount(0);
 });
 
+test("Stop on the answers puts them back in the prompt box, and the questions stay answered", async ({ page }) => {
+  const { id, card } = await ask(page);
+  await card.getByRole("radio", { name: "Type your own…" }).click();
+  await card.getByRole("textbox", { name: "Your own answer" }).fill("hold on"); // The fake takes 10 s.
+  await card.getByRole("button", { name: "Next" }).click();
+  await card.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(card).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  const answers = "What should it look like?\n• hold on\n\nWhich pages do you need?\n• Skipped: you decide";
+  await expect(page.locator("textarea:visible")).toHaveValue(answers);
+  await expect(page.getByText("Before I build it, a couple of questions.")).toBeVisible();
+  await expect(card).toHaveCount(0);
+  await expect.poll(() => lastPrompt(id)).toBe("A cafe site, ask me first");
+
+  await page.reload();
+  await expect(page.getByText("Before I build it, a couple of questions.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Questions" })).toHaveCount(0);
+});
+
 test.describe("on a phone", () => {
   test.use({ hasTouch: true, isMobile: true });
 

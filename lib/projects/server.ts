@@ -79,6 +79,14 @@ export function deleteMessage(projectId: string, messageId: string) {
   db.delete(messages).where(and(eq(messages.id, messageId), eq(messages.projectId, projectId))).run();
 }
 
+/** Retires an answer's questions: a prompt answered them, even one that was stopped. */
+export function clearQuestions(projectId: string, messageId: string) {
+  db.update(messages)
+    .set({ questions: null })
+    .where(and(eq(messages.id, messageId), eq(messages.projectId, projectId)))
+    .run();
+}
+
 export function updateProject(
   id: string,
   changes: Partial<{

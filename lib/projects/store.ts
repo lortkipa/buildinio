@@ -344,12 +344,19 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
         ...project,
         ...event.settings,
         namedAt: undefined,
-        messages: project.messages.filter((message) => message.id !== event.messageId),
+        messages: withoutQuestions(project.messages.filter((message) => message.id !== event.messageId)),
         turn: null,
         stopping: false,
         returned: project.stopping ? event.text : project.returned,
       }));
   }
+}
+
+/** The chat after Stop: questions its prompt answered stay answered (like runs.ts's `withdraw`). */
+function withoutQuestions(messages: Message[]) {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant" || !last.questions) return messages;
+  return [...messages.slice(0, -1), { ...last, questions: undefined }];
 }
 
 /**

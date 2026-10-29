@@ -7,6 +7,7 @@ import { announceChange } from "@/lib/projects/changes";
 import { newId } from "@/lib/projects/ids";
 import {
   addMessage,
+  clearQuestions,
   deleteMessage,
   getProject,
   nameProject,
@@ -155,6 +156,9 @@ async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
   }
   updateProject(project.id, settings);
   deleteMessage(project.id, prompt.id);
+  // Questions the stopped prompt answered stay answered: the answers go back in the prompt box.
+  const asked = project.messages.at(-2);
+  if (asked?.role === "assistant" && asked.questions) clearQuestions(project.id, asked.id);
   await dropSnapshot(project.id);
   runs.delete(project.id); // Ready for the next prompt.
   send(run, { type: "withdrawn", messageId: prompt.id, text: prompt.text, settings });
