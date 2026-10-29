@@ -11,6 +11,7 @@ import { GitHubIcon, GoogleIcon } from "@/components/ProviderIcons";
 import { focusRing } from "@/components/styles";
 import { DOCK_GAP, DOCK_TEXT_GAP, useKeyboardDock } from "@/components/useKeyboardDock";
 import type { Dock } from "@/components/useKeyboardDock";
+import { MAX_NAME } from "@/lib/account/options";
 import {
   cancelSignup,
   completeSignup,
@@ -23,7 +24,6 @@ import {
 // already has an account, and otherwise creates one after the name step.
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_NAME = 80;
 
 const HEADINGS = {
   signup: {
