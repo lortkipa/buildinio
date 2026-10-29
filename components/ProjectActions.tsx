@@ -67,8 +67,9 @@ export function ProjectMenu({ anchor, trigger, onClose, onEdit, onDelete }: Proj
   }, [onClose, trigger]);
 
   // Out of the scrolling list, so it isn't cut off. Inside the phone sidebar while it's
-  // open, which covers the screen, so it stays part of it.
-  const container = trigger?.closest<HTMLElement>("[role=dialog]") ?? document.body;
+  // open, which covers the screen, so it stays part of it; and inside a modal dialog
+  // (the search), or it would be under it.
+  const container = trigger?.closest<HTMLElement>("dialog, [role=dialog]") ?? document.body;
   return createPortal(
     <div ref={ref} role="menu" aria-label="Project" className={`fixed top-0 left-0 z-50 w-44 ${menuPanel}`}>
       <button type="button" role="menuitem" onClick={onEdit} className={`${menuItem} text-foreground`}>
