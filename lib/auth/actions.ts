@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { generateCodeVerifier, generateState } from "arctic";
 import { eq } from "drizzle-orm";
-import { cleanName, MAX_NAME } from "@/lib/account/options";
+import { cleanName, DEFAULT_AVATAR, MAX_NAME } from "@/lib/account/options";
 import { db } from "@/lib/db";
 import { emailCodes, users } from "@/lib/db/schema";
 import { CODE_MINUTES, checkEmailCode, createEmailCode } from "@/lib/auth/email-code";
@@ -15,12 +15,7 @@ import { OAUTH_COOKIES } from "@/lib/auth/oauth-cookies";
 import { getOrigin } from "@/lib/auth/origin";
 import { createAuthorizationURL, isConfigured, isProvider, PROVIDERS } from "@/lib/auth/providers";
 import { endSession, getCurrentUser } from "@/lib/auth/session";
-import {
-  cancelSignup as dropSignup,
-  DEFAULT_AVATAR,
-  finishSignup,
-  signInOrStartSignup,
-} from "@/lib/auth/signup";
+import { cancelSignup as dropSignup, finishSignup, signInOrStartSignup } from "@/lib/auth/signup";
 import { sendCodeEmail } from "@/lib/email/send";
 import { removeUserProjects } from "@/lib/projects/server";
 

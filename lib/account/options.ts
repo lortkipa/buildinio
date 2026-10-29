@@ -14,6 +14,9 @@ export function cleanName(value: unknown) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 }
 
+/** Email sign-ups get this avatar, and so does removing a photo; Google and GitHub ones get the picture from there. */
+export const DEFAULT_AVATAR = "/avatars/default.svg";
+
 /** Uploaded avatars are cropped and shrunk in the browser to this many pixels square. */
 export const AVATAR_PIXELS = 256;
 export const MAX_AVATAR_BYTES = 512 * 1024;

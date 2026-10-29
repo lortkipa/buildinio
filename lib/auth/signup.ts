@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { and, eq, gt, lt } from "drizzle-orm";
+import { DEFAULT_AVATAR } from "@/lib/account/options";
 import { db } from "@/lib/db";
 import { accounts, pendingSignups, users } from "@/lib/db/schema";
 import type { Provider } from "@/lib/db/schema";
@@ -10,9 +11,6 @@ import { cookieOptions, createSession, hashToken, newToken } from "@/lib/auth/se
 
 const SIGNUP_COOKIE = "signup";
 const SIGNUP_MS = 30 * 60 * 1000; // 30 minutes to pick a name.
-
-/** Email sign-ups get this avatar; Google and GitHub ones get the picture from there. */
-export const DEFAULT_AVATAR = "/avatars/default.svg";
 
 export type SignInProfile = {
   email: string;
