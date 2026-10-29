@@ -12,7 +12,8 @@ import { aiConfig, SETUP_MESSAGE } from "@/lib/ai/client";
 import { INSTRUCTIONS, projectState } from "@/lib/ai/instructions";
 import { callTool, TOOLS } from "@/lib/ai/tools";
 import { newId } from "@/lib/projects/ids";
-import type { Message, ProjectChanges, ProjectData, StepData, ToolStep, TurnEvent } from "@/lib/projects/types";
+import { parseQuestions, questionsForAI } from "@/lib/projects/questions";
+import type { Message, ProjectChanges, ProjectData, Question, StepData, ToolStep, TurnEvent } from "@/lib/projects/types";
 import { buildApp } from "@/lib/sandbox/build";
 import { fingerprint, listFiles } from "@/lib/sandbox/files";
 import { SandboxError } from "@/lib/sandbox/run";
@@ -27,6 +28,7 @@ const MAX_HISTORY = 50; // Earlier messages it sees, at most.
 const HISTORY_STEP = 20; // Over that, the oldest go this many at a time (see `historyStart`).
 const BUILT = path.join("dist", ".buildinio-source"); // The source files' fingerprint at the last good build.
 const UPDATED = "Your app is updated. Take a look at the preview.";
+const ASKING = "A few quick questions first:";
 
 type TurnInput = {
   projectId: string;
@@ -40,8 +42,21 @@ type TurnInput = {
   changeProject: (changes: ProjectChanges) => Promise<boolean>;
 };
 
-/** Answers the last prompt. Returns the answer, and whether the app was built anew. */
-export async function runTurn({ projectId, name, icon, color, messages, hasApp, signal, emit, changeProject }: TurnInput) {
+/** The answer, whether the app was built anew, and the questions it ends with, if any. */
+type TurnResult = { text: string; built: boolean; questions?: Question[] };
+
+/** Answers the last prompt. */
+export async function runTurn({
+  projectId,
+  name,
+  icon,
+  color,
+  messages,
+  hasApp,
+  signal,
+  emit,
+  changeProject,
+}: TurnInput): Promise<TurnResult> {
   const ai = aiConfig();
   if (!ai) {
     console.warn(`\n  ⚠  ${SETUP_MESSAGE}\n`);
@@ -64,9 +79,16 @@ export async function runTurn({ projectId, name, icon, color, messages, hasApp, 
 
   // The project as it is now goes just before the prompt, so what comes before it (the
   // instructions and the chat) stays the same from answer to answer, and cached.
+  // Questions it asked go with what it said, so it knows what the answers are to.
   const history: ResponseInputItem[] = messages
     .slice(historyStart(messages.length))
-    .map(({ role, text }) => ({ role, content: text }));
+    .map((message) => ({
+      role: message.role,
+      content:
+        message.role === "assistant" && message.questions
+          ? `${message.text}\n\n${questionsForAI(message.questions)}`
+          : message.text,
+    }));
   let input: ResponseInputItem[] = [
     ...history.slice(0, -1),
     { role: "developer", content: projectState({ name, icon, color, files: await listFiles(dir) }) },
@@ -85,10 +107,24 @@ export async function runTurn({ projectId, name, icon, color, messages, hasApp, 
 
       if (response.calls.length) {
         input = [];
+        let questions: Question[] | null = null;
         for (const functionCall of response.calls) {
-          input.push({ type: "function_call_output", call_id: functionCall.call_id, output: await callTool(functionCall, context) });
+          let output;
+          if (functionCall.name === "ask_user") {
+            const asked = askedQuestions(functionCall.arguments);
+            if (typeof asked === "string") output = `Error: ${asked}`;
+            else [questions, output] = [asked, "Asked."];
+          } else {
+            output = await callTool(functionCall, context);
+          }
+          input.push({ type: "function_call_output", call_id: functionCall.call_id, output });
         }
-        continue;
+        if (!questions) continue;
+
+        // It asked: the answer ends here, and the next prompt answers the questions. Anything
+        // it changed on the way is built; a failed build waits for the answers to be fixed.
+        if ((await fingerprint(dir)) !== startedAs) await build();
+        return { text: text || ASKING, built: turn.built, questions };
       }
 
       // It's done. Build the app if its files changed since the last build, or for the first
@@ -222,6 +258,15 @@ async function buildIfChanged(
     finishStep({ ...step, done: true, failed: true, doneLabel: "The build failed" });
   }
   return build;
+}
+
+/** The questions in ask_user's arguments, or what's wrong with them. */
+function askedQuestions(args: string) {
+  try {
+    return parseQuestions(JSON.parse(args)?.questions);
+  } catch {
+    return "the arguments weren't valid JSON.";
+  }
 }
 
 /**

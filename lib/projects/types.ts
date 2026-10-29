@@ -5,7 +5,17 @@ export type Feedback = "like" | "dislike";
 /** Who can open the app's share link (/share/<id>): only its owner, or anyone with the link. */
 export type Visibility = "private" | "public";
 
-export type AssistantMessage = { id: string; role: "assistant"; text: string; seconds: number; feedback: Feedback | null };
+/** Something the AI asks, with the answers to pick from. "Type your own" is always offered too. */
+export type Question = { question: string; multiple: boolean; options: string[] };
+
+export type AssistantMessage = {
+  id: string;
+  role: "assistant";
+  text: string;
+  seconds: number;
+  feedback: Feedback | null;
+  questions?: Question[]; // Asked at the end of the answer (ask_user); the next prompt answers them.
+};
 
 export type Message = { id: string; role: "user"; text: string } | AssistantMessage;
 

@@ -1,0 +1,110 @@
+import { expect, test, type Page } from "@playwright/test";
+import { clearProjects, db, ORIGIN, testUser } from "./seed";
+
+// The AI asking questions (ask_user), with tests/fake-openai.mjs: "ask me" gets two,
+// pick one and pick any, shown one at a time. The answers go back as the next prompt.
+
+const user = testUser("Questions Test");
+
+test.beforeEach(async ({ page, context }) => {
+  clearProjects(user.id);
+  await context.addCookies([{ name: "session", value: user.token, url: ORIGIN }]);
+  await page.setViewportSize({ width: 1280, height: 800 });
+});
+
+async function ask(page: Page) {
+  await page.goto("/");
+  await page.locator("textarea:visible").fill("A cafe site, ask me first");
+  await page.locator("textarea:visible").press("Enter");
+  await page.waitForURL("**/projects/*");
+  const card = page.getByRole("region", { name: "Questions" });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  return { id: new URL(page.url()).pathname.split("/").at(-1)!, card };
+}
+
+function lastPrompt(id: string) {
+  const database = db();
+  const row = database
+    .prepare("SELECT text FROM messages WHERE project_id = ? AND role = 'user' ORDER BY created_at DESC, rowid DESC")
+    .get(id) as { text: string };
+  database.close();
+  return row.text;
+}
+
+test("questions are answered one at a time, with picks and an answer of your own", async ({ page }) => {
+  const { id, card } = await ask(page);
+  await expect(page.getByText("Before I build it, a couple of questions.")).toBeVisible();
+
+  // Pick one: the app adds "Type your own" itself, so the AI's "Other" is gone.
+  await expect(card.getByRole("heading", { name: "What should it look like?" })).toBeVisible();
+  await expect(card.getByText("1 of 2")).toBeVisible();
+  await expect(card.getByText("Pick one")).toBeVisible();
+  await expect(card.getByRole("radio")).toHaveText(["Clean and minimal", "Bold and colorful", "Dark and moody", "Type your own…"]);
+  await expect(card.getByRole("button", { name: "Next" })).toBeDisabled();
+  await card.getByRole("radio", { name: "Bold and colorful" }).click();
+
+  // Picking the one answer moves on by itself.
+  await expect(card.getByRole("heading", { name: "Which pages do you need?" })).toBeVisible();
+  await expect(card.getByText("2 of 2")).toBeVisible();
+  await expect(card.getByText("Pick any")).toBeVisible();
+
+  // Back keeps what was picked.
+  await card.getByRole("button", { name: "Back" }).click();
+  await expect(card.getByRole("radio", { name: "Bold and colorful" })).toHaveAttribute("aria-checked", "true");
+  await card.getByRole("button", { name: "Next" }).click();
+
+  await card.getByRole("checkbox", { name: "Home" }).click();
+  await page.keyboard.press("4"); // Gallery, by its number.
+  await expect(card.getByRole("checkbox", { name: "Gallery" })).toHaveAttribute("aria-checked", "true");
+  await card.getByRole("checkbox", { name: "Type your own…" }).click();
+  await card.getByRole("textbox", { name: "Your own answer" }).fill("  A   blog ");
+  await page.screenshot({ path: test.info().outputPath("questions.png"), animations: "disabled" });
+  await card.getByRole("button", { name: "Send" }).click();
+
+  // Sent as the next prompt; the AI got its questions back with the chat.
+  await expect(card).toHaveCount(0);
+  const answers = "What should it look like?\n• Bold and colorful\n\nWhich pages do you need?\n• Home\n• Gallery\n• A blog";
+  await expect.poll(() => lastPrompt(id)).toBe(answers);
+  await expect(page.getByText("Thanks for your answers: Bold and colorful, Home, Gallery, A blog")).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // Answered questions stay answered after a reload.
+  await page.reload();
+  await expect(page.getByText("Thanks for your answers")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Questions" })).toHaveCount(0);
+});
+
+test("questions can be skipped one by one or all at once, or answered by typing a prompt", async ({ page }) => {
+  const { id, card } = await ask(page);
+
+  // Skipping one moves on; the last skip sends.
+  await card.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(card.getByText("2 of 2")).toBeVisible();
+  await card.getByRole("checkbox", { name: "Menu" }).click();
+  await card.getByRole("button", { name: "Send" }).click();
+  await expect
+    .poll(() => lastPrompt(id))
+    .toBe("What should it look like?\n• Skipped: you decide\n\nWhich pages do you need?\n• Menu");
+  await expect(page.getByText("Thanks for your answers: Skipped: you decide, Menu")).toBeVisible({ timeout: 15_000 });
+
+  // Skip all.
+  await page.locator("textarea:visible").fill("Now ask me again");
+  await page.locator("textarea:visible").press("Enter");
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await card.getByRole("button", { name: "Skip all" }).click();
+  await expect(card).toHaveCount(0);
+  await expect.poll(() => lastPrompt(id)).toBe("Skip the questions: you decide.");
+  await expect(page.getByText("Thanks for your answers: Skip the questions")).toBeVisible({ timeout: 15_000 });
+
+  // A prompt of your own instead: the questions go away, for good.
+  await page.locator("textarea:visible").fill("ask me once more");
+  await page.locator("textarea:visible").press("Enter");
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await page.locator("textarea:visible").fill("Just make it blue");
+  await page.locator("textarea:visible").press("Enter");
+  await expect(card).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("Just make it blue")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Questions" })).toHaveCount(0);
+});

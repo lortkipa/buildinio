@@ -68,6 +68,7 @@ export function addMessage(projectId: string, message: Message) {
       text: message.text,
       seconds: message.role === "assistant" ? message.seconds : null,
       feedback: message.role === "assistant" ? message.feedback : null,
+      questions: message.role === "assistant" ? (message.questions ?? null) : null,
       createdAt: new Date(),
     })
     .run();
@@ -131,7 +132,14 @@ function messageRows(where: SQL) {
 function toMessage(row: typeof messages.$inferSelect): Message {
   return row.role === "user"
     ? { id: row.id, role: "user", text: row.text }
-    : { id: row.id, role: "assistant", text: row.text, seconds: row.seconds ?? 0, feedback: row.feedback ?? null };
+    : {
+        id: row.id,
+        role: "assistant",
+        text: row.text,
+        seconds: row.seconds ?? 0,
+        feedback: row.feedback ?? null,
+        ...(row.questions && { questions: row.questions }),
+      };
 }
 
 function toProject(row: Row, chat: Message[]): ProjectData {

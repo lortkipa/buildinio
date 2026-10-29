@@ -80,7 +80,7 @@ async function answer(run: Run, project: ProjectData) {
         })
       : Promise.resolve();
 
-  let result: { text: string; built: boolean } | null = null;
+  let result: Awaited<ReturnType<typeof runTurn>> | null = null;
   try {
     result = await runTurn({
       projectId: project.id,
@@ -120,6 +120,7 @@ async function answer(run: Run, project: ProjectData) {
     text: result.text,
     seconds: Math.max(1, Math.floor((Date.now() - run.startedAt) / 1000)),
     feedback: null,
+    ...(result.questions && { questions: result.questions }),
   };
   addMessage(project.id, message);
   const appVersion = project.appVersion + (result.built ? 1 : 0);

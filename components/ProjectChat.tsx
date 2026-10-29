@@ -99,11 +99,16 @@ function Chat({ project }: { project: Project }) {
       />
 
       <div ref={listRef} className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 pt-6 pb-10">
-        {project.messages.map((message) =>
+        {project.messages.map((message, index) =>
           message.role === "user" ? (
             <UserMessage key={message.id} message={message} color={project.color} />
           ) : (
-            <AssistantMessage key={message.id} projectId={project.id} message={message} />
+            <AssistantMessage
+              key={message.id}
+              projectId={project.id}
+              message={message}
+              onAnswer={index === project.messages.length - 1 && !project.turn ? handleSend : undefined}
+            />
           ),
         )}
         {project.turn && <ChatTurn turn={project.turn} />}

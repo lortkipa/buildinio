@@ -50,6 +50,7 @@ export async function exportAccount(userId: string, origin: string) {
         text: message.text,
         sentAt: message.createdAt.toISOString(),
         ...(message.role === "assistant" && { seconds: message.seconds, feedback: message.feedback }),
+        ...(message.questions && { questions: message.questions }),
       })),
       code,
     });
