@@ -159,8 +159,8 @@ type SearchRowProps = {
 };
 
 /**
- * A project found: its tile and name, and under them where its chat matched (if it was
- * found there). Opens it. The options button, top right, works like the sidebar's.
+ * A project found: its tile and name, and under the name where its chat matched, with
+ * the words marked (if it was found there). Every row is as tall either way. Opens it. The options button, top right, works like the sidebar's.
  */
 function SearchRow({ result: { project, snippet }, words, current, menuOpen, onMenu, onNavigate }: SearchRowProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -176,7 +176,7 @@ function SearchRow({ result: { project, snippet }, words, current, menuOpen, onM
         {...handlers}
         // No text selection or link preview when holding a finger on it. The text only
         // makes room for the options button while it shows.
-        className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl py-2.5 pl-3 text-left select-none [-webkit-touch-callout:none] transition-colors hover:bg-foreground/5 aria-[current=page]:bg-foreground/5 ${focusRing} ${
+        className={`flex h-16 w-full cursor-pointer items-center gap-3 rounded-2xl pl-3 text-left select-none [-webkit-touch-callout:none] transition-colors hover:bg-foreground/5 aria-[current=page]:bg-foreground/5 ${focusRing} ${
           menuOpen ? "pr-12" : "pr-12 pointer-fine:pr-3 pointer-fine:group-focus-within/row:pr-12 pointer-fine:group-hover/row:pr-12"
         }`}
       >
@@ -187,7 +187,7 @@ function SearchRow({ result: { project, snippet }, words, current, menuOpen, onM
         )}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex h-5 min-w-0 items-center text-sm font-medium">
-            <ProjectLabel project={project} tile={false} highlight={words} className="flex-1" />
+            <ProjectLabel project={project} tile={false} className="flex-1" />
           </span>
           {snippet && (
             <span className="fade-end text-sm text-muted">

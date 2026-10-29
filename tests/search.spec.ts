@@ -81,10 +81,11 @@ test("desktop: finds projects by name and by what was said in their chats", asyn
   await expect(dialog.getByRole("status")).toHaveText("");
   await page.screenshot({ path: test.info().outputPath("all.png"), animations: "disabled" });
 
-  // By name: the words are marked in it, and nothing shows under it.
+  // By name: nothing shows under it, and the name isn't marked.
   await input.fill("garden");
   await expect(rows(dialog).getByRole("link")).toHaveText(["Moon Garden"]);
-  await expect(rows(dialog).locator("mark")).toHaveText(["Garden"]);
+  await expect(rows(dialog).locator("mark")).toHaveCount(0);
+  const plainHeight = (await rows(dialog).first().boundingBox())!.height;
   await expect(dialog.getByRole("status")).toHaveText("1 project found");
 
   // By chat, every word in one message: the bit of it shows under the name, Markdown and all gone.
@@ -93,6 +94,8 @@ test("desktop: finds projects by name and by what was said in their chats", asyn
   const found = rows(dialog).first();
   await expect(found.getByRole("link")).toHaveText(/^Moon GardenDone\. It has a watering schedule for tomatoes and a moon chart\.$/);
   await expect(found.locator("mark")).toHaveText(["watering", "tomatoes"]);
+  // As tall as a row without it.
+  expect((await found.boundingBox())!.height).toBe(plainHeight);
   await page.screenshot({ path: test.info().outputPath("by-chat.png"), animations: "disabled" });
 
   // Your own messages too, whatever the case.
@@ -107,9 +110,10 @@ test("desktop: finds projects by name and by what was said in their chats", asyn
   const [mark, line] = [(await snippet.locator("mark").boundingBox())!, (await snippet.boundingBox())!];
   expect(mark.x + mark.width).toBeLessThan(line.x + line.width - 32); // Clear of the fade.
 
-  // Found by name comes first, even when an older project.
+  // Found by name comes first, even when an older project. Only the chat is marked.
   await input.fill("box");
   await expect(rows(dialog).getByRole("link")).toHaveText(["Recipe Box", /^Budget Tracker.*lunch box/]);
+  await expect(rows(dialog).locator("mark")).toHaveText(["box"]);
   await expect(dialog.getByRole("status")).toHaveText("2 projects found");
 
   await input.fill("zebra");
