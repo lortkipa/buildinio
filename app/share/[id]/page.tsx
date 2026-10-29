@@ -34,17 +34,22 @@ export default function SharePage({ params }: PageProps<"/share/[id]">) {
 }
 
 async function SharedAppPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const app = await sharedApp(params);
-  // The same for a private app as for one that doesn't exist.
-  if (!app) return <Notice title="This app isn’t available" text="It may be private, or it was deleted." />;
+  if (!isId(id)) return <Unavailable />;
   return (
     <SharedApp
-      id={app.id}
-      name={app.name}
-      appVersion={app.appVersion}
+      id={id}
+      state={app ? { available: true, name: app.name, appVersion: app.appVersion } : { available: false }}
+      unavailable={<Unavailable />}
       notBuilt={<Notice title="Nothing to see yet" text="This app hasn’t been built yet. It shows up here once it is." />}
     />
   );
+}
+
+/** The same for a private app as for one that doesn't exist. */
+function Unavailable() {
+  return <Notice title="This app isn’t available" text="It may be private, or it was deleted." />;
 }
 
 function Notice({ title, text }: { title: string; text: string }) {

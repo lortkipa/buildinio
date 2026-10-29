@@ -155,7 +155,7 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
               {/* Clear of the buttons on both sides, so it stays centered. */}
               <div
                 className={`absolute inset-x-16 inset-y-0 flex items-center justify-center ${
-                  previewProject && preview.open ? "md:inset-x-24" : "md:inset-x-12"
+                  previewProject ? "md:inset-x-24" : "md:inset-x-12"
                 }`}
               >
                 <ProjectTitle key={projectId} id={projectId} />
@@ -170,9 +170,9 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
                       onClick={() => setMobilePreview(true)}
                     />
                   </div>
-                  {/* Sharing the app sits next to it while the panel shows. */}
+                  {/* Sharing the app sits next to it. */}
                   <div className="hidden items-center gap-2 md:flex">
-                    {preview.open && <ShareButton key={previewProject} projectId={previewProject} />}
+                    <ShareButton key={previewProject} projectId={previewProject} />
                     <PreviewToggle
                       pressed={preview.open}
                       controls={panelId}

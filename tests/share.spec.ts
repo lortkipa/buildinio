@@ -63,7 +63,7 @@ async function expectSharedApp(page: Page) {
   return badge;
 }
 
-test("desktop: Share sits by the open preview, makes the link public and copies it", async ({ page, context }) => {
+test("desktop: Share sits by the preview button, makes the link public and copies it", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: ORIGIN });
   await page.setViewportSize({ width: 1280, height: 800 });
   const id = seedBuilt();
@@ -75,17 +75,23 @@ test("desktop: Share sits by the open preview, makes the link public and copies 
   const panel = page.getByRole("region", { name: "Preview", exact: true });
   await expect(title).toBeVisible();
 
-  // Only while the panel shows: left of its button, the title still centered over the prompt box.
-  await expect(share).toHaveCount(0);
-  await toggle.click();
-  await expect(share).toBeVisible();
-  await expect.poll(() => panel.evaluate((element) => element.getBoundingClientRect().width)).toBe(480);
-  const shareBox = await share.boundingBox();
-  expect(shareBox!.x + shareBox!.width).toBeLessThan((await toggle.boundingBox())!.x);
+  // Always there, left of the preview button, the title still centered over the prompt box,
+  // whether the panel shows or not.
   const prompt = page.locator("form").filter({ has: page.getByRole("textbox", { name: "Ask for changes" }) });
-  expect(Math.abs(center(await title.boundingBox()) - center(await prompt.boundingBox()))).toBeLessThanOrEqual(1);
-  const titleBox = await title.boundingBox();
-  expect(titleBox!.x + titleBox!.width).toBeLessThan(shareBox!.x);
+  const expectLaidOut = async () => {
+    const shareBox = await share.boundingBox();
+    expect(shareBox!.x + shareBox!.width).toBeLessThan((await toggle.boundingBox())!.x);
+    expect(Math.abs(center(await title.boundingBox()) - center(await prompt.boundingBox()))).toBeLessThanOrEqual(1);
+    const titleBox = await title.boundingBox();
+    expect(titleBox!.x + titleBox!.width).toBeLessThan(shareBox!.x);
+  };
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(share).toBeVisible();
+  await expectLaidOut();
+  await page.screenshot({ path: test.info().outputPath("desktop-share-closed-panel.png"), animations: "disabled" });
+  await toggle.click();
+  await expect.poll(() => panel.evaluate((element) => element.getBoundingClientRect().width)).toBe(480);
+  await expectLaidOut();
 
   // Private to start with, shown in the drop-down, which has focus.
   await share.click();
@@ -147,9 +153,10 @@ test("desktop: Share sits by the open preview, makes the link public and copies 
   await panel.frameLocator("iframe").getByRole("heading", { name: "Café Menu" }).click();
   await expect(popup).toHaveCount(0);
 
-  // Hiding the preview hides the button.
+  // Hiding the preview leaves it there.
   await toggle.click();
-  await expect(share).toHaveCount(0);
+  await expect.poll(() => panel.evaluate((element) => element.getBoundingClientRect().width)).toBe(0);
+  await expect(share).toBeVisible();
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
@@ -286,5 +293,59 @@ test("the link shows a new build without a refresh", async ({ page, browser }) =
   });
   await expect(visitor.getByRole("complementary", { name: "Buildinio" })).toBeVisible();
   await expect(visitor.locator("iframe")).toHaveAttribute("src", `/preview/${id}/index.html?v=1`);
+  await visitors.close();
+});
+
+test("the link follows the app going private, public again, and being deleted, without a refresh", async ({ page, browser }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const id = seedBuilt("public");
+  const visitors = await browser.newContext({ baseURL: ORIGIN });
+  const visitor = await visitors.newPage();
+  await visitor.goto(`/share/${id}`);
+  await expectSharedApp(visitor);
+  const unavailable = visitor.getByRole("heading", { name: "This app isn’t available" });
+
+  // Its owner turns it private: closed to the visitor at once.
+  await page.goto(`/projects/${id}`);
+  const header = page.locator("header");
+  await header.getByRole("button", { name: "Share", exact: true }).click();
+  const popup = page.getByRole("dialog", { name: "Share", exact: true });
+  const picker = popup.getByRole("button", { name: /^Who can open the link/ });
+  await picker.click();
+  await popup.getByRole("menuitemradio", { name: /Private/ }).click();
+  await expect(unavailable).toBeVisible();
+  await expect(visitor.locator("iframe")).toHaveCount(0);
+  await expect(visitor.getByRole("complementary", { name: "Buildinio" })).toHaveCount(0);
+  await expect(visitor).toHaveTitle("App not available - Buildinio");
+
+  // Public again: back for them.
+  await picker.click();
+  await popup.getByRole("menuitemradio", { name: /Public/ }).click();
+  await expectSharedApp(visitor);
+  await expect(unavailable).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Deleted: gone.
+  await header.getByRole("button", { name: "Options for Café Menu", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await page.getByRole("button", { name: "Delete project", exact: true }).click();
+  await expect(unavailable).toBeVisible();
+  await visitors.close();
+});
+
+test("a private link opens for a visitor who's waiting on it as soon as it's made public", async ({ page, browser }) => {
+  const id = seedBuilt();
+  const visitors = await browser.newContext({ baseURL: ORIGIN });
+  const visitor = await visitors.newPage();
+  await visitor.goto(`/share/${id}`);
+  await expect(visitor.getByRole("heading", { name: "This app isn’t available" })).toBeVisible();
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`/projects/${id}`);
+  await page.locator("header").getByRole("button", { name: "Share", exact: true }).click();
+  const popup = page.getByRole("dialog", { name: "Share", exact: true });
+  await popup.getByRole("button", { name: /^Who can open the link/ }).click();
+  await popup.getByRole("menuitemradio", { name: /Public/ }).click();
+  await expectSharedApp(visitor);
   await visitors.close();
 });

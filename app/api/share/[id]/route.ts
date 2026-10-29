@@ -1,45 +1,51 @@
 import type { NextRequest } from "next/server";
 import { getSessionUser, SESSION_COOKIE } from "@/lib/auth/session";
-import { watchBuilds } from "@/lib/projects/builds";
+import { watchApp } from "@/lib/projects/changes";
 import { isId } from "@/lib/projects/ids";
 import { getSharedApp } from "@/lib/projects/server";
+import type { SharedAppState } from "@/lib/projects/types";
 
 const KEEP_ALIVE_MS = 25_000; // Under the usual proxy idle timeouts.
 
 /**
- * The app's version for its share page (app/share), as server-sent events: the current
- * one, then each new build, so the page shows it without a refresh. Only for whoever
- * may see the app, checked again with every build: made private or deleted, it ends.
+ * The app as its share page (app/share) should show it, as server-sent events: now, then
+ * again whenever that changes (a new build, made private or public, deleted), so the page
+ * follows without a refresh. "Not available" is the same for a private app and a missing
+ * one, so nothing leaks; it stays connected, to hear when the app is made public.
  */
 export async function GET(request: NextRequest, { params }: RouteContext<"/api/share/[id]">) {
   const { id } = await params;
+  if (!isId(id)) return new Response("Not found.", { status: 404 });
   const userId = getSessionUser(request.cookies.get(SESSION_COOKIE)?.value)?.id ?? null;
-  const app = isId(id) ? getSharedApp(id, userId) : null;
-  if (!app) return new Response("Not found.", { status: 404 });
 
   const encoder = new TextEncoder();
   let stop = () => {};
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
-      const send = (text: string) => controller.enqueue(encoder.encode(text));
-      const keepAlive = setInterval(() => send(": still here\n\n"), KEEP_ALIVE_MS);
-      const unwatch = watchBuilds(id, (appVersion) => {
-        if (getSharedApp(id, userId)) send(`data: ${appVersion}\n\n`);
-        else end();
-      });
-      function end() {
+      const write = (text: string) => controller.enqueue(encoder.encode(text));
+      let last = "";
+      const send = () => {
+        const app = getSharedApp(id, userId);
+        const state: SharedAppState = app ? { available: true, ...app } : { available: false };
+        const data = JSON.stringify(state);
+        if (data !== last) write(`data: ${data}\n\n`);
+        last = data;
+      };
+      const keepAlive = setInterval(() => write(": still here\n\n"), KEEP_ALIVE_MS);
+      const unwatch = watchApp(id, send);
+      const end = () => {
         stop();
         try {
           controller.close();
         } catch {} // Already closed by the browser leaving.
-      }
+      };
       stop = () => {
         clearInterval(keepAlive);
         unwatch();
         request.signal.removeEventListener("abort", end);
       };
       request.signal.addEventListener("abort", end);
-      send(`data: ${app.appVersion}\n\n`);
+      send();
     },
     cancel() {
       stop();

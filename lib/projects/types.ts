@@ -42,6 +42,9 @@ export type Turn = {
   answer: { text: string; startedAt: number } | null;
 };
 
+/** What an app's share page shows (app/share), as /api/share/[id] tells it. */
+export type SharedAppState = { available: true; name: string | null; appVersion: number } | { available: false };
+
 /** A project as the server keeps it. */
 export type ProjectData = {
   id: string;

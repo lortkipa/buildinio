@@ -4,6 +4,7 @@ import type { SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messages, projects } from "@/lib/db/schema";
 import { isRunning, stopRun, stopUserRuns } from "@/lib/ai/registry";
+import { announceChange } from "@/lib/projects/changes";
 import { removeWorkspace } from "@/lib/sandbox/workspace";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import type { Feedback, Message, ProjectData, Visibility } from "@/lib/projects/types";
@@ -107,6 +108,7 @@ export function setFeedback(projectId: string, messageId: string, feedback: Feed
 export async function removeProject(id: string) {
   await stopRun(id);
   db.delete(projects).where(eq(projects.id, id)).run(); // Messages go with it.
+  announceChange(id); // Gone from its share page too.
   await removeWorkspace(id);
 }
 
