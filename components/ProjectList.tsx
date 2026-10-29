@@ -1,24 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { MouseEvent, PointerEvent } from "react";
+import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Ellipsis } from "lucide-react";
-import { toast } from "sonner";
-import { EditProjectDialog } from "@/components/EditProjectDialog";
-import { DeleteProjectDialog, ProjectMenu, type ProjectMenuAnchor } from "@/components/ProjectActions";
+import type { ProjectMenuAnchor } from "@/components/ProjectActions";
 import { ProjectLabel } from "@/components/ProjectTile";
-import { focusRing, navItem } from "@/components/styles";
+import { navItem, rowOptions, rowOptionsOnHover } from "@/components/styles";
+import { useMenuPress } from "@/components/useMenuPress";
 import { usePlayOnce } from "@/components/usePlayOnce";
+import { useProjectMenu } from "@/components/useProjectMenu";
 import { useScrollEdges } from "@/components/useScrollEdges";
-import { deleteProject, isNew, useProjects } from "@/lib/projects/store";
+import { isNew, useProjects } from "@/lib/projects/store";
 import type { Project } from "@/lib/projects/types";
-
-const LONG_PRESS_MS = 500;
-const LONG_PRESS_SLOP = 10; // px a finger can move and still count as holding.
-
-type MenuState = { projectId: string; anchor: ProjectMenuAnchor; trigger: HTMLElement | null };
 
 // Preserve the desktop and mobile list positions when the workspace is hidden.
 const listScroll = { desktop: 0, mobile: 0 };
@@ -32,11 +26,8 @@ type ProjectListProps = {
 export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
   const { loaded, projects } = useProjects();
   const pathname = usePathname();
-  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [menu, setMenu] = useState<MenuState | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const menu = useProjectMenu(onNavigate);
   useScrollEdges(scrollRef);
 
   // Pick up where the list was, before it paints: on mount, when a hidden page shows
@@ -53,39 +44,6 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
     return () => el.removeEventListener("scroll", onScroll);
   }, [mobile, loaded]);
 
-  // Close menus and dialogs on navigation and when the workspace is hidden.
-  useLayoutEffect(() => {
-    return () => {
-      setMenu(null);
-      setEditingId(null);
-      setDeletingId(null);
-    };
-  }, [pathname]);
-
-  const closeMenu = useCallback(() => setMenu(null), []);
-
-  const editing = projects.find((project) => project.id === editingId);
-  const deleting = projects.find((project) => project.id === deletingId);
-
-  function openMenu(project: Project, anchor: ProjectMenuAnchor, trigger: HTMLElement | null) {
-    // The options button toggles its menu.
-    setMenu((open) =>
-      open?.projectId === project.id && open.anchor.from === "button" && anchor.from === "button"
-        ? null
-        : { projectId: project.id, anchor, trigger },
-    );
-  }
-
-  function handleDelete(project: Project) {
-    deleteProject(project.id);
-    setDeletingId(null);
-    if (pathname === `/projects/${project.id}`) {
-      onNavigate?.();
-      router.replace("/");
-    }
-    toast.success("Project deleted.");
-  }
-
   return (
     <>
       <div ref={scrollRef} className="scrollbar-thin fade-y min-h-0 flex-1 overflow-y-auto px-2">
@@ -101,8 +59,8 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
                     project={project}
                     current={pathname === `/projects/${project.id}`}
                     mobile={mobile}
-                    menuOpen={menu?.projectId === project.id}
-                    onMenu={(anchor, trigger) => openMenu(project, anchor, trigger)}
+                    menuOpen={menu.openId === project.id}
+                    onMenu={(anchor, trigger) => menu.openMenu(project, anchor, trigger)}
                     onNavigate={onNavigate}
                   />
                 ))}
@@ -111,30 +69,7 @@ export function ProjectList({ mobile = false, onNavigate }: ProjectListProps) {
         </div>
       </div>
 
-      {menu && (
-        <ProjectMenu
-          key={menu.projectId}
-          anchor={menu.anchor}
-          trigger={menu.trigger}
-          onClose={closeMenu}
-          onEdit={() => {
-            setMenu(null);
-            setEditingId(menu.projectId);
-          }}
-          onDelete={() => {
-            setMenu(null);
-            setDeletingId(menu.projectId);
-          }}
-        />
-      )}
-      {editing && <EditProjectDialog project={editing} onClose={() => setEditingId(null)} />}
-      {deleting && (
-        <DeleteProjectDialog
-          project={deleting}
-          onDelete={() => handleDelete(deleting)}
-          onClose={() => setDeletingId(null)}
-        />
-      )}
+      {menu.dialogs}
     </>
   );
 }
@@ -155,68 +90,7 @@ type ProjectRowProps = {
 function ProjectRow({ project, current, mobile, menuOpen, onMenu, onNavigate }: ProjectRowProps) {
   const enter = usePlayOnce("motion-safe:animate-enter", isNew(project.id));
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const press = useRef<{ x: number; y: number; timer: number } | null>(null);
-  const longPressed = useRef(false); // So the tap that ends a long press doesn't open the project.
-
-  useEffect(() => {
-    return () => {
-      if (press.current) window.clearTimeout(press.current.timer);
-    };
-  }, []);
-
-  function openFromButton() {
-    const button = buttonRef.current;
-    if (button) onMenu({ rect: button.getBoundingClientRect(), from: "button" }, button);
-  }
-
-  function cancelPress() {
-    if (!press.current) return;
-    window.clearTimeout(press.current.timer);
-    press.current = null;
-  }
-
-  function handlePointerDown(event: PointerEvent) {
-    longPressed.current = false;
-    if (event.pointerType === "mouse") return;
-    cancelPress();
-    const timer = window.setTimeout(() => {
-      press.current = null;
-      longPressed.current = true;
-      navigator.vibrate?.(10);
-      openFromButton();
-    }, LONG_PRESS_MS);
-    press.current = { x: event.clientX, y: event.clientY, timer };
-  }
-
-  function handlePointerMove(event: PointerEvent) {
-    const start = press.current;
-    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP) {
-      cancelPress();
-    }
-  }
-
-  function handleContextMenu(event: MouseEvent) {
-    event.preventDefault();
-    // Android also fires this for a long press: open it once, under the button.
-    if (longPressed.current) return;
-    if (press.current) {
-      cancelPress();
-      longPressed.current = true;
-      openFromButton();
-      return;
-    }
-    const { clientX: x, clientY: y } = event;
-    onMenu({ rect: { left: x, right: x, top: y, bottom: y }, from: "point" }, buttonRef.current);
-  }
-
-  function handleClick(event: MouseEvent) {
-    if (longPressed.current) {
-      event.preventDefault();
-      longPressed.current = false;
-      return;
-    }
-    onNavigate?.();
-  }
+  const { openFromButton, handlers } = useMenuPress(buttonRef, onMenu, onNavigate);
 
   return (
     <li className={`group/row relative ${enter.className}`} onAnimationEnd={enter.onAnimationEnd}>
@@ -224,12 +98,7 @@ function ProjectRow({ project, current, mobile, menuOpen, onMenu, onNavigate }: 
         href={`/projects/${project.id}`}
         aria-current={current ? "page" : undefined}
         draggable={false}
-        onClick={handleClick}
-        onContextMenu={handleContextMenu}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={cancelPress}
-        onPointerCancel={cancelPress}
+        {...handlers}
         // No text selection or link preview when holding a finger on it. The name only
         // makes room for the options button while it shows.
         className={`${navItem} select-none [-webkit-touch-callout:none] ${
@@ -247,11 +116,7 @@ function ProjectRow({ project, current, mobile, menuOpen, onMenu, onNavigate }: 
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={openFromButton}
-        className={`absolute top-1/2 right-1 grid size-8 -translate-y-1/2 cursor-pointer place-items-center rounded-lg text-muted transition hover:bg-foreground/5 hover:text-foreground aria-expanded:bg-foreground/5 aria-expanded:text-foreground ${focusRing} ${
-          mobile
-            ? ""
-            : "pointer-fine:opacity-0 pointer-fine:group-focus-within/row:opacity-100 pointer-fine:group-hover/row:opacity-100 pointer-fine:aria-expanded:opacity-100"
-        }`}
+        className={`absolute top-1/2 right-1 -translate-y-1/2 ${rowOptions} ${mobile ? "" : rowOptionsOnHover}`}
       >
         <Ellipsis size={16} />
       </button>

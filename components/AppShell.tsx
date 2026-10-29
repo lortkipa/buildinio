@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useParams, usePathname } from "next/navigation";
 import { PanelLeft } from "lucide-react";
 import { AccountMenu } from "@/components/AccountMenu";
 import { DesktopPreview, MobilePreview } from "@/components/Preview";
 import { PreviewToggle, ProjectTitle } from "@/components/ProjectHeader";
+import { SearchDialog } from "@/components/SearchDialog";
 import { ShareButton } from "@/components/ShareButton";
 import { DesktopSidebar, MobileSidebar } from "@/components/Sidebar";
 import { circleButton } from "@/components/styles";
@@ -41,6 +43,7 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
   const preview = usePreviewState(savedPreview);
   const previewOpen = useMobilePreview(); // On phones; wider screens use `preview.open`.
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null); // The button that opened the phone sidebar.
@@ -66,6 +69,12 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
   }, []);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const closePreview = useCallback(() => setMobilePreview(false), []);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const leaveSearch = useCallback(() => {
+    setSearchOpen(false);
+    setMobileOpen(false);
+  }, []);
 
   // From here on the stores keep them up to date (see lib/projects/store.ts and lib/account/store.ts).
   useEffect(() => {
@@ -107,10 +116,25 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
     return () => wide.removeEventListener("change", onChange);
   }, [mobileOpen, previewOpen]);
 
+  // Ctrl+K (⌘K on a Mac) opens the search, unless a dialog is open (the search too).
+  // Other keyboard layouts go by the key's place, unless it types another letter there.
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const k = event.key.toLowerCase() === "k" || (event.code === "KeyK" && !/^[a-z]$/i.test(event.key));
+      if (!k || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      if (document.querySelector("dialog[open]")) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // Close on navigation and when the layout is hidden.
   useLayoutEffect(() => {
     return () => {
       setMobileOpen(false);
+      setSearchOpen(false);
       setMobilePreview(false);
       wasOpen.current = false;
       wasPreviewOpen.current = false;
@@ -119,7 +143,13 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
 
   return (
     <div className="flex flex-1">
-      <DesktopSidebar user={user} state={sidebar} onChange={changeSidebar} onCommit={commitSidebar} />
+      <DesktopSidebar
+        user={user}
+        state={sidebar}
+        onChange={changeSidebar}
+        onCommit={commitSidebar}
+        onSearch={openSearch}
+      />
 
       {/* Out of reach while the phone sidebar or preview covers it. Keeps room for
           the chat next to the preview on wider screens. On phones, sideways swipes are
@@ -212,7 +242,17 @@ export function AppShell({ user, sidebar: savedSidebar, preview: savedPreview, p
         </>
       )}
 
-      <MobileSidebar id={id} user={user} open={mobileOpen} onClose={closeMobile} closeRef={closeRef} />
+      <MobileSidebar
+        id={id}
+        user={user}
+        open={mobileOpen}
+        onClose={closeMobile}
+        closeRef={closeRef}
+        onSearch={openSearch}
+      />
+
+      {/* In the body: it stays put if the sidebar it was opened from is hidden by a resize. */}
+      {searchOpen && createPortal(<SearchDialog onClose={closeSearch} onNavigate={leaveSearch} />, document.body)}
     </div>
   );
 }

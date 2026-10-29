@@ -21,3 +21,9 @@ export const menuItem = `flex h-10 w-full cursor-pointer items-center gap-3 roun
 export const dialogPanel =
   "m-auto w-[calc(100%-2rem)] rounded-3xl border border-border bg-surface p-6 text-left text-foreground shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] backdrop:bg-black/40 open:motion-safe:animate-pop";
 export const dialogButton = `flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1 ${focusRing}`;
+
+// The ⋯ button on a project row (a `group/row`), and how it shows only on hover or focus
+// with a mouse (it's always there on touch screens).
+export const rowOptions = `grid size-8 cursor-pointer place-items-center rounded-lg text-muted transition hover:bg-foreground/5 hover:text-foreground aria-expanded:bg-foreground/5 aria-expanded:text-foreground ${focusRing}`;
+export const rowOptionsOnHover =
+  "pointer-fine:opacity-0 pointer-fine:group-focus-within/row:opacity-100 pointer-fine:group-hover/row:opacity-100 pointer-fine:aria-expanded:opacity-100";

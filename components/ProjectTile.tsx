@@ -1,5 +1,6 @@
 "use client";
 
+import { Highlight } from "@/components/Highlight";
 import { useStreamed } from "@/components/useStreamed";
 import { PROJECT_COLORS, PROJECT_ICONS } from "@/lib/projects/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
@@ -31,13 +32,14 @@ type ProjectLabelProps = {
   tile?: boolean; // The colored icon before the name.
   className?: string; // For the name.
   ellipsis?: boolean; // Mobile chat titles end in dots instead of fading.
+  highlight?: string[]; // Words searched for, marked in the name.
 };
 
 /**
  * The tile and the name. Skeletons while the AI picks a name; then it types itself out.
  * "New project" if nothing's naming it: its first prompt was stopped.
  */
-export function ProjectLabel({ project, tile = true, className = "", ellipsis = false }: ProjectLabelProps) {
+export function ProjectLabel({ project, tile = true, className = "", ellipsis = false, highlight = [] }: ProjectLabelProps) {
   const name = useStreamed(project.name ?? "New project", project.namedAt, NAME_CHAR_MS);
   if (project.name === null && project.turn) {
     return (
@@ -51,7 +53,9 @@ export function ProjectLabel({ project, tile = true, className = "", ellipsis = 
   return (
     <>
       {tile && <ProjectTile icon={project.icon} color={project.color} />}
-      <span className={`${ellipsis ? "truncate" : "fade-end"} min-w-0 ${className}`}>{name}</span>
+      <span className={`${ellipsis ? "truncate" : "fade-end"} min-w-0 ${className}`}>
+        <Highlight text={name} words={highlight} />
+      </span>
     </>
   );
 }

@@ -6,7 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, Search, SquarePen } from "lucide-react";
-import { toast } from "sonner";
 import logo from "@/brand/logo.svg";
 import logoDark from "@/brand/logo-dark.svg";
 import mark from "@/brand/mark.svg";
@@ -26,10 +25,11 @@ type DesktopSidebarProps = {
   state: SidebarState;
   onChange: (state: SidebarState) => void; // Live, while dragging too.
   onCommit: (state: SidebarState) => void; // Settled: worth saving.
+  onSearch: () => void;
 };
 
 /** The sidebar on wider screens: resizable by its right edge, and collapses to icons. */
-export function DesktopSidebar({ user, state, onChange, onCommit }: DesktopSidebarProps) {
+export function DesktopSidebar({ user, state, onChange, onCommit, onSearch }: DesktopSidebarProps) {
   const { width, collapsed } = state;
   const asideRef = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -106,7 +106,7 @@ export function DesktopSidebar({ user, state, onChange, onCommit }: DesktopSideb
         <LogoToggle collapsed={collapsed} onClick={toggle} />
       </div>
 
-      <SidebarNav collapsed={collapsed} />
+      <SidebarNav collapsed={collapsed} onSearch={onSearch} />
 
       <div className="shrink-0 p-2">
         <AccountMenu user={user} trigger="row" placement="above-start" collapsed={collapsed} />
@@ -170,10 +170,11 @@ type MobileSidebarProps = {
   open: boolean;
   onClose: () => void;
   closeRef: RefObject<HTMLButtonElement | null>;
+  onSearch: () => void; // The search opens over it.
 };
 
 /** The sidebar on phones: slides over the whole screen. */
-export function MobileSidebar({ id, user, open, onClose, closeRef }: MobileSidebarProps) {
+export function MobileSidebar({ id, user, open, onClose, closeRef, onSearch }: MobileSidebarProps) {
   // Escape closes it, unless a menu or dialog inside handled it first.
   useEffect(() => {
     if (!open) return;
@@ -213,7 +214,7 @@ export function MobileSidebar({ id, user, open, onClose, closeRef }: MobileSideb
         </button>
       </div>
 
-      <SidebarNav mobile onNavigate={onClose} />
+      <SidebarNav mobile onNavigate={onClose} onSearch={onSearch} />
 
       {/* Floats over the projects, so they can scroll under it. */}
       <div className="absolute right-4 bottom-[max(1rem,env(safe-area-inset-bottom))]">
@@ -227,10 +228,11 @@ type SidebarNavProps = {
   collapsed?: boolean; // Icons only.
   mobile?: boolean; // In the phone sidebar.
   onNavigate?: () => void;
+  onSearch: () => void;
 };
 
 /** The tabs and the projects, shared by both sidebars. */
-function SidebarNav({ collapsed = false, mobile = false, onNavigate }: SidebarNavProps) {
+function SidebarNav({ collapsed = false, mobile = false, onNavigate, onSearch }: SidebarNavProps) {
   const pathname = usePathname();
   return (
     <>
@@ -247,7 +249,9 @@ function SidebarNav({ collapsed = false, mobile = false, onNavigate }: SidebarNa
         <button
           type="button"
           title={collapsed ? "Search" : undefined}
-          onClick={() => toast.info("Search is coming soon.")}
+          aria-haspopup="dialog"
+          aria-keyshortcuts="Control+K Meta+K"
+          onClick={onSearch}
           className={navItem}
         >
           <NavLabel icon={<Search size={20} />} label="Search" collapsed={collapsed} />
