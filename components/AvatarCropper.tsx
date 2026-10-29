@@ -184,7 +184,8 @@ export function AvatarCropper({ src, onDone }: AvatarCropperProps) {
         <ZoomIn aria-hidden size={18} className="shrink-0" />
       </div>
 
-      <div className="mt-6 flex w-full flex-col-reverse gap-3 sm:flex-row">
+      {/* Side by side on phones too, so both stay in view under the photo. */}
+      <div className="mt-6 flex w-full gap-3 *:flex-1">
         <button
           type="button"
           onClick={onDone}

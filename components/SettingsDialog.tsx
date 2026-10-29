@@ -106,7 +106,7 @@ export function SettingsDialog({ user, onClose }: SettingsDialogProps) {
         endCrop();
       }}
       {...backdrop}
-      className="m-auto h-[min(40rem,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-3xl overflow-hidden rounded-3xl border border-border bg-surface p-0 text-left text-foreground shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none backdrop:bg-black/40 open:motion-safe:animate-pop sm:h-[min(36rem,calc(100dvh-2rem))] sm:w-[calc(100%-2rem)]"
+      className="m-auto h-[min(34rem,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-3xl overflow-hidden rounded-3xl border border-border bg-surface p-0 text-left text-foreground shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none backdrop:bg-black/40 open:motion-safe:animate-pop sm:h-[min(32rem,calc(100dvh-2rem))] sm:w-[calc(100%-2rem)]"
     >
       <div className="flex h-full flex-col sm:flex-row">
         <div className="shrink-0 px-4 pt-4 sm:w-52 sm:border-r sm:border-border sm:p-2">
@@ -265,6 +265,7 @@ function ProfileTab({ user, onPick }: { user: CurrentUser; onPick: (file: File) 
 function NameField({ user }: { user: CurrentUser }) {
   const [name, setName] = useState(user.name);
   const [saved, setSaved] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
   const clean = cleanName(name);
   const changed = clean !== "" && clean !== user.name;
@@ -281,6 +282,7 @@ function NameField({ user }: { user: CurrentUser }) {
     renameAccount(clean);
     setName(clean);
     setSaved(true);
+    inputRef.current?.focus(); // The Save button hides, and would take the focus with it.
   }
 
   return (
@@ -290,6 +292,7 @@ function NameField({ user }: { user: CurrentUser }) {
       </label>
       <div className="relative mt-2">
         <input
+          ref={inputRef}
           id={`${id}-name`}
           value={name}
           onChange={(event) => {
