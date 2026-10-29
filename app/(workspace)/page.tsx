@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Header } from "@/components/Header";
-import { Hero } from "@/components/Hero";
+import { Greeting, Hero } from "@/components/Hero";
 import { getCurrentUser } from "@/lib/auth/session";
 
 const main =
@@ -38,10 +38,9 @@ async function HomeContent() {
     );
   }
 
-  const firstName = user.name.split(" ")[0];
   return (
     <main className={main}>
-      <Hero title={`What should we build, ${firstName}?`} signedIn />
+      <Hero title={<Greeting user={user} />} signedIn />
     </main>
   );
 }

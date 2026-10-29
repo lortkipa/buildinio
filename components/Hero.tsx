@@ -5,7 +5,15 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { PromptBox } from "@/components/PromptBox";
 import { DOCK_TEXT_GAP, useKeyboardDock } from "@/components/useKeyboardDock";
+import { useAccount } from "@/lib/account/store";
+import type { CurrentUser } from "@/lib/auth/session";
 import { createProject } from "@/lib/projects/store";
+
+/** The signed-in title, by first name: it changes along with the name in the settings. */
+export function Greeting({ user }: { user: CurrentUser }) {
+  const firstName = useAccount(user).name.split(" ")[0];
+  return <>What should we build, {firstName}?</>;
+}
 
 type HeroProps = {
   title: ReactNode;

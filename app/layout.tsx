@@ -4,6 +4,7 @@ import favicon from "@/brand/favicon.svg";
 import favicon32 from "@/brand/favicon-32.png";
 import appleTouchIcon from "@/brand/apple-touch-icon.png";
 import { Toaster } from "@/components/Toaster";
+import { THEME_COLORS, THEME_HINT } from "@/lib/account/options";
 import "./globals.css";
 
 // Onest is the brand wordmark font.
@@ -34,14 +35,18 @@ export const viewport: Viewport = {
   // so the prompt box can sit right above it. iOS ignores this.
   interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
-    { media: "(prefers-color-scheme: dark)", color: "#111113" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${onest.variable} h-full antialiased`}>
+    // The signed-in user's theme is set on it before it hydrates (see useApplyTheme).
+    <html lang="en" suppressHydrationWarning className={`${onest.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_HINT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
         {children}
         <Toaster />

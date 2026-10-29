@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { generateCodeVerifier, generateState } from "arctic";
 import { eq } from "drizzle-orm";
+import { cleanName, DEFAULT_AVATAR, MAX_NAME } from "@/lib/account/options";
 import { db } from "@/lib/db";
 import { emailCodes, users } from "@/lib/db/schema";
 import { CODE_MINUTES, checkEmailCode, createEmailCode } from "@/lib/auth/email-code";
@@ -14,17 +15,11 @@ import { OAUTH_COOKIES } from "@/lib/auth/oauth-cookies";
 import { getOrigin } from "@/lib/auth/origin";
 import { createAuthorizationURL, isConfigured, isProvider, PROVIDERS } from "@/lib/auth/providers";
 import { endSession, getCurrentUser } from "@/lib/auth/session";
-import {
-  cancelSignup as dropSignup,
-  DEFAULT_AVATAR,
-  finishSignup,
-  signInOrStartSignup,
-} from "@/lib/auth/signup";
+import { cancelSignup as dropSignup, finishSignup, signInOrStartSignup } from "@/lib/auth/signup";
 import { sendCodeEmail } from "@/lib/email/send";
 import { removeUserProjects } from "@/lib/projects/server";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_NAME = 80;
 
 /** Where to send someone to sign in with Google or GitHub. */
 export async function startOAuth(
@@ -109,7 +104,7 @@ export async function verifyEmailCode(
  * `expired` means the sign-up has to start over.
  */
 export async function completeSignup(name: unknown): Promise<{ error: string; expired: boolean }> {
-  const value = typeof name === "string" ? name.trim().replace(/\s+/g, " ") : "";
+  const value = cleanName(name);
   if (!value) return { error: "Enter your name.", expired: false };
   if (value.length > MAX_NAME) {
     return { error: `Keep your name under ${MAX_NAME} characters.`, expired: false };

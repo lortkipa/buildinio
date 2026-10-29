@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { and, eq, gt, lt } from "drizzle-orm";
+import type { Theme } from "@/lib/account/options";
 import { db } from "@/lib/db";
 import { sessions, users } from "@/lib/db/schema";
 
@@ -16,6 +17,8 @@ export type CurrentUser = {
   name: string;
   email: string;
   avatarUrl: string;
+  theme: Theme;
+  autocorrect: boolean;
 };
 
 /** A random token for a cookie. Only its hash is stored, so a leaked database can't log anyone in. */
@@ -41,7 +44,14 @@ export function cookieOptions(expires: Date) {
 export function getSessionUser(token: string | undefined): CurrentUser | null {
   if (!token) return null;
   const user = db
-    .select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl })
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      avatarUrl: users.avatarUrl,
+      theme: users.theme,
+      autocorrect: users.autocorrect,
+    })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date())))

@@ -1,4 +1,5 @@
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { blob, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { Theme } from "@/lib/account/options";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import type { Feedback } from "@/lib/projects/types";
 
@@ -10,9 +11,26 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(), // Always lowercase.
   name: text("name").notNull(),
-  avatarUrl: text("avatar_url").notNull(),
+  avatarUrl: text("avatar_url").notNull(), // From Google or GitHub, /avatars/default.svg, or an upload (/api/avatars/<id>).
+  theme: text("theme").$type<Theme>().notNull().default("system"),
+  autocorrect: integer("autocorrect", { mode: "boolean" }).notNull().default(true), // Spell check in the prompt box.
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+/** A picture someone uploaded as their avatar. A new upload gets a new id, so its address can be cached for good. */
+export const avatars = sqliteTable(
+  "avatars",
+  {
+    id: text("id").primaryKey(), // Random and long, like a project's.
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    contentType: text("content_type").notNull(),
+    data: blob("data", { mode: "buffer" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("avatars_user_id_idx").on(table.userId)],
+);
 
 /** A Google or GitHub account linked to a user. Email sign-ins need no row here. */
 export const accounts = sqliteTable(

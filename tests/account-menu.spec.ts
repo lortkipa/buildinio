@@ -38,15 +38,18 @@ async function checkPopup(page: Page, inSidebar: boolean) {
     ));
   })).toBe(true);
   await menu.screenshot({ path: test.info().outputPath("account-popup.png") });
+  await expect(menu.getByRole("button")).toHaveText(["Settings", "Log out"]);
   // A pointer click at the formerly covered right edge must reach the action.
-  const action = menu.getByRole("button", { name: "Delete account", exact: true });
+  const action = menu.getByRole("button", { name: "Settings", exact: true });
   const rect = await action.boundingBox();
   expect(rect).not.toBeNull();
   await action.click({ position: { x: rect!.width - 5, y: rect!.height / 2 } });
-  const dialog = page.getByRole("dialog", { name: "Delete your account?" });
+  const dialog = page.getByRole("dialog", { name: "Settings" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(menu).not.toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
   await trigger.click();
   await expect(menu).toBeVisible();
   await page.keyboard.press("Escape");

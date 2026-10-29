@@ -4,8 +4,14 @@
 @source not "../templates";
 @source not "../skills";
 
+/* Dark only when <html data-theme="dark">. System is resolved to light or dark before
+   paint (the root layout's script and useApplyTheme), so a chosen light or dark theme
+   never falls through to the system theme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* Brand colors: see brand/README.md */
 :root {
+  color-scheme: light;
   --background: #fafaf9;
   --foreground: #1c1c1f;
   --muted: #6b6b73;
@@ -17,10 +23,9 @@
   --glow-warm: rgb(251 146 60 / 0.07);
   --scrollbar: rgb(28 28 31 / 0.2);
   --code: #f4f4f2;
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
+  @variant dark {
+    color-scheme: dark;
     --background: #111113;
     --foreground: #ffffff;
     --muted: #a1a1aa;
@@ -264,10 +269,8 @@
   --hl-added: rgb(26 127 55 / 0.12);
   --hl-removed: rgb(207 34 46 / 0.1);
   color: var(--foreground);
-}
 
-@media (prefers-color-scheme: dark) {
-  .hljs {
+  @variant dark {
     --hl-keyword: #ff7b72;
     --hl-string: #a5d6ff;
     --hl-number: #79c0ff;
