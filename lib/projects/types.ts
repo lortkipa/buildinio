@@ -17,7 +17,15 @@ export type AssistantMessage = {
   questions?: Question[]; // Asked at the end of the answer (ask_user); the next prompt answers them.
 };
 
-export type Message = { id: string; role: "user"; text: string } | AssistantMessage;
+/** A file attached to a prompt (see lib/projects/attachments.ts). `type` is its MIME type. */
+export type Attachment = { id: string; name: string; type: string; size: number };
+
+export type UserMessage = { id: string; role: "user"; text: string; attachments?: Attachment[] };
+
+export type Message = UserMessage | AssistantMessage;
+
+/** A prompt as the prompt box sends it, or as Stop gives it back. */
+export type Prompt = { text: string; attachments: Attachment[] };
 
 export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "skill" | "look" | "project";
 
@@ -76,7 +84,7 @@ export type Project = Omit<ProjectData, "running"> & {
   namedAt?: number; // When the AI named it, so the name types itself out.
   turn: Turn | null;
   stopping?: boolean; // Stop was pressed here, and the server is undoing the answer.
-  returned?: string; // A stopped prompt, to put back in the prompt box.
+  returned?: Prompt; // A stopped prompt, to put back in the prompt box.
 };
 
 /** What the server streams while the AI answers, one JSON object per line. */
@@ -88,4 +96,4 @@ export type TurnEvent =
   | { type: "text"; id: string; delta: string } // More of a text step.
   | { type: "tool"; step: ToolStep } // A tool finished.
   | { type: "done"; message: AssistantMessage; appVersion: number; ready: boolean }
-  | { type: "withdrawn"; messageIds: string[]; text: string; settings: ProjectSettings }; // Stopped and undone.
+  | { type: "withdrawn"; messageIds: string[]; prompt: Prompt; settings: ProjectSettings }; // Stopped and undone.

@@ -5,12 +5,16 @@ import path from "node:path";
 
 // The AI's file tools, kept inside the project's folder. Paths are relative, with
 // forward slashes, like "src/App.tsx". Installed packages (node_modules) and the
-// built app (dist) are made by npm, not written by hand.
+// built app (dist) are made by npm, not written by hand. The files people attached
+// (attachments/) aren't the app's source: they can be read, not changed.
 
 const MAX_FILE_BYTES = 200_000;
-const MAX_PROJECT_BYTES = 5_000_000; // Source only, not node_modules or dist.
+const MAX_PROJECT_BYTES = 5_000_000; // Source only, not node_modules or dist, nor pictures and media (MEDIA).
 const MAX_PATH = 200;
 const MANAGED = new Set(["node_modules", ".git"]); // Anywhere. Plus dist/ at the top.
+const OUTSIDE = new Set(["dist", "attachments"]); // At the top: not source files.
+// Copied in from attachments/, not written by the AI, so they don't count toward the limit.
+const MEDIA = /\.(png|jpe?g|webp|gif|avif|bmp|ico|tiff?|heic|mp3|wav|ogg|m4a|mp4|webm|mov|woff2?|ttf|otf|pdf)$/i;
 
 /** Something the AI got wrong, like a file that isn't there. It's told, and can try again. */
 export class FileError extends Error {}
@@ -24,7 +28,7 @@ export async function listFiles(dir: string): Promise<FileInfo[]> {
     const entries = await readdir(folder, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       // Links are skipped: one made by a command could point anywhere.
-      if (entry.isSymbolicLink() || MANAGED.has(entry.name) || (!prefix && entry.name === "dist")) continue;
+      if (entry.isSymbolicLink() || MANAGED.has(entry.name) || (!prefix && OUTSIDE.has(entry.name))) continue;
       const full = path.join(folder, entry.name);
       const relative = prefix + entry.name;
       if (entry.isDirectory()) {
@@ -58,7 +62,7 @@ export async function readText(dir: string, file: string) {
 
 /** Creates or replaces a file. Returns whether it's new and how many lines changed. */
 export async function writeText(dir: string, file: string, content: string) {
-  const { full, clean } = await resolve(dir, file);
+  const { full, clean } = await resolve(dir, file, true);
   const before = await readFile(full, "utf8").catch(() => null);
   await checkSize(dir, clean, content, before);
   await mkdir(path.dirname(full), { recursive: true });
@@ -68,7 +72,7 @@ export async function writeText(dir: string, file: string, content: string) {
 
 /** Replaces `oldText`, which has to appear exactly once, with `newText`. */
 export async function editText(dir: string, file: string, oldText: string, newText: string) {
-  const { full, clean } = await resolve(dir, file);
+  const { full, clean } = await resolve(dir, file, true);
   const before = await readText(dir, clean);
   const count = oldText ? before.split(oldText).length - 1 : 0;
   if (count === 0) throw new FileError(`The text to replace isn't in ${clean}. Read the file and try again.`);
@@ -83,7 +87,7 @@ export async function editText(dir: string, file: string, oldText: string, newTe
 
 /** Deletes a file or a folder. Returns how many lines went with it. */
 export async function deletePath(dir: string, file: string) {
-  const { full, clean } = await resolve(dir, file);
+  const { full, clean } = await resolve(dir, file, true);
   const info = await stat(full).catch(() => null);
   if (!info) throw new FileError(`${clean} doesn't exist.`);
   const before = info.isFile() && info.size <= MAX_FILE_BYTES ? await readFile(full, "utf8") : "";
@@ -110,8 +114,8 @@ function lines(text: string) {
   return text === "" ? [] : text.replace(/\n$/, "").split("\n");
 }
 
-/** `file` within the project folder, or a FileError saying what's wrong with it. */
-async function resolve(dir: string, file: string) {
+/** `file` within the project folder, or a FileError saying what's wrong with it. `change`: it's to be written or deleted. */
+async function resolve(dir: string, file: string, change = false) {
   const clean = String(file).trim().replace(/\\/g, "/").replace(/^(\.\/)+/, "");
   const parts = clean.split("/");
   if (
@@ -125,6 +129,9 @@ async function resolve(dir: string, file: string) {
   }
   const managed = parts.find((part) => MANAGED.has(part)) ?? (parts[0] === "dist" ? "dist" : null);
   if (managed) throw new FileError(`${managed}/ is made by npm. Change the source files instead.`);
+  if (change && parts[0] === "attachments") {
+    throw new FileError("attachments/ holds the files they attached, as they sent them. Copy one elsewhere with a command to use it.");
+  }
 
   const full = path.join(dir, ...parts);
   await checkInside(dir, full);
@@ -149,7 +156,7 @@ async function checkSize(dir: string, file: string, content: string, before: str
   if (size > MAX_FILE_BYTES) {
     throw new FileError(`${file} would be too big (${size} bytes; the limit is ${MAX_FILE_BYTES}). Split it up.`);
   }
-  const total = (await listFiles(dir)).reduce((sum, info) => sum + info.size, 0);
+  const total = (await listFiles(dir)).reduce((sum, info) => sum + (MEDIA.test(info.path) ? 0 : info.size), 0);
   if (total - Buffer.byteLength(before ?? "") + size > MAX_PROJECT_BYTES) {
     throw new FileError("The project is too big. Remove files it doesn't need first.");
   }

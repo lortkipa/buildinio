@@ -3,6 +3,7 @@
 // - naming (a json_schema request) gets a fixed name;
 // - a prompt with "Markdown" just gets tests/markdown-sample.md as its answer;
 // - a prompt with "ask me" gets a sentence and two questions (ask_user: pick one, pick any);
+// - a prompt with "attached" says how many pictures and PDFs came with it, and where its files are;
 // - the prompt after those questions gets "Thanks for your answers", if the questions were in the chat it sent;
 // - a prompt with a "?" just gets an answer;
 // - a prompt with "React" gets the template's src/App.tsx rewritten, for a real Vite build
@@ -87,7 +88,8 @@ createServer(async (request, response) => {
   send({ type: "response.created", response: { id, status: "in_progress", output: [] } });
 
   const input = Array.isArray(body.input) ? body.input : [];
-  const prompt = [...input].reverse().find((item) => item.role === "user")?.content ?? "";
+  const latest = [...input].reverse().find((item) => item.role === "user")?.content ?? "";
+  const prompt = textOf(latest);
   const output = [];
   const uncacheable = cacheProblem(body);
   instructionsOf.set(id, body.instructions);
@@ -124,6 +126,13 @@ createServer(async (request, response) => {
     await wait(300);
     output.push(streamText(send, "Before I build it, a couple of questions."));
     output.push(streamCall(send, "ask_user", { questions: QUESTIONS }, output.length));
+  } else if (String(prompt).includes("attached")) {
+    await wait(300);
+    const parts = Array.isArray(latest) ? latest : [];
+    const pictures = parts.filter((part) => part.type === "input_image" && String(part.image_url).startsWith("data:image/")).length;
+    const pdfs = parts.filter((part) => part.type === "input_file" && String(part.file_data).startsWith("data:application/pdf;base64,")).length;
+    const paths = String(prompt).match(/attachments\/[\w.-]+/g) ?? [];
+    output.push(streamText(send, `Pictures: ${pictures}. PDFs: ${pdfs}. Files: ${paths.join(", ") || "none"}.`));
   } else if (String(input.findLast((item) => item.role === "assistant")?.content).includes("[You asked with ask_user")) {
     await wait(300);
     const picked = String(prompt).split("\n").filter((line) => line.startsWith("• "));
@@ -171,6 +180,15 @@ function completed(id, output) {
     total_tokens: 2100,
   };
   return { id, object: "response", status: "completed", output, usage };
+}
+
+/** A message's text: all of it, or its text parts when it has files too. */
+function textOf(content) {
+  if (!Array.isArray(content)) return String(content);
+  return content
+    .filter((part) => part.type === "input_text")
+    .map((part) => part.text)
+    .join("\n");
 }
 
 /** A PNG screenshot, as look_at_app sends them. */

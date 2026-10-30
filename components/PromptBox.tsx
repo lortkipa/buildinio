@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, KeyboardEvent, RefObject } from "react";
+import type { ChangeEvent, ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Mic, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
+import { AttachmentStrip } from "@/components/Attachments";
 import { focusRing, shown, swap } from "@/components/styles";
 import { Tooltip } from "@/components/Tooltip";
 import { DOCK_CHROME, DOCK_GAP } from "@/components/useKeyboardDock";
@@ -12,6 +13,9 @@ import type { Dock } from "@/components/useKeyboardDock";
 import { useAutocorrect } from "@/lib/account/store";
 import { autoBullet, dropEmptyItems, listKey } from "@/lib/lists";
 import type { Edit, ListKey } from "@/lib/lists";
+import { attachmentUrl, isPicture, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/lib/projects/attachments";
+import { newId } from "@/lib/projects/ids";
+import type { Attachment, Prompt } from "@/lib/projects/types";
 
 const EXAMPLES = [
   "A booking app for my hair salon…",
@@ -149,6 +153,23 @@ const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full $
 
 // Grows to 12 lines, then scrolls. lh is one line; 0.75rem is the textarea's pt-2 + pb-1.
 const MAX_HEIGHT = "calc(12lh + 0.75rem)";
+const STRIP_HEIGHT = 96; // The attached files' row (see AttachmentStrip), kept out of the text's height while docked.
+
+/**
+ * A file in the box. It uploads as soon as it's added (app/api/attachments), so sending
+ * is quick: `id` is set once it's up. Pictures show from `preview` (made here) till then.
+ */
+type Draft = Omit<Attachment, "id"> & { key: string; id?: string; preview?: string; upload?: AbortController };
+
+function forget(draft: Draft) {
+  draft.upload?.abort();
+  if (draft.preview) URL.revokeObjectURL(draft.preview);
+}
+
+/** Whether something being dragged is files (not text). */
+function draggingFiles(event: DragEvent) {
+  return event.dataTransfer.types.includes("Files");
+}
 
 const VARIANTS = {
   // On the home page: types out example ideas, with a glow behind.
@@ -160,12 +181,12 @@ const VARIANTS = {
 type PromptBoxProps = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   dock: Dock | null; // Set while the phone keyboard is open; see useKeyboardDock.
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: Prompt) => void;
   variant?: keyof typeof VARIANTS;
   busy?: boolean; // The AI is still answering: typing works, sending waits.
   onStop?: () => void; // Shows a Stop button instead of Send while busy.
   stopping?: boolean; // Stop was pressed and the answer is being undone.
-  returned?: string; // A stopped prompt to put back, if the box is empty. Then `onReturnedTaken`.
+  returned?: Prompt; // A stopped prompt to put back, if the box is empty. Then `onReturnedTaken`.
   onReturnedTaken?: () => void;
   signedIn?: boolean;
   className?: string;
@@ -186,13 +207,19 @@ export function PromptBox({
 }: PromptBoxProps) {
   const router = useRouter();
   const id = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
+  const [files, setFiles] = useState<Draft[]>([]);
+  const [dragging, setDragging] = useState(false); // Files dragged over the box.
+  const dragDepth = useRef(0); // Drag events come from each element inside too.
   const autocorrect = useAutocorrect(); // The user's setting: the browser's spell check and, on Apple devices, autocorrect.
   const { label, placeholder, rows } = VARIANTS[variant];
   const example = useTypingPlaceholder(!placeholder && value.length === 0);
   const prompt = dropEmptyItems(value).trim();
   const hasText = prompt.length > 0;
-  const canSend = hasText && !busy;
+  const hasPrompt = hasText || files.length > 0; // Files alone can be sent too.
+  const uploading = files.some((file) => !file.id);
+  const canSend = hasPrompt && !busy && !uploading;
   const canStop = busy && onStop !== undefined;
 
   // Put the cursor in the box on desktop. Skipped on touch so the keyboard doesn't pop up.
@@ -202,21 +229,24 @@ export function PromptBox({
     }
   }, [textareaRef]);
 
-  // A stopped prompt comes back to be changed and sent again, unless something new is typed.
+  // A stopped prompt comes back to be changed and sent again, with its files, unless
+  // something new is typed or attached.
   useEffect(() => {
     if (returned === undefined) return;
     const textarea = textareaRef.current;
-    if (textarea && !textarea.value.trim()) {
-      setValue(returned);
+    if (textarea && !textarea.value.trim() && files.length === 0) {
+      const { text } = returned;
+      setValue(text);
+      setFiles(returned.attachments.map((file) => ({ ...file, key: file.id })));
       requestAnimationFrame(() => {
         textarea.style.height = "auto";
         textarea.style.height = `${textarea.scrollHeight}px`;
-        textarea.setSelectionRange(returned.length, returned.length);
+        textarea.setSelectionRange(text.length, text.length);
         if (window.matchMedia("(pointer: fine)").matches) textarea.focus();
       });
     }
     onReturnedTaken?.();
-  }, [returned, onReturnedTaken, textareaRef]);
+  }, [returned, onReturnedTaken, textareaRef, files.length]);
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setValue(event.target.value);
@@ -260,19 +290,120 @@ export function PromptBox({
     }
   }
 
-  // Files and voice aren't there yet: signed-out people go to sign-up, signed-in ones hear it's coming.
+  // Voice isn't there yet: signed-out people go to sign-up, signed-in ones hear it's coming.
   function notYet(what: string) {
     if (signedIn) toast.info(`${what} is coming soon.`);
     else router.push("/signup");
   }
 
+  /** Picked, pasted or dropped: each file shows at once and uploads. Signed out, it's time to sign up. */
+  function addFiles(list: FileList | File[]) {
+    if (!signedIn) {
+      router.push("/signup");
+      return;
+    }
+    const picked = Array.from(list).filter((file) => {
+      if (file.size > MAX_ATTACHMENT_BYTES) toast.error(`${file.name} is bigger than 10 MB.`);
+      else if (file.size === 0) toast.error(`${file.name} is empty.`);
+      else return true;
+      return false;
+    });
+    const room = MAX_ATTACHMENTS - files.length;
+    if (picked.length > room) toast.error(`You can attach up to ${MAX_ATTACHMENTS} files at once.`);
+    const added = picked.slice(0, Math.max(0, room)).map((file) => {
+      const draft: Draft = {
+        key: newId(),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        preview: isPicture(file.type) ? URL.createObjectURL(file) : undefined,
+        upload: new AbortController(),
+      };
+      upload(draft, file);
+      return draft;
+    });
+    if (added.length) setFiles((current) => [...current, ...added]);
+  }
+
+  async function upload(draft: Draft, file: File) {
+    const signal = draft.upload!.signal;
+    const form = new FormData();
+    form.append("file", file);
+    let problem = `Couldn’t upload ${file.name}. Check your connection and try again.`;
+    try {
+      const response = await fetch("/api/attachments", { method: "POST", body: form, signal });
+      if (response.ok) {
+        const saved: Attachment = await response.json();
+        // Removed while it uploaded: it's not wanted after all.
+        if (signal.aborted) {
+          fetch(`/api/attachments/${saved.id}`, { method: "DELETE" }).catch(() => {});
+          return;
+        }
+        setFiles((current) =>
+          current.map((d) => (d.key === draft.key ? { ...d, id: saved.id, name: saved.name, type: saved.type, upload: undefined } : d)),
+        );
+        return;
+      }
+      if (response.status < 500) problem = (await response.text()) || problem;
+    } catch {
+      if (signal.aborted) return;
+    }
+    forget(draft);
+    setFiles((current) => current.filter((d) => d.key !== draft.key));
+    toast.error(problem);
+  }
+
+  function removeFile(key: string) {
+    const draft = files.find((file) => file.key === key);
+    if (!draft) return;
+    forget(draft);
+    if (draft.id) fetch(`/api/attachments/${draft.id}`, { method: "DELETE" }).catch(() => {});
+    setFiles((current) => current.filter((file) => file.key !== key));
+  }
+
+  // A picture copied, or a file copied from a folder, is attached rather than pasted as its name.
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    if (event.clipboardData.files.length === 0) return;
+    event.preventDefault();
+    addFiles(event.clipboardData.files);
+  }
+
+  function handleDragEnter(event: DragEvent) {
+    if (!draggingFiles(event)) return;
+    event.preventDefault();
+    dragDepth.current++;
+    setDragging(true);
+  }
+
+  function handleDragOver(event: DragEvent) {
+    if (!draggingFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDragLeave(event: DragEvent) {
+    if (!draggingFiles(event)) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragging(false);
+  }
+
+  function handleDrop(event: DragEvent) {
+    if (!draggingFiles(event)) return;
+    event.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    addFiles(event.dataTransfer.files);
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSend) return;
-    onSubmit(prompt);
+    onSubmit({ text: prompt, attachments: files.map(({ id, name, type, size }) => ({ id: id!, name, type, size })) });
     // Signed out, the prompt stays for when they come back from signing up.
     if (!signedIn) return;
     setValue("");
+    files.forEach(forget); // Sent: the chat shows them from the server now.
+    setFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = "";
   }
 
@@ -300,10 +431,41 @@ export function PromptBox({
               }
             : undefined
         }
-        className="rounded-3xl border border-border bg-surface text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.12)] transition-[border-color,box-shadow] focus-within:border-foreground/20 focus-within:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_16px_40px_-12px_rgb(0_0_0/0.18)]">
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`rounded-3xl border bg-surface text-left shadow-[0_1px_2px_rgb(0_0_0/0.04),0_12px_32px_-12px_rgb(0_0_0/0.12)] transition-[border-color,box-shadow] focus-within:shadow-[0_1px_2px_rgb(0_0_0/0.04),0_16px_40px_-12px_rgb(0_0_0/0.18)] ${
+          dragging
+            ? "border-foreground/40 ring-4 ring-foreground/5"
+            : "border-border focus-within:border-foreground/20"
+        }`}
+      >
         <label htmlFor={id} className="sr-only">
           {label}
         </label>
+        {/* Up to MAX_ATTACHMENTS files, over the text. */}
+        {files.length > 0 && (
+          <AttachmentStrip
+            files={files.map((file) => ({
+              ...file,
+              src: file.preview ?? (file.id && isPicture(file.type) ? attachmentUrl(file.id) : undefined),
+              uploading: !file.id,
+            }))}
+            onRemove={removeFile}
+          />
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          hidden
+          aria-label="Files to attach"
+          onChange={(event) => {
+            if (event.target.files) addFiles(event.target.files);
+            event.target.value = ""; // The same file can be picked again.
+          }}
+        />
         {/* Inset top-right so the scrollbar stays clear of the rounded corner. */}
         <div className="pt-2 pr-2">
           <textarea
@@ -317,10 +479,11 @@ export function PromptBox({
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={placeholder ?? example}
             style={{
               maxHeight: dock
-                ? `min(${MAX_HEIGHT}, ${dock.visibleHeight - DOCK_CHROME}px)`
+                ? `min(${MAX_HEIGHT}, ${dock.visibleHeight - DOCK_CHROME - (files.length ? STRIP_HEIGHT : 0)}px)`
                 : MAX_HEIGHT,
             }}
             className="scrollbar-thin block w-full resize-none bg-transparent pt-2 pr-3 pb-1 pl-5 text-base leading-relaxed text-foreground outline-none placeholder:text-muted"
@@ -333,46 +496,58 @@ export function PromptBox({
           onMouseDown={(event) => event.preventDefault()}
           className="flex items-center justify-between px-3 pb-3"
         >
-          {/* Plus and mic aren't built yet. */}
+          {/* Signed out, it goes to sign-up (see addFiles). */}
           <Tooltip label="Add files" side="top">
             <button
               type="button"
               aria-label="Add files"
-              onClick={() => notYet("Adding files")}
+              onClick={() => (signedIn ? fileInputRef.current?.click() : router.push("/signup"))}
               className={`${iconButton} text-muted transition-colors hover:bg-foreground/5 hover:text-foreground`}
             >
               <Plus size={20} />
             </button>
           </Tooltip>
 
-          {/* Mic and submit share one spot and swap when there's text. While the AI
-              answers, Stop takes it. */}
+          {/* Mic and submit share one spot and swap when there's text or a file. While
+              the AI answers, Stop takes it. */}
           <div className="grid">
             <Tooltip label="Voice input" side="top">
               <button
                 type="button"
                 aria-label="Use voice input"
-                inert={hasText || canStop}
+                inert={hasPrompt || canStop}
                 onClick={() => notYet("Voice input")}
                 className={`${iconButton} ${swap} text-muted hover:bg-foreground/5 hover:text-foreground ${
-                  hasText || canStop ? "scale-50 -rotate-45 opacity-0" : shown
+                  hasPrompt || canStop ? "scale-50 -rotate-45 opacity-0" : shown
                 }`}
               >
                 <Mic size={20} />
               </button>
             </Tooltip>
             <Tooltip
-              label={busy ? "Wait for the answer to finish" : variant === "hero" ? "Start building" : "Send"}
-              keys={busy ? undefined : ["↵"]}
+              label={
+                busy
+                  ? "Wait for the answer to finish"
+                  : uploading
+                    ? "Wait for the files to upload"
+                    : variant === "hero"
+                      ? "Start building"
+                      : "Send"
+              }
+              keys={busy || uploading ? undefined : ["↵"]}
               side="top"
             >
               <button
                 type="submit"
                 aria-label={variant === "hero" ? "Start building" : "Send"}
-                inert={!hasText || canStop}
-                disabled={busy}
+                inert={!hasPrompt || canStop}
+                disabled={busy || uploading}
                 className={`${iconButton} ${swap} bg-foreground text-background enabled:hover:bg-foreground/85 disabled:cursor-not-allowed ${
-                  !hasText || canStop ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
+                  !hasPrompt || canStop
+                    ? "scale-50 rotate-45 opacity-0"
+                    : busy || uploading
+                      ? "scale-100 rotate-0 opacity-30"
+                      : shown
                 }`}
               >
                 <ArrowUp size={18} strokeWidth={2.25} />

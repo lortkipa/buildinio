@@ -4,9 +4,10 @@ export async function register() {
     const { migrateDatabase } = await import("@/lib/db");
     migrateDatabase();
     // Code left behind by projects deleted while the server stopped.
-    const { projectExists } = await import("@/lib/projects/server");
+    const { projectExists, pruneLooseAttachments } = await import("@/lib/projects/server");
     const { pruneWorkspaces } = await import("@/lib/sandbox/workspace");
     await pruneWorkspaces(projectExists);
+    pruneLooseAttachments(); // Files attached in a prompt box and never sent.
     const { dropAllSnapshots } = await import("@/lib/sandbox/snapshot");
     await dropAllSnapshots(); // Taken for answers the restart cut off; they start again.
     const { prepareSandbox } = await import("@/lib/sandbox/run");

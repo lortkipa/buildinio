@@ -8,6 +8,7 @@ import type {
   ResponseInputItem,
   ResponseUsage,
 } from "openai/resources/responses/responses";
+import { withAttachments } from "@/lib/ai/attachments";
 import { aiConfig, SETUP_MESSAGE } from "@/lib/ai/client";
 import { INSTRUCTIONS, projectState } from "@/lib/ai/instructions";
 import { callTool, TOOLS } from "@/lib/ai/tools";
@@ -36,6 +37,7 @@ type TurnInput = {
   icon: ProjectData["icon"];
   color: ProjectData["color"];
   messages: Message[]; // The chat so far, ending with the prompt to answer.
+  files: Map<string, string>; // Where each attached file is in the project, by id (lib/sandbox/attachments.ts).
   hasApp: boolean; // There's a build from before.
   signal: AbortSignal;
   emit: (event: TurnEvent) => void;
@@ -52,6 +54,7 @@ export async function runTurn({
   icon,
   color,
   messages,
+  files,
   hasApp,
   signal,
   emit,
@@ -79,21 +82,20 @@ export async function runTurn({
 
   // The project as it is now goes just before the prompt, so what comes before it (the
   // instructions and the chat) stays the same from answer to answer, and cached.
-  // Questions it asked go with what it said, so it knows what the answers are to.
-  const history: ResponseInputItem[] = messages
-    .slice(historyStart(messages.length))
-    .map((message) => ({
-      role: message.role,
-      content:
-        message.role === "assistant" && message.questions
-          ? `${message.text}\n\n${questionsForAI(message.questions)}`
-          : message.text,
-    }));
-  let input: ResponseInputItem[] = [
-    ...history.slice(0, -1),
-    { role: "developer", content: projectState({ name, icon, color, files: await listFiles(dir) }) },
-    ...history.slice(-1),
-  ];
+  // Questions it asked go with what it said, so it knows what the answers are to, and
+  // files attached to a prompt go with it.
+  const chat = messages.slice(historyStart(messages.length));
+  const prompt = withAttachments(chat, files);
+  const history: ResponseInputItem[] = chat.map((message) =>
+    message.role === "user"
+      ? { role: "user", content: prompt(message) }
+      : {
+          role: "assistant",
+          content: message.questions ? `${message.text}\n\n${questionsForAI(message.questions)}` : message.text,
+        },
+  );
+  const state = projectState({ name, icon, color, files: await listFiles(dir), attachments: [...files.values()] });
+  let input: ResponseInputItem[] = [...history.slice(0, -1), { role: "developer", content: state }, ...history.slice(-1)];
   let previous: string | undefined;
   let text = "";
   let fixes = 0;
