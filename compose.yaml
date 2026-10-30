@@ -1,0 +1,14 @@
+# Production: `docker compose up -d` (see the README).
+# The folder is mounted at the same path as on this machine, because the AI's containers
+# are started by this machine's Docker and mount the project folders by that path.
+services:
+  buildinio:
+    build: .
+    working_dir: ${PWD:?Run docker compose from the buildinio folder}
+    volumes:
+      - ${PWD}:${PWD}
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sh -c "npm install && npm run build && npm start"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

@@ -21,6 +21,7 @@ Guidance for AI coding agents working in this repo.
 - `npm run build` — production build (also type-checks)
 - `npm run lint` — ESLint
 - `npm run test:e2e` — production Playwright regression tests; run `npx playwright install chromium` first, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an installed Chromium. Uses a separate `data/playwright.db` and `data/playwright-projects`, a fake OpenAI (`tests/fake-openai.mjs`, port 3101) and `SANDBOX=host`, so no key, Docker or network is needed. Seed data with `tests/seed.ts`.
+- `docker compose up -d` — production on a home server (`Dockerfile`, `compose.yaml`): installs, builds and starts in a Node container with the Docker CLI and this machine's Docker socket, so the AI's commands still run in their own containers. The folder is mounted at its own path (`${PWD}`), because those containers mount project folders by this machine's paths. The README also covers Tailscale Funnel for a public address.
 - `npm run db:generate` — after changing `lib/db/schema.ts`, writes a migration to `drizzle/`. Migrations run on server start (`instrumentation.ts`).
 
 ## Layout

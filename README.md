@@ -7,44 +7,75 @@
 
 <p align="center">An app builder for people who don't write code.</p>
 
-## Run locally
+## Run it
 
-Requires Node.js 22 or newer.
+You need [Node.js 22+](https://nodejs.org) and [Docker](https://docs.docker.com/get-docker/) (running).
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Then open http://localhost:3000. To try it on your phone, connect it to the same Wi-Fi and open `http://<your-computer's-IP>:3000`.
+Open http://localhost:3000. Press `Ctrl+C` to stop.
 
-The database is a SQLite file (`data/buildinio.db`), created on first start. To have the AI build apps, see [AI setup](#ai-setup).
+## Set up the AI
 
-## Sign-in setup
+In `.env.local`, add your [OpenAI key](https://platform.openai.com/api-keys) and restart:
 
-Sign-up and log-in work without any setup: email codes are printed in the terminal, and the Google and GitHub buttons say they aren't set up yet. To turn them on, copy `.env.example` to `.env.local`, fill in the keys below and restart `npm run dev`.
+```
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-6-luna
+```
 
-- **Google**: in [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an OAuth client ID of type "Web application". Add `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI. Put the ID and secret in `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-- **GitHub**: in [GitHub Developer settings](https://github.com/settings/developers), create an OAuth App with the callback URL `http://localhost:3000/api/auth/github/callback`. Put the ID and secret in `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
-- **Email**: create a [Resend](https://resend.com/api-keys) API key and put it in `RESEND_API_KEY`. To email anyone besides yourself, verify your domain in Resend and set `EMAIL_FROM` (like `buildinio <hello@yourdomain.com>`).
+No Docker? Add `SANDBOX=host` (faster to set up, but the AI's code runs right on your computer).
 
-When deploying, set `APP_URL` to the public address and register the same callback paths on that address.
+## Set up sign-in (optional)
 
-## AI setup
+It works without this: email codes show up in the terminal. To turn on more, fill these in `.env.local`:
 
-The AI that builds the apps is an OpenAI model. Without a key, every answer says so. In `.env.local`:
+| What | Where to get it | Keys |
+| --- | --- | --- |
+| Google | [Google Cloud](https://console.cloud.google.com/apis/credentials), redirect URI `<your address>/api/auth/google/callback` | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| GitHub | [GitHub](https://github.com/settings/developers), callback URL `<your address>/api/auth/github/callback` | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` |
+| Real emails | [Resend](https://resend.com/api-keys) | `RESEND_API_KEY`, `EMAIL_FROM` |
 
-- `OPENAI_API_KEY`: from [OpenAI's API keys page](https://platform.openai.com/api-keys).
-- `OPENAI_MODEL`: any model that works with the Responses API and function calling, like `gpt-6-luna`.
-- `OPENAI_REASONING_EFFORT` (optional): how hard it thinks, like `low`, `medium` or `high`. Empty uses the model's default.
-- `OPENAI_SMALL_MODEL` and `OPENAI_SMALL_REASONING_EFFORT` (optional): a cheaper model for quick side jobs, like naming a new project. Empty uses the main model.
+`<your address>` is `http://localhost:3000` locally. Every other setting is explained in `.env.example`.
 
-Every answer logs what it cost in the server console, like `AI answer for 1a2b3c4d: 9 requests, 182,400 input tokens (164,100 cached), …`. Most of the input should be cached: the AI's instructions stay the same between requests so OpenAI's prompt cache can reuse them.
+## Host it at home (laptop, NAS, etc.)
 
-The AI can read up on design when a request needs it, using well-known public skills kept in [`skills/`](skills/), and it looks at screenshots of the app it built to fix what looks off.
+Runs in Docker on your own machine and gets a free HTTPS address like `https://my-pc.tail1234.ts.net`, with no router setup. You only need [Docker](https://docs.docker.com/get-docker/) and this folder.
 
-Each project is a real Vite + React app, kept in `data/projects/<id>` until the project or the account is deleted. The AI installs packages and builds the app with npm, which runs in [Docker](https://docs.docker.com/get-docker/) by default: a throwaway container that only sees the app's folder. Have Docker running. The image is Playwright's (`mcr.microsoft.com/playwright`, matching the installed `playwright-core`): Node and npm, plus the Chromium the AI uses to take screenshots of the app it built. It's a big download, started in the background when the server starts. To skip Docker, set `SANDBOX=host`: commands then run straight on your computer, which is quicker to set up but gives the AI's code the same access you have. Screenshots then use the Chromium at `CHROMIUM_PATH`, or Playwright's, which is downloaded the first time if it's missing. If the AI's "Looked at your app" step shows an X, the server console says why.
+**1. Start it** (from this folder, without `sudo`; it builds, then restarts by itself after a crash or reboot)
 
-The AI builds apps from [shadcn/ui](https://ui.shadcn.com) components, so wherever its commands run needs to reach `ui.shadcn.com` as well as npm.
+```bash
+cp -n .env.example .env.local
+docker compose up -d
+```
 
-Brand assets and usage rules are in [`brand/`](brand/).
+The first start takes a few minutes. Then open http://localhost:3000.
+
+**2. Put it online** with [Tailscale](https://tailscale.com/download) (free)
+
+```bash
+sudo tailscale up
+sudo tailscale funnel --bg 3000
+```
+
+The first time, it gives you a link to turn on Funnel. It then prints your address.
+
+**3. Use that address**: in `.env.local`, set `APP_URL=https://your-address.ts.net`, then:
+
+```bash
+docker compose restart
+```
+
+| To | Run |
+| --- | --- |
+| Stop | `docker compose down` |
+| Start again | `docker compose up -d` |
+| See logs | `docker compose logs -f` |
+| Update | `git pull && docker compose up -d --build --force-recreate` |
+| Take it offline | `sudo tailscale funnel reset` |
+
+Your data is in `data/`. Back up that folder.
