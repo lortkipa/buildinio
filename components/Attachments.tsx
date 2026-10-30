@@ -157,6 +157,24 @@ export function AttachmentStrip({ files, onRemove }: { files: StripFile[]; onRem
   const [viewing, setViewing] = useState<StripFile | null>(null);
   useScrollEdges(ref);
 
+  // A mouse wheel scrolls up and down; over the row it scrolls it sideways instead, until
+  // it reaches that end. Not passive (React's onWheel is), so it can keep the page still.
+  useEffect(() => {
+    const row = ref.current;
+    if (!row) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return; // Zooming, or already sideways.
+      const max = row.scrollWidth - row.clientWidth;
+      if (max <= 0 || (event.deltaY < 0 && row.scrollLeft <= 0) || (event.deltaY > 0 && row.scrollLeft >= max - 1)) return;
+      event.preventDefault();
+      // Some mice count in lines or pages rather than pixels.
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 40 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? row.clientWidth : 1;
+      row.scrollLeft += event.deltaY * unit;
+    };
+    row.addEventListener("wheel", onWheel, { passive: false });
+    return () => row.removeEventListener("wheel", onWheel);
+  }, []);
+
   // Pressing a tile's buttons keeps the focus in the text box, so the phone keyboard stays open.
   function keepFocus(event: MouseEvent) {
     if ((event.target as Element).closest("button")) event.preventDefault();

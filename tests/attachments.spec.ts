@@ -136,6 +136,18 @@ test("many files scroll sideways, fading out at the side there's more of", async
 
   await row.evaluate((element) => element.scrollTo({ left: element.scrollWidth }));
   await expect.poll(edges).toEqual(["false", "true"]);
+
+  // A mouse wheel scrolls it sideways, and the page stays where it is.
+  await row.evaluate((element) => element.scrollTo({ left: 0 }));
+  await expect.poll(edges).toEqual(["true", "false"]);
+  await row.hover();
+  await page.mouse.wheel(0, 120);
+  await expect.poll(() => row.evaluate((element) => element.scrollLeft)).toBeGreaterThan(60);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await page.mouse.wheel(0, 2000);
+  await expect.poll(edges).toEqual(["false", "true"]);
+  await page.mouse.wheel(0, -2000);
+  await expect.poll(edges).toEqual(["true", "false"]);
 });
 
 test("too many files, or too big a file, is turned down with a toast", async ({ page }) => {
