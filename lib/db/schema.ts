@@ -117,10 +117,7 @@ export const messages = sqliteTable(
   (table) => [index("messages_project_id_idx").on(table.projectId, table.createdAt)],
 );
 
-/**
- * A file attached to a prompt. Uploaded as soon as it's picked, so it's loose (no message)
- * while it waits in the prompt box, and sending the prompt claims it.
- */
+/** A file attached to a prompt, sent with it (see the turn route). */
 export const attachments = sqliteTable(
   "attachments",
   {
@@ -128,7 +125,9 @@ export const attachments = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    messageId: text("message_id").references(() => messages.id, { onDelete: "cascade" }), // Null until sent.
+    messageId: text("message_id")
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
     position: integer("position").notNull().default(0), // Its place among the message's files.
     name: text("name").notNull(),
     contentType: text("content_type").notNull(),

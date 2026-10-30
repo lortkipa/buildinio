@@ -3,9 +3,10 @@ import type { NextRequest } from "next/server";
 import { isRunning } from "@/lib/ai/registry";
 import { listen, startRun } from "@/lib/ai/runs";
 import { getSessionUser, SESSION_COOKIE } from "@/lib/auth/session";
-import { MAX_ATTACHMENTS } from "@/lib/projects/attachments";
+import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/lib/projects/attachments";
 import { isId } from "@/lib/projects/ids";
 import { addPrompt, getProject, insertProject, projectExists } from "@/lib/projects/server";
+import type { SentFile } from "@/lib/projects/server";
 import type { TurnEvent } from "@/lib/projects/types";
 import { createWorkspace } from "@/lib/sandbox/workspace";
 
@@ -13,9 +14,11 @@ const MAX_PROMPT = 20_000;
 
 /**
  * Sends a prompt and streams the AI's answer, one JSON event per line (TurnEvent).
- * The first prompt also creates the project. A prompt is text, files (`attachments`, the
- * ids app/api/attachments gave them) or both. Without one, it joins the answer in
- * progress (or restarts one the server lost), or says how the last one ended.
+ * The first prompt also creates the project. A prompt is text, files or both: with files
+ * it's a form, the prompt as JSON in `prompt` and each file as a `file`, in the order of
+ * their ids in `attachments` (made in the browser, like the message's). Without a prompt,
+ * it joins the answer in progress (or restarts one the server lost), or says how the
+ * last one ended.
  */
 export async function POST(request: NextRequest, { params }: RouteContext<"/api/projects/[id]/turn">) {
   const { id } = await params;
@@ -23,22 +26,27 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
   if (!user) return new Response("Log in first.", { status: 401 });
   if (!isId(id)) return new Response("Not found.", { status: 404 });
 
-  const body = await request.json().catch(() => null);
+  const { body, uploads } = await readBody(request);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   // The AI's questions, all skipped, when a prompt was typed instead of answering them.
   const skipped = typeof body?.skipped?.text === "string" ? body.skipped.text.trim() : "";
   if (text.length > MAX_PROMPT || skipped.length > MAX_PROMPT) return new Response("That’s too long.", { status: 413 });
-  const files: unknown[] = Array.isArray(body?.attachments) ? body.attachments : [];
-  if (files.length > MAX_ATTACHMENTS) return new Response(`Attach up to ${MAX_ATTACHMENTS} files.`, { status: 413 });
+  const ids: unknown[] = Array.isArray(body?.attachments) ? body.attachments : [];
+  if (ids.length > MAX_ATTACHMENTS) return new Response(`Attach up to ${MAX_ATTACHMENTS} files.`, { status: 413 });
+  if (uploads.some((file) => file.size > MAX_ATTACHMENT_BYTES)) {
+    return new Response("Each file can be up to 10 MB.", { status: 413 });
+  }
 
   let project = getProject(user.id, id);
   // Sent again after the connection dropped: it's already here.
   const resent = project?.messages.some((message) => message.id === body?.messageId);
-  if ((text || files.length) && !resent) {
+  if ((text || ids.length) && !resent) {
     if (!isId(body.messageId) || (skipped && !isId(body.skipped.messageId))) {
       return new Response("Bad message id.", { status: 400 });
     }
-    if (!files.every(isId) || new Set(files).size !== files.length) return new Response("Bad file id.", { status: 400 });
+    if (!ids.every(isId) || new Set(ids).size !== ids.length || uploads.length !== ids.length) {
+      return new Response("Bad files.", { status: 400 });
+    }
     if (!project) {
       if (projectExists(id)) return new Response("Not found.", { status: 404 });
       insertProject(user.id, id);
@@ -47,8 +55,16 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
       return new Response("The AI is still answering.", { status: 409 });
     }
     const before = skipped && project ? { id: body.skipped.messageId, role: "user" as const, text: skipped } : undefined;
+    const files: SentFile[] = await Promise.all(
+      uploads.map(async (file, index) => ({
+        id: ids[index],
+        name: file.name,
+        type: file.type,
+        data: Buffer.from(await file.arrayBuffer()),
+      })),
+    );
     if (!addPrompt(user.id, id, { id: body.messageId, role: "user", text }, files, before)) {
-      return new Response("Some of the files are gone. Remove them and attach them again.", { status: 410 });
+      return new Response("Bad files.", { status: 400 });
     }
     project = getProject(user.id, id)!;
     startRun(project, user.id);
@@ -61,6 +77,23 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
   return new Response(stream(user.id, id, request.signal), {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
   });
+}
+
+/** The request's JSON, and the files sent with it: a form when there are files. */
+async function readBody(request: NextRequest) {
+  if (!request.headers.get("content-type")?.startsWith("multipart/form-data")) {
+    return { body: await request.json().catch(() => null), uploads: [] };
+  }
+  const form = await request.formData().catch(() => null);
+  const prompt = form?.get("prompt");
+  let body = null;
+  try {
+    body = typeof prompt === "string" ? JSON.parse(prompt) : null;
+  } catch {
+    // Not JSON: no prompt.
+  }
+  const uploads = (form?.getAll("file") ?? []).filter((file): file is File => file instanceof File);
+  return { body, uploads };
 }
 
 /** The answer's events until it's done. Leaving only stops listening: the answer goes on. */

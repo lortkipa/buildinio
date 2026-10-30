@@ -13,7 +13,6 @@ import {
   FileText,
   FileType,
   FileVideoCamera,
-  LoaderCircle,
   Presentation,
   X,
 } from "lucide-react";
@@ -24,7 +23,7 @@ import { useScrollEdges } from "@/components/useScrollEdges";
 import { attachmentUrl, extension, fileKind, isPicture, KIND_COLORS } from "@/lib/projects/attachments";
 import type { FileKind } from "@/lib/projects/attachments";
 import { PROJECT_COLORS } from "@/lib/projects/options";
-import type { Attachment } from "@/lib/projects/types";
+import type { Attachment, PromptFile } from "@/lib/projects/types";
 
 // Files attached to prompts: tiles in the prompt box and over the prompts in the chat,
 // all the same size. Pictures show themselves and open full screen; documents show
@@ -49,7 +48,6 @@ type TileFile = Pick<Attachment, "name" | "type" | "size">;
 type TileProps = {
   file: TileFile;
   src?: string; // The picture: a preview made here, or its address.
-  uploading?: boolean;
   appear?: boolean; // Just added: it pops in.
   onOpen?: () => void; // Shows the picture full screen.
   href?: string; // Where a document downloads from.
@@ -59,7 +57,7 @@ type TileProps = {
 const tileFace = "block size-full overflow-hidden rounded-2xl border border-border bg-surface";
 
 /** One file, as a 96px square. */
-export function AttachmentTile({ file, src, uploading = false, appear = false, onOpen, href, onRemove }: TileProps) {
+export function AttachmentTile({ file, src, appear = false, onOpen, href, onRemove }: TileProps) {
   const [broken, setBroken] = useState(false); // A picture the browser can't show is shown as a document.
   const enter = usePlayOnce("motion-safe:animate-pop", appear);
   const picture = src !== undefined && isPicture(file.type) && !broken;
@@ -99,11 +97,6 @@ export function AttachmentTile({ file, src, uploading = false, appear = false, o
         <div className={tileFace}>{face}</div>
       )}
 
-      {uploading && (
-        <div className="absolute inset-0 grid place-items-center rounded-2xl bg-surface/60" role="status" aria-label={`Uploading ${file.name}`}>
-          <LoaderCircle size={20} className="text-foreground/70 motion-safe:animate-spin" />
-        </div>
-      )}
 
       {/* Shows on hover with a mouse, and always on touch screens. */}
       {onRemove && (
@@ -145,16 +138,13 @@ function DocumentFace({ file }: { file: TileFile }) {
   );
 }
 
-/** A file in the prompt box, uploading or uploaded. */
-export type StripFile = TileFile & { key: string; src?: string; uploading: boolean };
-
 /**
  * The prompt box's files, over the text. One row that scrolls sideways when they don't
  * fit, fading out at the side there's more of.
  */
-export function AttachmentStrip({ files, onRemove }: { files: StripFile[]; onRemove: (key: string) => void }) {
+export function AttachmentStrip({ files, onRemove }: { files: PromptFile[]; onRemove: (id: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [viewing, setViewing] = useState<StripFile | null>(null);
+  const [viewing, setViewing] = useState<PromptFile | null>(null);
   useScrollEdges(ref);
 
   // A mouse wheel scrolls up and down; over the row it scrolls it sideways instead, until
@@ -188,19 +178,18 @@ export function AttachmentStrip({ files, onRemove }: { files: StripFile[]; onRem
     >
       <ul aria-label="Attached files" className="flex w-max gap-2">
         {files.map((file) => (
-          <li key={file.key}>
+          <li key={file.id}>
             <AttachmentTile
               file={file}
-              src={file.src}
-              uploading={file.uploading}
+              src={file.preview}
               appear
               onOpen={() => setViewing(file)}
-              onRemove={() => onRemove(file.key)}
+              onRemove={() => onRemove(file.id)}
             />
           </li>
         ))}
       </ul>
-      {viewing?.src && <ImageViewer src={viewing.src} name={viewing.name} onClose={() => setViewing(null)} />}
+      {viewing?.preview && <ImageViewer src={viewing.preview} name={viewing.name} onClose={() => setViewing(null)} />}
     </div>
   );
 }
@@ -215,14 +204,16 @@ export function MessageAttachments({ files }: { files: Attachment[] }) {
           <li key={file.id}>
             <AttachmentTile
               file={file}
-              src={attachmentUrl(file.id)}
+              src={file.preview ?? attachmentUrl(file.id)}
               href={attachmentUrl(file.id)}
               onOpen={() => setViewing(file)}
             />
           </li>
         ))}
       </ul>
-      {viewing && <ImageViewer src={attachmentUrl(viewing.id)} name={viewing.name} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <ImageViewer src={viewing.preview ?? attachmentUrl(viewing.id)} name={viewing.name} onClose={() => setViewing(null)} />
+      )}
     </>
   );
 }

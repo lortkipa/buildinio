@@ -43,6 +43,13 @@
       "when": 1793351361816,
       "tag": "0005_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793360092579,
+      "tag": "0006_attachments_on_send",
+      "breakpoints": true
     }
   ]
 }

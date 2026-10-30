@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { imageType } from "@/lib/account/server";
 import { db } from "@/lib/db";
@@ -7,7 +7,6 @@ import { attachments, messages, projects } from "@/lib/db/schema";
 import { isRunning, stopRun, stopUserRuns } from "@/lib/ai/registry";
 import { cleanFileName, extension, isPicture } from "@/lib/projects/attachments";
 import { announceChange } from "@/lib/projects/changes";
-import { newId } from "@/lib/projects/ids";
 import { removeWorkspace } from "@/lib/sandbox/workspace";
 import type { ProjectColor, ProjectIcon } from "@/lib/projects/options";
 import type { Attachment, Feedback, Message, ProjectData, UserMessage, Visibility } from "@/lib/projects/types";
@@ -21,7 +20,7 @@ export function listProjects(userId: string): ProjectData[] {
   const rows = db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.createdAt)).all();
   if (rows.length === 0) return [];
   const chats = new Map<string, Message[]>();
-  const files = attachmentsOf(and(eq(attachments.userId, userId), isNotNull(attachments.messageId))!);
+  const files = attachmentsOf(eq(attachments.userId, userId));
   for (const message of messageRows(inArray(messages.projectId, rows.map((row) => row.id)))) {
     const chat = chats.get(message.projectId) ?? [];
     chat.push(toMessage(message, files));
@@ -94,54 +93,39 @@ export function clearQuestions(projectId: string, messageId: string) {
     .run();
 }
 
-class FilesGone extends Error {}
+/** A file sent with a prompt, as the turn route got it. Its id was made in the browser, like the message's. */
+export type SentFile = { id: string; name: string; type: string; data: Buffer };
 
 /**
- * Adds a prompt, after the skipped questions sent with it if any (`before`), and claims
- * the files attached to it, in their order. False, and nothing added, if one of the files
- * isn't the user's to attach anymore (sent already, removed, or cleared out).
+ * Adds a prompt, after the skipped questions sent with it if any (`before`), and the
+ * files sent with it, in their order. False, and nothing added, if a file's id is taken.
  */
-export function addPrompt(userId: string, projectId: string, prompt: UserMessage, fileIds: string[], before?: UserMessage) {
-  try {
-    db.transaction(() => {
-      if (before) addMessage(projectId, before);
-      addMessage(projectId, prompt);
-      fileIds.forEach((id, position) => {
-        const claimed = db
-          .update(attachments)
-          .set({ messageId: prompt.id, position })
-          .where(and(eq(attachments.id, id), eq(attachments.userId, userId), isNull(attachments.messageId)))
-          .run();
-        if (claimed.changes === 0) throw new FilesGone();
-      });
+export function addPrompt(userId: string, projectId: string, prompt: UserMessage, files: SentFile[], before?: UserMessage) {
+  const taken = files.length
+    ? db.select({ id: attachments.id }).from(attachments).where(inArray(attachments.id, files.map((file) => file.id))).get()
+    : undefined;
+  if (taken) return false;
+  db.transaction(() => {
+    if (before) addMessage(projectId, before);
+    addMessage(projectId, prompt);
+    files.forEach(({ id, name, type, data }, position) => {
+      const clean = cleanFileName(name);
+      db.insert(attachments)
+        .values({
+          id,
+          userId,
+          messageId: prompt.id,
+          position,
+          name: clean,
+          contentType: fileType(data, clean, type),
+          size: data.length,
+          data,
+          createdAt: new Date(),
+        })
+        .run();
     });
-    return true;
-  } catch (error) {
-    if (error instanceof FilesGone) return false;
-    throw error;
-  }
-}
-
-// Files attached to prompts. They're uploaded as soon as they're picked, and wait loose
-// (without a message) in the prompt box until it's sent.
-
-const MAX_LOOSE = 50; // Files waiting in prompt boxes, per user.
-const LOOSE_MS = 24 * 60 * 60 * 1000; // Left in a prompt box this long, they're cleared out.
-
-/** Keeps a file someone attached, loose until a prompt claims it. Null if they have too many waiting. */
-export function saveAttachment(userId: string, name: unknown, claimedType: string, data: Buffer): Attachment | null {
-  const loose = db
-    .select({ count: sql<number>`count(*)` })
-    .from(attachments)
-    .where(and(eq(attachments.userId, userId), isNull(attachments.messageId)))
-    .get();
-  if ((loose?.count ?? 0) >= MAX_LOOSE) return null;
-  const clean = cleanFileName(name);
-  const file: Attachment = { id: newId(), name: clean, type: fileType(data, clean, claimedType), size: data.length };
-  db.insert(attachments)
-    .values({ id: file.id, userId, name: file.name, contentType: file.type, size: file.size, data, createdAt: new Date() })
-    .run();
-  return file;
+  });
+  return true;
 }
 
 /** One of the user's files, with its bytes. */
@@ -153,23 +137,6 @@ export function getAttachment(userId: string, id: string) {
       .where(and(eq(attachments.id, id), eq(attachments.userId, userId)))
       .get() ?? null
   );
-}
-
-/** Removed from the prompt box before it was sent. */
-export function deleteLooseAttachment(userId: string, id: string) {
-  db.delete(attachments)
-    .where(and(eq(attachments.id, id), eq(attachments.userId, userId), isNull(attachments.messageId)))
-    .run();
-}
-
-/** Takes a stopped prompt's files back off it, loose again for the prompt box (see runs.ts's `withdraw`). */
-export function releaseAttachments(messageId: string) {
-  const files = attachmentsOf(eq(attachments.messageId, messageId)).get(messageId) ?? [];
-  db.update(attachments)
-    .set({ messageId: null, position: 0, createdAt: new Date() })
-    .where(eq(attachments.messageId, messageId))
-    .run();
-  return files;
 }
 
 /** Every file attached in a project's chat, in the order they were sent. */
@@ -188,13 +155,6 @@ export function attachmentData(ids: string[]) {
   if (ids.length === 0) return new Map<string, Buffer>();
   const rows = db.select({ id: attachments.id, data: attachments.data }).from(attachments).where(inArray(attachments.id, ids)).all();
   return new Map(rows.map((row) => [row.id, row.data]));
-}
-
-/** Clears out files left in prompt boxes and never sent. */
-export function pruneLooseAttachments() {
-  db.delete(attachments)
-    .where(and(isNull(attachments.messageId), lt(attachments.createdAt, new Date(Date.now() - LOOSE_MS))))
-    .run();
 }
 
 /**
@@ -230,7 +190,6 @@ function attachmentsOf(where: SQL) {
     .all();
   const files = new Map<string, Attachment[]>();
   for (const { messageId, ...file } of rows) {
-    if (!messageId) continue;
     files.set(messageId, [...(files.get(messageId) ?? []), file]);
   }
   return files;

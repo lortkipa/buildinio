@@ -10,6 +10,7 @@ import type {
   Project,
   ProjectData,
   Prompt,
+  PromptFile,
   Step,
   Turn,
   TurnEvent,
@@ -44,6 +45,7 @@ const listeners = new Set<() => void>();
 const follows = new Map<string, AbortController>(); // Answers being listened to, by project.
 const born = new Map<string, number>(); // When projects and prompts were made in this tab.
 const hurry = new Map<string, () => void>(); // Ends the wait for text to stream in, by project.
+const sending = new Map<string, PromptFile[]>(); // Files sent from here, by prompt, until it's answered: Stop gives them back.
 const NEW_MS = 5000;
 
 function subscribe(listener: () => void) {
@@ -115,6 +117,7 @@ export function createProject(prompt: Prompt) {
   born.set(id, Date.now());
   born.set(message.id, Date.now());
   setState({ ...state, projects: [project, ...state.projects] });
+  if (prompt.files.length) sending.set(message.id, prompt.files);
   follow(id, message);
   return id;
 }
@@ -131,6 +134,7 @@ export function sendMessage(projectId: string, prompt: Prompt, skipped?: string)
   const sent = before ? [before, message] : [message];
   for (const m of sent) born.set(m.id, Date.now());
   update(projectId, (p) => ({ ...p, messages: [...p.messages, ...sent], turn: newTurn(), stopping: false }));
+  if (prompt.files.length) sending.set(message.id, prompt.files);
   follow(projectId, message, before);
 }
 
@@ -206,8 +210,26 @@ function updateTurn(id: string, change: (turn: Turn) => Turn) {
   update(id, (project) => ({ ...project, turn: change(project.turn ?? newTurn()) }));
 }
 
-function userMessage({ text, attachments }: Prompt): UserMessage {
+/** The prompt in the chat. Its pictures show from the browser's copy until the page is reloaded. */
+function userMessage({ text, files }: Prompt): UserMessage {
+  const attachments = files.map(({ id, name, type, size, preview }) => ({ id, name, type, size, preview }));
   return { id: newId(), role: "user", text, ...(attachments.length > 0 && { attachments }) };
+}
+
+/** The prompt as the turn route takes it: JSON, or a form with its files. */
+function promptBody(message: UserMessage, skipped?: UserMessage): BodyInit {
+  const prompt = JSON.stringify({
+    text: message.text,
+    messageId: message.id,
+    ...(message.attachments && { attachments: message.attachments.map((file) => file.id) }),
+    ...(skipped && { skipped: { text: skipped.text, messageId: skipped.id } }),
+  });
+  const files = sending.get(message.id);
+  if (!files) return prompt;
+  const form = new FormData();
+  form.append("prompt", prompt);
+  for (const { file, name } of files) form.append("file", file, name);
+  return form;
 }
 
 function newTurn(): Turn {
@@ -221,28 +243,20 @@ function stopAll() {
 
 /**
  * Listens to the AI answering a project, from the server: sends `message` first if
- * there is one (with `skipped` before it). Reconnects if the connection drops, since
- * the answer goes on there.
+ * there is one (with `skipped` before it, and its files). Reconnects if the connection
+ * drops, since the answer goes on there: just to listen, once the server has the prompt,
+ * so its files aren't sent again.
  */
 async function follow(projectId: string, message?: UserMessage, skipped?: UserMessage) {
   follows.get(projectId)?.abort();
   const controller = new AbortController();
   follows.set(projectId, controller);
   const { signal } = controller;
-  const body = JSON.stringify(
-    message
-      ? {
-          text: message.text,
-          messageId: message.id,
-          ...(message.attachments && { attachments: message.attachments.map((file) => file.id) }),
-          ...(skipped && { skipped: { text: skipped.text, messageId: skipped.id } }),
-        }
-      : {},
-  );
+  let body = message ? promptBody(message, skipped) : JOIN;
 
   try {
     for (let attempt = 0; ; attempt++) {
-      const result = await listen(projectId, body, signal);
+      const result = await listen(projectId, body, signal, () => (body = JOIN));
       if (result === "done") return;
       if (result !== "dropped") {
         // Turned down: take the prompt back out of the chat and put it in the box, to send again.
@@ -250,7 +264,7 @@ async function follow(projectId: string, message?: UserMessage, skipped?: UserMe
           ...project,
           messages: project.messages.filter((m) => m.id !== message?.id && m.id !== skipped?.id),
           turn: null,
-          returned: message ? { text: message.text, attachments: message.attachments ?? [] } : project.returned,
+          returned: message ? { text: message.text, files: sending.get(message.id) ?? [] } : project.returned,
         }));
         if (typeof result === "string") toast.error(result);
         return;
@@ -264,17 +278,26 @@ async function follow(projectId: string, message?: UserMessage, skipped?: UserMe
     if (!signal.aborted) console.error(error);
   } finally {
     if (follows.get(projectId) === controller) follows.delete(projectId);
+    if (message) sending.delete(message.id);
   }
 }
 
+const JOIN = "{}"; // No prompt: just listen.
+
 /**
  * One connection to the answer: "done", "dropped" (try again), or why it was turned
- * down (null if the project is gone).
+ * down (null if the project is gone). `onAccepted`: the server took the prompt.
  */
-async function listen(projectId: string, body: string, signal: AbortSignal): Promise<string | null> {
+async function listen(
+  projectId: string,
+  body: BodyInit,
+  signal: AbortSignal,
+  onAccepted: () => void,
+): Promise<string | null> {
   const response = await fetch(`/api/projects/${projectId}/turn`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // A form sets its own type, with the boundary between its parts.
+    headers: typeof body === "string" ? { "Content-Type": "application/json" } : undefined,
     body,
     signal,
   }).catch((error) => {
@@ -283,6 +306,7 @@ async function listen(projectId: string, body: string, signal: AbortSignal): Pro
   });
   if (!response || response.status >= 500) return "dropped";
   if (!response.ok || !response.body) return response.status === 404 ? null : await response.text();
+  onAccepted();
 
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
@@ -369,7 +393,9 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
         messages: withoutQuestions(project.messages.filter((message) => !event.messageIds.includes(message.id))),
         turn: null,
         stopping: false,
-        returned: project.stopping ? event.prompt : project.returned,
+        returned: project.stopping
+          ? { text: event.text, files: sending.get(event.messageIds.at(-1) ?? "") ?? [] }
+          : project.returned,
       }));
   }
 }

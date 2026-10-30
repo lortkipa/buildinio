@@ -92,7 +92,7 @@ function Chat({ project }: { project: Project }) {
 
   function handleAnswer(text: string) {
     following.current = true;
-    sendMessage(project.id, { text, attachments: [] });
+    sendMessage(project.id, { text, files: [] });
   }
 
   const handleStop = useCallback(() => stopAnswer(project.id), [project.id]);

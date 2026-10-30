@@ -48,16 +48,16 @@ function attached(scope: Page | Locator) {
   return scope.getByRole("list", { name: "Attached files" });
 }
 
-async function uploaded(page: Page, count: number) {
+async function inBox(page: Page, count: number) {
   await expect(attached(page.locator("form:visible")).getByRole("listitem")).toHaveCount(count);
-  await expect(page.getByRole("status", { name: /^Uploading/ })).toHaveCount(0);
 }
 
-function looseFiles() {
+/** Every file of the user's on the server: only ones sent with a prompt. */
+function storedFiles() {
   const database = db();
-  const rows = database
-    .prepare("SELECT name FROM attachments WHERE user_id = ? AND message_id IS NULL ORDER BY name")
-    .all(user.id) as { name: string }[];
+  const rows = database.prepare("SELECT name FROM attachments WHERE user_id = ? ORDER BY name").all(user.id) as {
+    name: string;
+  }[];
   database.close();
   return rows.map((row) => row.name);
 }
@@ -70,7 +70,7 @@ test("files show over the text as same-size tiles, pictures as themselves, and c
     { name: "Menu.pdf", mimeType: "application/pdf", buffer: PDF },
     { name: "notes.txt", mimeType: "text/plain", buffer: NOTES },
   ]);
-  await uploaded(page, 3);
+  await inBox(page, 3);
   const box = page.locator("form:visible");
   const list = attached(box);
 
@@ -100,15 +100,27 @@ test("files show over the text as same-size tiles, pictures as themselves, and c
   expect(tile!.x + tile!.width - (x!.x + x!.width)).toBeLessThan(8);
   expect(x!.y - tile!.y).toBeLessThan(8);
 
-  // Removing it keeps the text box's focus, and the file is gone from the server.
+  // Removing it keeps the text box's focus.
   await textarea.focus();
   await remove.click();
   await expect(list.getByRole("listitem")).toHaveCount(2);
   await expect(textarea).toBeFocused();
-  await expect.poll(looseFiles).toEqual(["Menu.pdf", "sunset.png"]);
+
+  // Nothing is stored until it's sent.
+  expect(storedFiles()).toEqual([]);
 
   // Files alone can be sent.
   await expect(box.getByRole("button", { name: "Start building" })).toBeEnabled();
+
+  // A reload forgets them, and nothing is left on the server.
+  await page.reload();
+  await expect(attached(page.locator("form:visible"))).toHaveCount(0);
+  expect(storedFiles()).toEqual([]);
+  await fileInput(page).setInputFiles([
+    { name: "sunset.png", mimeType: "image/png", buffer: png },
+    { name: "Menu.pdf", mimeType: "application/pdf", buffer: PDF },
+  ]);
+  await inBox(page, 2);
 
   // In dark mode too.
   await page.emulateMedia({ colorScheme: "dark" });
@@ -121,7 +133,7 @@ test("many files scroll sideways, fading out at the side there's more of", async
   await fileInput(page).setInputFiles(
     Array.from({ length: 10 }, (_, index) => ({ name: `page-${index + 1}.pdf`, mimeType: "application/pdf", buffer: PDF })),
   );
-  await uploaded(page, 10);
+  await inBox(page, 10);
   const row = page.locator("form:visible .fade-x");
   const edges = () => row.evaluate((element) => [element.dataset.left, element.dataset.right]);
 
@@ -156,7 +168,7 @@ test("too many files, or too big a file, is turned down with a toast", async ({ 
     Array.from({ length: 11 }, (_, index) => ({ name: `note-${index + 1}.txt`, mimeType: "text/plain", buffer: NOTES })),
   );
   await expect(page.getByText("You can attach up to 10 files at once.")).toBeVisible();
-  await uploaded(page, 10);
+  await inBox(page, 10);
 
   await page.reload();
   await fileInput(page).setInputFiles([
@@ -175,7 +187,7 @@ test("pasted and dropped files are attached too", async ({ page }) => {
     data.items.add(new File([Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))], "pasted.png", { type: "image/png" }));
     element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   }, png.toString("base64"));
-  await uploaded(page, 1);
+  await inBox(page, 1);
 
   await textarea.evaluate((element) => {
     const data = new DataTransfer();
@@ -184,7 +196,7 @@ test("pasted and dropped files are attached too", async ({ page }) => {
       element.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
     }
   });
-  await uploaded(page, 2);
+  await inBox(page, 2);
   await expect(attached(page.locator("form:visible")).getByText("CSV", { exact: true })).toBeVisible();
 });
 
@@ -199,7 +211,7 @@ async function view(scope: Locator, name: string) {
 test("a picture opens full screen, and the X, a click outside it or Escape closes it", async ({ page }) => {
   await page.goto("/");
   await fileInput(page).setInputFiles([{ name: "sunset.png", mimeType: "image/png", buffer: await picture(page) }]);
-  await uploaded(page, 1);
+  await inBox(page, 1);
   const box = page.locator("form:visible");
 
   // Over the whole screen, with the X at its top right.
@@ -256,7 +268,7 @@ test("sent files go to the AI and into the project, show over the prompt, and on
     { name: "Menu.pdf", mimeType: "application/pdf", buffer: PDF },
     { name: "notes.txt", mimeType: "text/plain", buffer: NOTES },
   ]);
-  await uploaded(page, 3);
+  await inBox(page, 3);
   const textarea = page.locator("textarea:visible");
   await textarea.fill("Here is what I attached");
   await textarea.press("Enter");
@@ -325,7 +337,7 @@ test("Stop gives the files back to the prompt box, to send again", async ({ page
   await page.goto(`/projects/${id}`);
   const png = await picture(page);
   await fileInput(page).setInputFiles([{ name: "sunset.png", mimeType: "image/png", buffer: png }]);
-  await uploaded(page, 1);
+  await inBox(page, 1);
   const prompt = "A page for my photos, slowly";
   const textarea = page.locator("textarea:visible");
   await textarea.fill(prompt);
@@ -339,7 +351,7 @@ test("Stop gives the files back to the prompt box, to send again", async ({ page
   await expect(list.getByRole("img", { name: "sunset.png" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Attached files" })).toHaveCount(1); // Not in the chat anymore.
   expect(sentFiles(id)).toEqual([]);
-  expect(looseFiles()).toEqual(["sunset.png"]);
+  expect(storedFiles()).toEqual([]); // Deleted with the prompt; the box has the browser's copy.
 
   // Sent again, with other words.
   await textarea.fill("Look at what I attached");
@@ -360,7 +372,7 @@ test.describe("touch", () => {
       { name: "logo.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#14b8a6"/></svg>') },
       { name: "song.mp3", mimeType: "audio/mpeg", buffer: NOTES },
     ]);
-    await uploaded(page, 5);
+    await inBox(page, 5);
     const list = attached(page.locator("form:visible"));
     await expect(list.getByRole("button", { name: "Remove Menu.pdf" })).toHaveCSS("opacity", "1");
     await expect(list.getByRole("img", { name: "logo.svg" })).toBeVisible();
