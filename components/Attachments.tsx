@@ -58,7 +58,7 @@ type TileProps = {
 
 const tileFace = "block size-full overflow-hidden rounded-2xl border border-border bg-surface";
 
-/** One file, as an 80px square. */
+/** One file, as a 96px square. */
 export function AttachmentTile({ file, src, uploading = false, appear = false, onOpen, href, onRemove }: TileProps) {
   const [broken, setBroken] = useState(false); // A picture the browser can't show is shown as a document.
   const enter = usePlayOnce("motion-safe:animate-pop", appear);
@@ -80,7 +80,7 @@ export function AttachmentTile({ file, src, uploading = false, appear = false, o
   return (
     <div
       onAnimationEnd={enter.onAnimationEnd}
-      className={`group/tile relative size-20 shrink-0 ${enter.className}`}
+      className={`group/tile relative size-24 shrink-0 ${enter.className}`}
     >
       {picture && onOpen ? (
         <button
@@ -111,7 +111,7 @@ export function AttachmentTile({ file, src, uploading = false, appear = false, o
           type="button"
           aria-label={`Remove ${file.name}`}
           onClick={onRemove}
-          className={`absolute top-1 left-1 grid size-6 cursor-pointer place-items-center rounded-full bg-black/60 text-white shadow-sm backdrop-blur-sm transition hover:bg-black/80 pointer-fine:opacity-0 pointer-fine:group-hover/tile:opacity-100 pointer-fine:focus-visible:opacity-100 ${focusRing}`}
+          className={`absolute top-1.5 right-1.5 grid size-6 cursor-pointer place-items-center rounded-full bg-black/60 text-white shadow-sm backdrop-blur-sm transition hover:bg-black/80 pointer-fine:opacity-0 pointer-fine:group-hover/tile:opacity-100 pointer-fine:focus-visible:opacity-100 ${focusRing}`}
         >
           <X size={14} strokeWidth={2.5} />
         </button>
@@ -120,7 +120,7 @@ export function AttachmentTile({ file, src, uploading = false, appear = false, o
   );
 }
 
-/** A document: its kind's icon in its color at the top, the name and extension under it. */
+/** A document: its kind's icon in its color at the top left (the X takes the right), the name and extension under it. */
 function DocumentFace({ file }: { file: TileFile }) {
   const kind = fileKind(file.name, file.type);
   const Icon = KIND_ICONS[kind];
@@ -128,10 +128,10 @@ function DocumentFace({ file }: { file: TileFile }) {
   return (
     <span
       style={{ "--kind": PROJECT_COLORS[KIND_COLORS[kind]] } as CSSProperties}
-      className="flex size-full flex-col justify-between bg-[color-mix(in_srgb,var(--kind)_7%,transparent)] p-2 text-left"
+      className="flex size-full flex-col justify-between bg-[color-mix(in_srgb,var(--kind)_7%,transparent)] p-2.5 text-left"
     >
-      <span className="grid size-7 place-items-center self-end rounded-lg bg-[color-mix(in_srgb,var(--kind)_16%,transparent)] text-(--kind)">
-        <Icon size={16} strokeWidth={2} />
+      <span className="grid size-8 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--kind)_16%,transparent)] text-(--kind)">
+        <Icon size={18} strokeWidth={2} />
       </span>
       <span className="min-w-0">
         <span className="fade-end block text-xs leading-4 font-medium text-foreground">

@@ -153,7 +153,7 @@ const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full $
 
 // Grows to 12 lines, then scrolls. lh is one line; 0.75rem is the textarea's pt-2 + pb-1.
 const MAX_HEIGHT = "calc(12lh + 0.75rem)";
-const STRIP_HEIGHT = 96; // The attached files' row (see AttachmentStrip), kept out of the text's height while docked.
+const STRIP_HEIGHT = 112; // The attached files' row (see AttachmentStrip), kept out of the text's height while docked.
 
 /**
  * A file in the box. It uploads as soon as it's added (app/api/attachments), so sending

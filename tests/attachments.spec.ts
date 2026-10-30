@@ -84,20 +84,20 @@ test("files show over the text as same-size tiles, pictures as themselves, and c
   // All the same size, over the text.
   for (const item of await list.getByRole("listitem").all()) {
     const tile = await item.boundingBox();
-    expect([tile?.width, tile?.height]).toEqual([80, 80]);
+    expect([tile?.width, tile?.height]).toEqual([96, 96]);
   }
   const textarea = box.locator("textarea");
-  expect((await list.boundingBox())!.y + 80).toBeLessThanOrEqual((await textarea.boundingBox())!.y);
+  expect((await list.boundingBox())!.y + 96).toBeLessThanOrEqual((await textarea.boundingBox())!.y);
   await page.screenshot({ path: test.info().outputPath("tiles.png"), animations: "disabled" });
 
-  // The X shows on hover with a mouse, at the top left.
+  // The X shows on hover with a mouse, at the top right.
   const remove = list.getByRole("button", { name: "Remove notes.txt" });
   const notes = list.getByRole("listitem").nth(2);
   await expect(remove).toHaveCSS("opacity", "0");
   await notes.hover();
   await expect(remove).toHaveCSS("opacity", "1");
   const [x, tile] = [await remove.boundingBox(), await notes.boundingBox()];
-  expect(x!.x - tile!.x).toBeLessThan(8);
+  expect(tile!.x + tile!.width - (x!.x + x!.width)).toBeLessThan(8);
   expect(x!.y - tile!.y).toBeLessThan(8);
 
   // Removing it keeps the text box's focus, and the file is gone from the server.
