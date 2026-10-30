@@ -70,7 +70,7 @@ Skip this for the other two.
 scripts/host.sh
 ```
 
-It asks a few questions; press Enter to take the answer in [brackets]:
+It asks a few questions; press Enter to take the answer in [brackets]. Your answers are saved in `.env.local` (see [After installing](#after-installing)); if that file already has your key and model, just press Enter to keep them.
 
 1. **Your password**, so it can install programs. (Typing it shows nothing: that's normal.)
 2. **Your OpenAI API key**, and **the model**.

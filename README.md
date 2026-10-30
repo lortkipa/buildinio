@@ -39,7 +39,9 @@ On this page, click the green **Code** button, then **Download ZIP**, and unzip 
 npm run setup
 ```
 
-It asks for your OpenAI key and where the AI's commands run, then installs the rest (a minute or two). Press Enter to keep what's in [brackets].
+It asks for your OpenAI key, the model and where the AI's commands run, then installs the rest (a minute or two). Press Enter to keep what's in [brackets].
+
+What you type is saved in the `.env.local` file in the folder, and nowhere else. Rather fill that file in yourself? Copy `.env.example` to `.env.local`, add your key, and run `npm install` instead. Running `npm run setup` later keeps what's already there when you press Enter.
 
 ### 5. Start it
 
