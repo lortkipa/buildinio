@@ -16,7 +16,7 @@ One script does the work: it installs what's needed, keeps Buildinio running in 
 - **An OpenAI API key**, with some credit on it: [platform.openai.com/api-keys](https://platform.openai.com/api-keys). The AI that builds the apps runs on it.
 - **Optional: a domain** you bought, like `example.com`. Without one you get a free address.
 
-**On a NAS:** if it runs a Debian-based Linux (like OpenMediaVault), follow this guide on it as is. Synology and QNAP have their own systems, where the script can't run: make an Ubuntu virtual machine on the NAS ([Synology Virtual Machine Manager](https://kb.synology.com/en-global/DSM/help/Virtualization/virtualization_desc), [QNAP Virtualization Station](https://www.qnap.com/en/software/virtualization-station)), and follow this guide inside it.
+**On a NAS:** if it runs a Debian-based Linux (like OpenMediaVault), follow this guide on it as is. Synology and QNAP have their own systems, where the script can't run: [make an Ubuntu virtual machine on the NAS](nas.md) first, and follow this guide inside it.
 
 ## Pick an address
 

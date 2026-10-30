@@ -12,7 +12,7 @@ Describe the app you want in a chat, and an AI builds a real one: you watch it c
 ## Get started
 
 - **[Try it on your computer](docs/run-locally.md)**: a few minutes to set up, on Windows, Mac or Linux. It runs while the terminal window is open.
-- **[Host it at home](docs/hosting.md)**: keep it running on a spare computer (an old laptop, a Raspberry Pi, a NAS) and open it from anywhere at an `https://` address, free or your own domain. One script sets it all up.
+- **[Host it at home](docs/hosting.md)**: keep it running on a spare computer (an old laptop, a Raspberry Pi, a NAS) and open it from anywhere at an `https://` address, free or your own domain. One script sets it all up. On a Synology or QNAP NAS, [start here](docs/nas.md).
 
 Either way, the AI runs on your own OpenAI account: you'll need an [API key](https://platform.openai.com/api-keys) with some credit on it.
 
