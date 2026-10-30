@@ -9,6 +9,7 @@ import { addPrompt, getProject, insertProject, projectExists } from "@/lib/proje
 import type { SentFile } from "@/lib/projects/server";
 import type { TurnEvent } from "@/lib/projects/types";
 import { createWorkspace } from "@/lib/sandbox/workspace";
+import { KEEP_ALIVE_MS, STREAM_HEADERS } from "@/lib/stream";
 
 const MAX_PROMPT = 20_000;
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
   }
 
   return new Response(stream(user.id, id, request.signal), {
-    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", ...STREAM_HEADERS },
   });
 }
 
@@ -100,10 +101,12 @@ async function readBody(request: NextRequest) {
 function stream(userId: string, projectId: string, signal: AbortSignal) {
   const encoder = new TextEncoder();
   let unlisten = () => {};
+  let keepAlive: ReturnType<typeof setInterval> | undefined;
   return new ReadableStream<Uint8Array>({
     start(controller) {
       const close = () => {
         unlisten();
+        clearInterval(keepAlive);
         signal.removeEventListener("abort", close);
         try {
           controller.close();
@@ -121,6 +124,9 @@ function stream(userId: string, projectId: string, signal: AbortSignal) {
       if (stop) {
         unlisten = stop;
         signal.addEventListener("abort", close, { once: true });
+        // An empty line, which the browser skips: a long npm install can be quiet for minutes,
+        // and a proxy in front of the server (like Cloudflare's) would drop the connection.
+        keepAlive = setInterval(() => controller.enqueue(encoder.encode("\n")), KEEP_ALIVE_MS);
       } else {
         // Nothing in progress: how the last answer ended, in case it was missed.
         const project = getProject(userId, projectId);
@@ -137,6 +143,7 @@ function stream(userId: string, projectId: string, signal: AbortSignal) {
     },
     cancel() {
       unlisten();
+      clearInterval(keepAlive);
     },
   });
 }

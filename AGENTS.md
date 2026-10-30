@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Project
 
-`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts (with a settings pop-up), a signed-in home with a sidebar and a search of projects and their chats, and project chats where an OpenAI model builds a real Vite + React app (writing files, running npm, searching the web) and the preview shows it, with files attached to prompts, plus a share link to each app on its own (private or public). Playwright regression tests cover account popup layering, the settings, tooltips, the search, project header actions, the preview, share links, how answers' Markdown looks, lists in the prompt box, attached files, the AI's questions and the AI end to end, Stop included (against a fake OpenAI). Update this file as the project grows.
+`buildinio` — an app builder for non-coders. Early stage: a landing page, working sign-up, log-in and accounts (with a settings pop-up), a signed-in home with a sidebar and a search of projects and their chats, and project chats where an OpenAI model builds a real Vite + React app (writing files, running npm, searching the web) and the preview shows it, with files attached to prompts, plus a share link to each app on its own (private or public), and a script that hosts it on a home Linux server. Playwright regression tests cover account popup layering, the settings, tooltips, the search, project header actions, the preview, share links, how answers' Markdown looks, lists in the prompt box, attached files, the AI's questions and the AI end to end, Stop included (against a fake OpenAI). Update this file as the project grows.
 
 ## Stack
 
@@ -16,8 +16,10 @@ Guidance for AI coding agents working in this repo.
 
 ## Commands
 
+- `npm run setup` — for people trying it out: makes `.env.local`, asks for the OpenAI key and the sandbox, and installs (`scripts/setup.mjs`, Node built-ins only)
 - `npm install` — install dependencies
 - `npm run dev` — dev server at http://localhost:3000
+- `scripts/host.sh` — hosts it on a Linux computer with systemd (see Hosting)
 - `npm run build` — production build (also type-checks)
 - `npm run lint` — ESLint
 - `npm run test:e2e` — production Playwright regression tests; run `npx playwright install chromium` first, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to an installed Chromium. Uses a separate `data/playwright.db` and `data/playwright-projects`, a fake OpenAI (`tests/fake-openai.mjs`, port 3101) and `SANDBOX=host`, so no key, Docker or network is needed. Seed data with `tests/seed.ts`.
@@ -32,6 +34,8 @@ Guidance for AI coding agents working in this repo.
 - `skills/` — well-known public skills the AI reads when a request needs one (`frontend-design` from anthropics/skills, `web-design-guidelines` from vercel-labs, `shadcn` from shadcn-ui), copied as they are with their licenses. `skills/README.md` lists where each came from and how to add one. Excluded from type-checking, lint and Tailwind's class scan.
 - `lib/sandbox/` — each project's code on disk: `workspace.ts` (folders, `PROJECTS_PATH`, default `data/projects`), `files.ts` (the AI's file tools, kept inside the folder), `run.ts` (commands in Docker or on the host), `build.ts` (`npm install` when needed, then `npm run build`), `look.ts` and `screenshot.mjs` (the AI's screenshots of the built app), `snapshot.ts` (the copy of the project from before an answer, which Stop puts back; in `.snapshots` in `PROJECTS_PATH`, cleared on start), `attachments.ts` (the chat's attached files, copied into the project's `attachments/`).
 - `templates/app/` — what every new project starts as. Excluded from type-checking, lint and Tailwind's class scan.
+- `lib/stream.ts` — `STREAM_HEADERS` and `KEEP_ALIVE_MS` for the streamed responses (the turn and the share page), so a proxy in front of a hosted server passes them on as they come and doesn't drop a quiet one.
+- `scripts/` — `setup.mjs` (`npm run setup`; also `get KEY` / `set KEY=VALUE` on `.env.local`, which `host.sh` uses) and `host.sh` (hosting). `docs/` — `hosting.md`, the home-server guide.
 - `lib/lists.ts` — lists in prompts: the prompt box's list keys (`listKey`, `autoBullet`) and cutting a user's message into text and lists (`parseBlocks`).
 - `lib/sidebar.ts` and `lib/preview.ts` — the sidebar's and the desktop preview's widths and cookie names, shared by the layout and the components.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations. On start, `instrumentation.ts` also removes project folders whose project is gone.
@@ -40,6 +44,12 @@ Guidance for AI coding agents working in this repo.
 - `proxy.ts` — runs for every page: sends signed-in users from `/signup`, `/login` and `/welcome` to `/`, and keeps the `theme` cookie the same as the database (see Settings).
 - `brand/` — logo and icons, imported directly (e.g. `import logo from "@/brand/logo.svg"`); don't copy them into `public/`. `logo-email.png` (on a white badge, for apps that force dark mode) and `logo-email-dark.png` (white, for real dark mode) are the logos rendered at 3× for emails (email apps don't show SVG).
 - `public/avatars/default.svg` — the avatar for email sign-ups.
+
+## Hosting
+
+- The README is for non-coders: trying it on your computer (`npm run setup`, `npm run dev`), the settings in `.env.local`, troubleshooting, then a short part for developers. `docs/hosting.md` is the home-server guide. Keep both in plain words, and update them (and `.env.example`) with any new setting.
+- `scripts/host.sh` (bash, Linux with systemd, x86_64 or arm64; apt, dnf or pacman): installs Node.js 22 (NodeSource), Docker (get.docker.com) unless `SANDBOX=host`, runs `setup.mjs --hosting`, `npm ci && npm run build`, pre-pulls the Playwright image, and writes the `buildinio` systemd service (`next start -H 127.0.0.1 -p $PORT`, as the user who ran it, never under sudo). It offers to stop sleep (masks the sleep targets; on a laptop, a logind drop-in for the lid). Then the address, which sets `APP_URL`: Tailscale Funnel (public) or Serve (private) on the machine's `*.ts.net` name, a Cloudflare named tunnel `buildinio` (the `buildinio-tunnel` service, `/etc/cloudflared/buildinio.yml`), or Caddy with port forwarding (`/etc/caddy/Caddyfile`, `flush_interval -1`). The method is kept in `data/hosting`, so switching undoes the last one. Other commands: `address`, `update` (`git pull`, then re-runs itself as `rebuild`), `status`, `logs`, `restart`/`stop`/`start`, `backup` (tars `data/` and `.env.local` without `node_modules`), `uninstall`. Check it with `bash -n` and `shellcheck`.
+- Production cookies are `Secure`, so a hosted server only works over https (localhost aside).
 
 ## Brand
 
@@ -71,7 +81,7 @@ Guidance for AI coding agents working in this repo.
 - Projects and their chats are in the database (`projects`, `messages`); each project's code is a folder in `PROJECTS_PATH` (`data/projects/<id>`), kept until the project or the account is deleted. Deleting stops the AI if it's working on the project.
 - The shared layout reads the user's projects (`listProjects`) and `AppShell` hands them to `lib/projects/store.ts`, a store outside React (`useSyncExternalStore`), so the shared sidebar and every chat see the same projects. Changes show right away and go to the server through `lib/projects/actions.ts`.
 - Ids are made in the browser (`ids.ts`, 128 random bits), so a new chat opens at once. A project's id is also its preview's and share link's address. The app's files there need no sign-in (the sandboxed frame's requests send no cookies), so the id must stay long and random.
-- A prompt on New creates a project and opens `/projects/[id]`; every prompt POSTs to `/api/projects/[id]/turn`, which creates the project the first time and streams the answer as NDJSON `TurnEvent`s. The answer runs on the server (`lib/ai/runs.ts`), not in the request: leaving or reloading doesn't stop or repeat it, and coming back joins in (a `snapshot` of what happened so far). An answer lost to a server restart starts again.
+- A prompt on New creates a project and opens `/projects/[id]`; every prompt POSTs to `/api/projects/[id]/turn`, which creates the project the first time and streams the answer as NDJSON `TurnEvent`s. The answer runs on the server (`lib/ai/runs.ts`), not in the request: leaving or reloading doesn't stop or repeat it, and coming back joins in (a `snapshot` of what happened so far). An answer lost to a server restart starts again. While an answer is in progress the stream sends an empty line every 25 s (the browser skips it), so a quiet npm install doesn't trip a proxy's idle timeout.
 - The AI is set in `.env.local`: `OPENAI_API_KEY`, `OPENAI_MODEL` and optionally `OPENAI_REASONING_EFFORT` (passed on as is), plus `OPENAI_SMALL_MODEL` / `OPENAI_SMALL_REASONING_EFFORT` for naming. Without a key or model, every answer says how to set it up. API and sandbox failures end the answer with a short explanation (`problem` in `agent.ts`).
 - The AI can rename the current project or change its sidebar icon and color on request with `rename_project`, `set_project_icon`, and `set_project_color`. Each shows in the tool rows and streams only the changed setting to the shared store. Values are validated against the edit dialog options; settings-only requests do not build the app. Explicit changes wait for initial naming, so it cannot overwrite them. The current name, icon and color go in the project state sent to the AI.
 - The first prompt also names the project: a separate structured-output call (`naming.ts`, on the small model if set), alongside the answer; the name types itself out with its icon and color. A rename in the meantime wins.

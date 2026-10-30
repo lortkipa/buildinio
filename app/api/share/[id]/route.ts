@@ -4,8 +4,7 @@ import { watchApp } from "@/lib/projects/changes";
 import { isId } from "@/lib/projects/ids";
 import { getSharedApp } from "@/lib/projects/server";
 import type { SharedAppState } from "@/lib/projects/types";
-
-const KEEP_ALIVE_MS = 25_000; // Under the usual proxy idle timeouts.
+import { KEEP_ALIVE_MS, STREAM_HEADERS } from "@/lib/stream";
 
 /**
  * The app as its share page (app/share) should show it, as server-sent events: now, then
@@ -53,6 +52,6 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/api/s
   });
 
   return new Response(body, {
-    headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store" },
+    headers: { "Content-Type": "text/event-stream; charset=utf-8", ...STREAM_HEADERS },
   });
 }
