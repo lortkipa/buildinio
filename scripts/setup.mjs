@@ -80,7 +80,7 @@ async function setup({ hosting }) {
   console.log(
     "\nAll set. Start Buildinio with:\n\n    npm run dev\n\nthen open http://localhost:3000 in your browser." +
       (readEnv("OPENAI_API_KEY") ? "" : "\nThe AI stays off until you add your OpenAI key: run `npm run setup` again.") +
-      "\nSign-in with Google, GitHub and real emails is optional: see the README.\n",
+      "\nSign-in with Google, GitHub and real emails is optional: see docs/settings.md.\n",
   );
 }
 

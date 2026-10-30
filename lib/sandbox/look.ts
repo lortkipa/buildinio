@@ -41,7 +41,7 @@ export async function lookAtApp(projectId: string, page: string, signal: AbortSi
     const output = result.output.trim().split("\n").slice(-5).join("\n");
     const log = result.output.trim().split("\n").slice(-30).join("\n"); // Enough to see where it failed.
     if (NO_BROWSER.test(result.output)) {
-      console.warn(`\n  ⚠  The AI can't look at apps: no Chromium where commands run (see the README).\n${log}\n`);
+      console.warn(`\n  ⚠  The AI can't look at apps: no Chromium where commands run (see docs/settings.md).\n${log}\n`);
       unavailable = "Screenshots aren't set up on this server, so you can't look at the app. Carry on without.";
       return { ok: false, reason: unavailable, detail: "Not set up" };
     }

@@ -119,7 +119,7 @@ When it's done, it shows your address.
 
 1. **Open the address and sign up.** The first account is yours.
 2. **Sign-in codes:** until email is set up, the codes Buildinio would email are written in its log instead. See them with `scripts/host.sh logs` (press **Ctrl+C** to stop watching).
-3. **Optional: easier sign-in.** To sign in with Google or GitHub, or to have codes emailed, see [Sign-in](../README.md#sign-in-google-github-and-email) in the README. Use the callback addresses the installer showed, which start with your address. Emailing codes to other people needs a domain of your own.
+3. **Optional: easier sign-in.** To sign in with Google or GitHub, or to have codes emailed, see [Sign-in in Settings](settings.md#sign-in-google-github-and-email). Use the callback addresses the installer showed, which start with your address. Emailing codes to other people needs a domain of your own.
 
 Settings live in the `.env.local` file in the `buildinio` folder. To change one, run `scripts/host.sh` again (it keeps what you don't change), or edit the file with `nano .env.local` (save with **Ctrl+O**, Enter, quit with **Ctrl+X**) and then run `scripts/host.sh restart`.
 

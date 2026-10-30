@@ -35,7 +35,7 @@ Guidance for AI coding agents working in this repo.
 - `lib/sandbox/` — each project's code on disk: `workspace.ts` (folders, `PROJECTS_PATH`, default `data/projects`), `files.ts` (the AI's file tools, kept inside the folder), `run.ts` (commands in Docker or on the host), `build.ts` (`npm install` when needed, then `npm run build`), `look.ts` and `screenshot.mjs` (the AI's screenshots of the built app), `snapshot.ts` (the copy of the project from before an answer, which Stop puts back; in `.snapshots` in `PROJECTS_PATH`, cleared on start), `attachments.ts` (the chat's attached files, copied into the project's `attachments/`).
 - `templates/app/` — what every new project starts as. Excluded from type-checking, lint and Tailwind's class scan.
 - `lib/stream.ts` — `STREAM_HEADERS` and `KEEP_ALIVE_MS` for the streamed responses (the turn and the share page), so a proxy in front of a hosted server passes them on as they come and doesn't drop a quiet one.
-- `scripts/` — `setup.mjs` (`npm run setup`; also `get KEY` / `set KEY=VALUE` on `.env.local`, which `host.sh` uses) and `host.sh` (hosting). `docs/` — `hosting.md`, the home-server guide.
+- `scripts/` — `setup.mjs` (`npm run setup`; also `get KEY` / `set KEY=VALUE` on `.env.local`, which `host.sh` uses) and `host.sh` (hosting). `docs/` — the guides the README links to (see Hosting).
 - `lib/lists.ts` — lists in prompts: the prompt box's list keys (`listKey`, `autoBullet`) and cutting a user's message into text and lists (`parseBlocks`).
 - `lib/sidebar.ts` and `lib/preview.ts` — the sidebar's and the desktop preview's widths and cookie names, shared by the layout and the components.
 - `lib/db/` — Drizzle schema and the database connection (`DATABASE_PATH`, default `data/buildinio.db`, gitignored). `drizzle/` holds the migrations. On start, `instrumentation.ts` also removes project folders whose project is gone.
@@ -47,7 +47,7 @@ Guidance for AI coding agents working in this repo.
 
 ## Hosting
 
-- The README is for non-coders: trying it on your computer (`npm run setup`, `npm run dev`), the settings in `.env.local`, troubleshooting, then a short part for developers. `docs/hosting.md` is the home-server guide. Keep both in plain words, and update them (and `.env.example`) with any new setting.
+- Docs are for non-coders, in plain words. The README stays short: what it is and links into `docs/`: `run-locally.md` (trying it on your computer: `npm run setup`, `npm run dev`, troubleshooting), `hosting.md` (the home-server guide), `settings.md` (every setting in `.env.local`) and `development.md` (stack, commands, tests). Put new material in `docs/`, not the README, and update `settings.md` (and `.env.example`) with any new setting.
 - `scripts/host.sh` (bash, Linux with systemd, x86_64 or arm64; apt, dnf or pacman): installs Node.js 22 (NodeSource), Docker (get.docker.com) unless `SANDBOX=host`, runs `setup.mjs --hosting`, `npm ci && npm run build`, pre-pulls the Playwright image, and writes the `buildinio` systemd service (`next start -H 127.0.0.1 -p $PORT`, as the user who ran it, never under sudo). It offers to stop sleep (masks the sleep targets; on a laptop, a logind drop-in for the lid). Then the address, which sets `APP_URL`: Tailscale Funnel (public) or Serve (private) on the machine's `*.ts.net` name, a Cloudflare named tunnel `buildinio` (the `buildinio-tunnel` service, `/etc/cloudflared/buildinio.yml`), or Caddy with port forwarding (`/etc/caddy/Caddyfile`, `flush_interval -1`). The method is kept in `data/hosting`, so switching undoes the last one. Other commands: `address`, `update` (`git pull`, then re-runs itself as `rebuild`), `status`, `logs`, `restart`/`stop`/`start`, `backup` (tars `data/` and `.env.local` without `node_modules`), `uninstall`. Check it with `bash -n` and `shellcheck`.
 - Production cookies are `Secure`, so a hosted server only works over https (localhost aside).
 
@@ -112,7 +112,7 @@ Guidance for AI coding agents working in this repo.
 - Avatar at creation: the Google/GitHub picture, or `/avatars/default.svg` for email. It's changed or removed (back to the default) in the settings, and not taken from Google/GitHub again later.
 - Email codes: 6 digits, 10 minutes, one try each, at most 5 per email per hour.
 - Sessions: random token in an httpOnly `session` cookie, only its SHA-256 stored, 30 days. Read the user with `getCurrentUser()` inside `<Suspense>` (it reads the request).
-- Setup is in `.env.example` and the README. With no keys, email codes are printed in the server console (with a warning toast), and the Google/GitHub buttons show an error toast.
+- Setup is in `.env.example` and `docs/settings.md`. With no keys, email codes are printed in the server console (with a warning toast), and the Google/GitHub buttons show an error toast.
 - Deleting the account (Settings, Data) deletes its projects too: their code first (`removeUserProjects`), then the rows with the user (avatars included).
 - `cacheComponents` keeps visited pages and layouts alive but hidden. `AuthFlow` resets when hidden; `AccountMenu`, `AppShell` and `ProjectList` also close transient controls when the pathname changes. Logging in or out purges the browser's page cache (`revalidatePath("/", "layout")`).
 

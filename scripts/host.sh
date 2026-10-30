@@ -44,7 +44,7 @@ env_set() { node "$APP_DIR/scripts/setup.mjs" set "$@"; }
 
 check_system() {
   [ -z "${SUDO_USER:-}" ] || die "Run it without sudo: it asks for your password when it needs it."
-  [ "$(uname -s)" = Linux ] || die "This script is for Linux. On a Mac or Windows PC, see \"Try it on your computer\" in the README."
+  [ "$(uname -s)" = Linux ] || die "This script is for Linux. On a Mac or Windows PC, see docs/run-locally.md."
   [ -d /run/systemd/system ] || die "This Linux doesn't use systemd, which this script needs to keep Buildinio running. See docs/hosting.md for other options."
   case "$(uname -m)" in
     x86_64 | aarch64 | arm64) ;;
@@ -357,7 +357,7 @@ summary() {
   [ -n "$(env_get RESEND_API_KEY)" ] || info "Email sign-in codes aren't emailed yet: see them with  scripts/host.sh logs"
   [ -n "$(env_get OPENAI_API_KEY)" ] || info "The AI is off until you add your OpenAI key: run  scripts/host.sh  again."
   info ""
-  info "For Google or GitHub sign-in (optional, see the README), use these callback addresses:"
+  info "For Google or GitHub sign-in (optional, see docs/settings.md), use these callback addresses:"
   info "  $url/api/auth/google/callback"
   info "  $url/api/auth/github/callback"
   info ""
