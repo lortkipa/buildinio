@@ -13,9 +13,9 @@ import type { Dock } from "@/components/useKeyboardDock";
 import { useAutocorrect } from "@/lib/account/store";
 import { autoBullet, dropEmptyItems, listKey } from "@/lib/lists";
 import type { Edit, ListKey } from "@/lib/lists";
-import { attachmentUrl, isPicture, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/lib/projects/attachments";
+import { isPicture, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "@/lib/projects/attachments";
 import { newId } from "@/lib/projects/ids";
-import type { Attachment, Prompt } from "@/lib/projects/types";
+import type { Prompt, PromptFile } from "@/lib/projects/types";
 
 const EXAMPLES = [
   "A booking app for my hair salon…",
@@ -155,17 +155,6 @@ const iconButton = `grid size-9 cursor-pointer place-items-center rounded-full $
 const MAX_HEIGHT = "calc(12lh + 0.75rem)";
 const STRIP_HEIGHT = 112; // The attached files' row (see AttachmentStrip), kept out of the text's height while docked.
 
-/**
- * A file in the box. It uploads as soon as it's added (app/api/attachments), so sending
- * is quick: `id` is set once it's up. Pictures show from `preview` (made here) till then.
- */
-type Draft = Omit<Attachment, "id"> & { key: string; id?: string; preview?: string; upload?: AbortController };
-
-function forget(draft: Draft) {
-  draft.upload?.abort();
-  if (draft.preview) URL.revokeObjectURL(draft.preview);
-}
-
 /** Whether something being dragged is files (not text). */
 function draggingFiles(event: DragEvent) {
   return event.dataTransfer.types.includes("Files");
@@ -209,7 +198,8 @@ export function PromptBox({
   const id = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
-  const [files, setFiles] = useState<Draft[]>([]);
+  // Kept here until the prompt is sent, with it (see the turn route); pictures show from `preview`.
+  const [files, setFiles] = useState<PromptFile[]>([]);
   const [dragging, setDragging] = useState(false); // Files dragged over the box.
   const dragDepth = useRef(0); // Drag events come from each element inside too.
   const autocorrect = useAutocorrect(); // The user's setting: the browser's spell check and, on Apple devices, autocorrect.
@@ -218,8 +208,7 @@ export function PromptBox({
   const prompt = dropEmptyItems(value).trim();
   const hasText = prompt.length > 0;
   const hasPrompt = hasText || files.length > 0; // Files alone can be sent too.
-  const uploading = files.some((file) => !file.id);
-  const canSend = hasPrompt && !busy && !uploading;
+  const canSend = hasPrompt && !busy;
   const canStop = busy && onStop !== undefined;
 
   // Put the cursor in the box on desktop. Skipped on touch so the keyboard doesn't pop up.
@@ -237,7 +226,7 @@ export function PromptBox({
     if (textarea && !textarea.value.trim() && files.length === 0) {
       const { text } = returned;
       setValue(text);
-      setFiles(returned.attachments.map((file) => ({ ...file, key: file.id })));
+      setFiles(returned.files);
       requestAnimationFrame(() => {
         textarea.style.height = "auto";
         textarea.style.height = `${textarea.scrollHeight}px`;
@@ -296,7 +285,7 @@ export function PromptBox({
     else router.push("/signup");
   }
 
-  /** Picked, pasted or dropped: each file shows at once and uploads. Signed out, it's time to sign up. */
+  /** Picked, pasted or dropped: each file shows at once, and goes with the prompt. Signed out, it's time to sign up. */
   function addFiles(list: FileList | File[]) {
     if (!signedIn) {
       router.push("/signup");
@@ -310,55 +299,21 @@ export function PromptBox({
     });
     const room = MAX_ATTACHMENTS - files.length;
     if (picked.length > room) toast.error(`You can attach up to ${MAX_ATTACHMENTS} files at once.`);
-    const added = picked.slice(0, Math.max(0, room)).map((file) => {
-      const draft: Draft = {
-        key: newId(),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        preview: isPicture(file.type) ? URL.createObjectURL(file) : undefined,
-        upload: new AbortController(),
-      };
-      upload(draft, file);
-      return draft;
-    });
+    const added = picked.slice(0, Math.max(0, room)).map((file) => ({
+      id: newId(),
+      file,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      preview: isPicture(file.type) ? URL.createObjectURL(file) : undefined,
+    }));
     if (added.length) setFiles((current) => [...current, ...added]);
   }
 
-  async function upload(draft: Draft, file: File) {
-    const signal = draft.upload!.signal;
-    const form = new FormData();
-    form.append("file", file);
-    let problem = `Couldn’t upload ${file.name}. Check your connection and try again.`;
-    try {
-      const response = await fetch("/api/attachments", { method: "POST", body: form, signal });
-      if (response.ok) {
-        const saved: Attachment = await response.json();
-        // Removed while it uploaded: it's not wanted after all.
-        if (signal.aborted) {
-          fetch(`/api/attachments/${saved.id}`, { method: "DELETE" }).catch(() => {});
-          return;
-        }
-        setFiles((current) =>
-          current.map((d) => (d.key === draft.key ? { ...d, id: saved.id, name: saved.name, type: saved.type, upload: undefined } : d)),
-        );
-        return;
-      }
-      if (response.status < 500) problem = (await response.text()) || problem;
-    } catch {
-      if (signal.aborted) return;
-    }
-    forget(draft);
-    setFiles((current) => current.filter((d) => d.key !== draft.key));
-    toast.error(problem);
-  }
-
-  function removeFile(key: string) {
-    const draft = files.find((file) => file.key === key);
-    if (!draft) return;
-    forget(draft);
-    if (draft.id) fetch(`/api/attachments/${draft.id}`, { method: "DELETE" }).catch(() => {});
-    setFiles((current) => current.filter((file) => file.key !== key));
+  function removeFile(id: string) {
+    const preview = files.find((file) => file.id === id)?.preview;
+    if (preview) URL.revokeObjectURL(preview);
+    setFiles((current) => current.filter((file) => file.id !== id));
   }
 
   // A picture copied, or a file copied from a folder, is attached rather than pasted as its name.
@@ -398,11 +353,11 @@ export function PromptBox({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSend) return;
-    onSubmit({ text: prompt, attachments: files.map(({ id, name, type, size }) => ({ id: id!, name, type, size })) });
+    onSubmit({ text: prompt, files });
     // Signed out, the prompt stays for when they come back from signing up.
     if (!signedIn) return;
     setValue("");
-    files.forEach(forget); // Sent: the chat shows them from the server now.
+    // Sent: the chat shows the pictures from their previews now, so they're kept.
     setFiles([]);
     if (textareaRef.current) textareaRef.current.style.height = "";
   }
@@ -446,14 +401,7 @@ export function PromptBox({
         </label>
         {/* Up to MAX_ATTACHMENTS files, over the text. */}
         {files.length > 0 && (
-          <AttachmentStrip
-            files={files.map((file) => ({
-              ...file,
-              src: file.preview ?? (file.id && isPicture(file.type) ? attachmentUrl(file.id) : undefined),
-              uploading: !file.id,
-            }))}
-            onRemove={removeFile}
-          />
+          <AttachmentStrip files={files} onRemove={removeFile} />
         )}
         <input
           ref={fileInputRef}
@@ -525,29 +473,17 @@ export function PromptBox({
               </button>
             </Tooltip>
             <Tooltip
-              label={
-                busy
-                  ? "Wait for the answer to finish"
-                  : uploading
-                    ? "Wait for the files to upload"
-                    : variant === "hero"
-                      ? "Start building"
-                      : "Send"
-              }
-              keys={busy || uploading ? undefined : ["↵"]}
+              label={busy ? "Wait for the answer to finish" : variant === "hero" ? "Start building" : "Send"}
+              keys={busy ? undefined : ["↵"]}
               side="top"
             >
               <button
                 type="submit"
                 aria-label={variant === "hero" ? "Start building" : "Send"}
                 inert={!hasPrompt || canStop}
-                disabled={busy || uploading}
+                disabled={busy}
                 className={`${iconButton} ${swap} bg-foreground text-background enabled:hover:bg-foreground/85 disabled:cursor-not-allowed ${
-                  !hasPrompt || canStop
-                    ? "scale-50 rotate-45 opacity-0"
-                    : busy || uploading
-                      ? "scale-100 rotate-0 opacity-30"
-                      : shown
+                  !hasPrompt || canStop ? "scale-50 rotate-45 opacity-0" : busy ? "scale-100 rotate-0 opacity-30" : shown
                 }`}
               >
                 <ArrowUp size={18} strokeWidth={2.25} />

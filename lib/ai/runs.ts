@@ -13,7 +13,6 @@ import {
   nameProject,
   projectAttachments,
   projectExists,
-  releaseAttachments,
   updateProject,
 } from "@/lib/projects/server";
 import type { AssistantMessage, ProjectData, ProjectSettings, TurnEvent } from "@/lib/projects/types";
@@ -151,7 +150,7 @@ type Undo = { before: ProjectSettings; set: Partial<ProjectSettings> };
  * Stop was pressed: everything the answer did is undone, as if the prompt was never
  * sent. The code goes back to the snapshot (the built app too), the settings it changed
  * go back unless they've been changed by hand since, and the prompt is taken out of
- * the chat so the browser can put it back in the prompt box, with its files.
+ * the chat (its files go with it) so the browser can put it back in the prompt box.
  */
 async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
   // The prompt, and the skipped questions sent just before it, if any.
@@ -168,19 +167,13 @@ async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
     if (now[key] === set[key]) Object.assign(settings, { [key]: before[key] });
   }
   updateProject(project.id, settings);
-  const attachments = releaseAttachments(prompt.id); // Before the prompt goes, or they'd go with it.
   for (const message of prompts) deleteMessage(project.id, message.id);
   // Questions the stopped prompt answered stay answered: the answers go back in the prompt box.
   const asked = project.messages[answered];
   if (asked?.role === "assistant" && asked.questions) clearQuestions(project.id, asked.id);
   await dropSnapshot(project.id);
   runs.delete(project.id); // Ready for the next prompt.
-  send(run, {
-    type: "withdrawn",
-    messageIds: prompts.map((message) => message.id),
-    prompt: { text: prompt.text, attachments },
-    settings,
-  });
+  send(run, { type: "withdrawn", messageIds: prompts.map((message) => message.id), text: prompt.text, settings });
 }
 
 /** Tells everyone listening, and keeps the steps for those who join later. */

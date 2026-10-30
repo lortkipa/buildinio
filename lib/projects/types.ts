@@ -17,15 +17,21 @@ export type AssistantMessage = {
   questions?: Question[]; // Asked at the end of the answer (ask_user); the next prompt answers them.
 };
 
-/** A file attached to a prompt (see lib/projects/attachments.ts). `type` is its MIME type. */
-export type Attachment = { id: string; name: string; type: string; size: number };
+/**
+ * A file attached to a prompt (see lib/projects/attachments.ts). `type` is its MIME type.
+ * `preview`: a picture just sent from this tab, shown from the browser's copy.
+ */
+export type Attachment = { id: string; name: string; type: string; size: number; preview?: string };
+
+/** A file in the prompt box, kept in the browser until its prompt is sent. */
+export type PromptFile = Attachment & { file: File };
 
 export type UserMessage = { id: string; role: "user"; text: string; attachments?: Attachment[] };
 
 export type Message = UserMessage | AssistantMessage;
 
 /** A prompt as the prompt box sends it, or as Stop gives it back. */
-export type Prompt = { text: string; attachments: Attachment[] };
+export type Prompt = { text: string; files: PromptFile[] };
 
 export type Tool = "search" | "read" | "create" | "edit" | "delete" | "run" | "skill" | "look" | "project";
 
@@ -96,4 +102,4 @@ export type TurnEvent =
   | { type: "text"; id: string; delta: string } // More of a text step.
   | { type: "tool"; step: ToolStep } // A tool finished.
   | { type: "done"; message: AssistantMessage; appVersion: number; ready: boolean }
-  | { type: "withdrawn"; messageIds: string[]; prompt: Prompt; settings: ProjectSettings }; // Stopped and undone.
+  | { type: "withdrawn"; messageIds: string[]; text: string; settings: ProjectSettings }; // Stopped and undone.

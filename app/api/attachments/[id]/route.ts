@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getSessionUser, SESSION_COOKIE } from "@/lib/auth/session";
 import { AI_IMAGE_TYPES } from "@/lib/projects/attachments";
 import { isId } from "@/lib/projects/ids";
-import { deleteLooseAttachment, getAttachment } from "@/lib/projects/server";
+import { getAttachment } from "@/lib/projects/server";
 
 /**
  * A file attached to a prompt, for its owner only. Pictures show in place; anything else
@@ -28,13 +28,4 @@ export async function GET(_request: NextRequest, { params }: RouteContext<"/api/
       "X-Content-Type-Options": "nosniff",
     },
   });
-}
-
-/** Removed from the prompt box before it was sent. A sent file goes with its message. */
-export async function DELETE(_request: NextRequest, { params }: RouteContext<"/api/attachments/[id]">) {
-  const { id } = await params;
-  const user = getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
-  if (!user) return new Response("Log in first.", { status: 401 });
-  if (isId(id)) deleteLooseAttachment(user.id, id);
-  return new Response(null, { status: 204 });
 }
