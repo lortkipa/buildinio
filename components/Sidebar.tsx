@@ -12,6 +12,7 @@ import mark from "@/brand/mark.svg";
 import markDark from "@/brand/mark-dark.svg";
 import { AccountMenu } from "@/components/AccountMenu";
 import { ProjectList } from "@/components/ProjectList";
+import { Tooltip } from "@/components/Tooltip";
 import { focusRing, navItem, shown, swap } from "@/components/styles";
 import type { CurrentUser } from "@/lib/auth/session";
 import { clampWidth, COLLAPSE_AT, COLLAPSED_WIDTH, MAX_WIDTH, MIN_WIDTH } from "@/lib/sidebar";
@@ -142,25 +143,26 @@ export function DesktopSidebar({ user, state, onChange, onCommit, onSearch }: De
 function LogoToggle({ collapsed, onClick }: { collapsed: boolean; onClick: () => void }) {
   const label = collapsed ? "Open sidebar" : "Close sidebar";
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`group ${iconButton}`}
-    >
-      <span
-        className={`${swap} ${shown} group-hover:scale-50 group-hover:-rotate-45 group-hover:opacity-0 group-focus-visible:scale-50 group-focus-visible:-rotate-45 group-focus-visible:opacity-0`}
+    <Tooltip label={label} side="right">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={`group ${iconButton}`}
       >
-        <Image src={mark} alt="" loading="eager" className="size-7 dark:hidden" />
-        <Image src={markDark} alt="" loading="eager" className="hidden size-7 dark:block" />
-      </span>
-      <span
-        className={`${swap} scale-50 rotate-45 opacity-0 group-hover:scale-100 group-hover:rotate-0 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:rotate-0 group-focus-visible:opacity-100`}
-      >
-        {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
-      </span>
-    </button>
+        <span
+          className={`${swap} ${shown} group-hover:scale-50 group-hover:-rotate-45 group-hover:opacity-0 group-focus-visible:scale-50 group-focus-visible:-rotate-45 group-focus-visible:opacity-0`}
+        >
+          <Image src={mark} alt="" loading="eager" className="size-7 dark:hidden" />
+          <Image src={markDark} alt="" loading="eager" className="hidden size-7 dark:block" />
+        </span>
+        <span
+          className={`${swap} scale-50 rotate-45 opacity-0 group-hover:scale-100 group-hover:rotate-0 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:rotate-0 group-focus-visible:opacity-100`}
+        >
+          {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+        </span>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -203,15 +205,17 @@ export function MobileSidebar({ id, user, open, onClose, closeRef, onSearch }: M
         {/* Eager: the sidebar starts hidden, and lazy images would only load once it slides in. */}
         <Image src={logo} alt="buildinio" loading="eager" className="h-7 w-auto dark:hidden" />
         <Image src={logoDark} alt="buildinio" loading="eager" className="hidden h-7 w-auto dark:block" />
-        <button
-          ref={closeRef}
-          type="button"
-          aria-label="Close sidebar"
-          onClick={onClose}
-          className={iconButton}
-        >
-          <PanelLeftClose size={20} />
-        </button>
+        <Tooltip label="Close sidebar">
+          <button
+            ref={closeRef}
+            type="button"
+            aria-label="Close sidebar"
+            onClick={onClose}
+            className={iconButton}
+          >
+            <PanelLeftClose size={20} />
+          </button>
+        </Tooltip>
       </div>
 
       <SidebarNav mobile onNavigate={onClose} onSearch={onSearch} />
@@ -237,25 +241,28 @@ function SidebarNav({ collapsed = false, mobile = false, onNavigate, onSearch }:
   return (
     <>
       <nav aria-label="Main" className="flex shrink-0 flex-col gap-0.5 px-2">
-        <Link
-          href="/"
-          aria-current={pathname === "/" ? "page" : undefined}
-          title={collapsed ? "New" : undefined}
-          onClick={onNavigate}
-          className={navItem}
-        >
-          <NavLabel icon={<SquarePen size={20} />} label="New" collapsed={collapsed} />
-        </Link>
-        <button
-          type="button"
-          title={collapsed ? "Search" : undefined}
-          aria-haspopup="dialog"
-          aria-keyshortcuts="Control+K Meta+K"
-          onClick={onSearch}
-          className={navItem}
-        >
-          <NavLabel icon={<Search size={20} />} label="Search" collapsed={collapsed} />
-        </button>
+        {/* Collapsed to icons, the labels show as tooltips. */}
+        <Tooltip label={collapsed ? "New" : null} side="right">
+          <Link
+            href="/"
+            aria-current={pathname === "/" ? "page" : undefined}
+            onClick={onNavigate}
+            className={navItem}
+          >
+            <NavLabel icon={<SquarePen size={20} />} label="New" collapsed={collapsed} />
+          </Link>
+        </Tooltip>
+        <Tooltip label={collapsed ? "Search" : null} keys={["Mod", "K"]} side="right">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-keyshortcuts="Control+K Meta+K"
+            onClick={onSearch}
+            className={navItem}
+          >
+            <NavLabel icon={<Search size={20} />} label="Search" collapsed={collapsed} />
+          </button>
+        </Tooltip>
       </nav>
 
       {/* The heading stays put; only the projects scroll, fading out at the edges. */}

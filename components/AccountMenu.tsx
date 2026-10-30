@@ -7,6 +7,7 @@ import { LoaderCircle, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/Avatar";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { Tooltip } from "@/components/Tooltip";
 import { focusRing, menuItem, menuPanel } from "@/components/styles";
 import { forgetAccount, useAccount } from "@/lib/account/store";
 import { logOut } from "@/lib/auth/actions";
@@ -103,31 +104,34 @@ export function AccountMenu({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-label="Account"
-        aria-expanded={open}
-        aria-controls={`${id}-menu`}
-        onClick={(event) => {
-          // Keep the portal in the phone sidebar's focus scope while it is open.
-          setPortalContainer(event.currentTarget.closest<HTMLElement>("[role=dialog]") ?? document.body);
-          setOpen((value) => !value);
-        }}
-        className={
-          trigger === "row"
-            ? `flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl p-1 text-left transition-colors hover:bg-foreground/5 aria-expanded:bg-foreground/5 ${focusRing}`
-            : `block cursor-pointer rounded-full ${focusRing}`
-        }
-      >
-        <Avatar src={user.avatarUrl} size={trigger === "row" ? 32 : 36} />
-        {trigger === "row" && (
-          <NameAndEmail
-            user={user}
-            className={`flex-1 leading-tight transition-opacity duration-200 ${collapsed ? "opacity-0" : ""}`}
-          />
-        )}
-      </button>
+      {/* Collapsed to the avatar, the name shows as a tooltip. */}
+      <Tooltip label={trigger === "row" && collapsed ? user.name : null} side="right">
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label="Account"
+          aria-expanded={open}
+          aria-controls={`${id}-menu`}
+          onClick={(event) => {
+            // Keep the portal in the phone sidebar's focus scope while it is open.
+            setPortalContainer(event.currentTarget.closest<HTMLElement>("[role=dialog]") ?? document.body);
+            setOpen((value) => !value);
+          }}
+          className={
+            trigger === "row"
+              ? `flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-xl p-1 text-left transition-colors hover:bg-foreground/5 aria-expanded:bg-foreground/5 ${focusRing}`
+              : `block cursor-pointer rounded-full ${focusRing}`
+          }
+        >
+          <Avatar src={user.avatarUrl} size={trigger === "row" ? 32 : 36} />
+          {trigger === "row" && (
+            <NameAndEmail
+              user={user}
+              className={`flex-1 leading-tight transition-opacity duration-200 ${collapsed ? "opacity-0" : ""}`}
+            />
+          )}
+        </button>
+      </Tooltip>
 
       {open && portalContainer && createPortal(
         <div

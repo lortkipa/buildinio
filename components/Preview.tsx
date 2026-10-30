@@ -7,6 +7,7 @@ import { Bone } from "@/components/Bone";
 import { ProjectTitle } from "@/components/ProjectHeader";
 import { ShareButton } from "@/components/ShareButton";
 import { circleButton } from "@/components/styles";
+import { Tooltip } from "@/components/Tooltip";
 import { usePlayOnce } from "@/components/usePlayOnce";
 import { setMobilePreview } from "@/components/usePreviewState";
 import { useSwipeSheet } from "@/components/useSwipeSheet";
@@ -245,9 +246,11 @@ export function MobilePreview({ id, projectId, open, onClose, closeRef, swipeAre
     >
       {/* Like the chat header, on a solid bar so it stands apart from the app. */}
       <div className="relative flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3">
-        <button ref={closeRef} type="button" aria-label="Close preview" onClick={onClose} className={circleButton}>
-          <ArrowLeft size={20} />
-        </button>
+        <Tooltip label="Close preview">
+          <button ref={closeRef} type="button" aria-label="Close preview" onClick={onClose} className={circleButton}>
+            <ArrowLeft size={20} />
+          </button>
+        </Tooltip>
         <div className="absolute inset-x-16 inset-y-0 flex items-center justify-center">
           <ProjectTitle key={projectId} id={projectId} />
         </div>

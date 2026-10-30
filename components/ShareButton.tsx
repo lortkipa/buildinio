@@ -10,6 +10,7 @@ import { Bone } from "@/components/Bone";
 import { CopyButton } from "@/components/MessageActions";
 import { placeMenu } from "@/components/ProjectActions";
 import { circleButton, focusRing, menuItem, menuPanel } from "@/components/styles";
+import { Tooltip } from "@/components/Tooltip";
 import { setVisibility, useProject } from "@/lib/projects/store";
 import type { Project, Visibility } from "@/lib/projects/types";
 
@@ -37,20 +38,22 @@ export function ShareButton({ projectId }: { projectId: string }) {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Share"
-        aria-haspopup="dialog"
-        aria-expanded={trigger !== null}
-        aria-controls={trigger ? id : undefined}
-        onClick={(event) => {
-          const button = event.currentTarget;
-          setTrigger((open) => (open ? null : button));
-        }}
-        className={`${circleButton} aria-expanded:bg-foreground/5 aria-expanded:text-foreground`}
-      >
-        <Share size={18} aria-hidden />
-      </button>
+      <Tooltip label="Share">
+        <button
+          type="button"
+          aria-label="Share"
+          aria-haspopup="dialog"
+          aria-expanded={trigger !== null}
+          aria-controls={trigger ? id : undefined}
+          onClick={(event) => {
+            const button = event.currentTarget;
+            setTrigger((open) => (open ? null : button));
+          }}
+          className={`${circleButton} aria-expanded:bg-foreground/5 aria-expanded:text-foreground`}
+        >
+          <Share size={18} aria-hidden />
+        </button>
+      </Tooltip>
       {trigger && <SharePopup id={id} project={project} trigger={trigger} onClose={close} />}
     </>
   );
