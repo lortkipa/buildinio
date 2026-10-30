@@ -8,6 +8,7 @@ import { DOCK_TEXT_GAP, useKeyboardDock } from "@/components/useKeyboardDock";
 import { useAccount } from "@/lib/account/store";
 import type { CurrentUser } from "@/lib/auth/session";
 import { createProject } from "@/lib/projects/store";
+import type { Prompt } from "@/lib/projects/types";
 
 /** The signed-in title, by first name: it changes along with the name in the settings. */
 export function Greeting({ user }: { user: CurrentUser }) {
@@ -29,7 +30,7 @@ export function Hero({ title, subtitle, signedIn = false }: HeroProps) {
   const router = useRouter();
 
   // Signed in, the prompt starts a project and opens its chat. Signed out, it's time to sign up.
-  function handleSubmit(prompt: string) {
+  function handleSubmit(prompt: Prompt) {
     router.push(signedIn ? `/projects/${createProject(prompt)}` : "/signup");
   }
 

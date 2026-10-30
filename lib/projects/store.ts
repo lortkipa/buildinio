@@ -9,9 +9,11 @@ import type {
   Message,
   Project,
   ProjectData,
+  Prompt,
   Step,
   Turn,
   TurnEvent,
+  UserMessage,
   Visibility,
 } from "@/lib/projects/types";
 
@@ -95,9 +97,9 @@ export function forgetProjects(userId: string) {
 }
 
 /** Starts a project from the first prompt and has the AI answer it. Returns its id. */
-export function createProject(prompt: string) {
+export function createProject(prompt: Prompt) {
   const id = newId();
-  const message: Message = { id: newId(), role: "user", text: prompt };
+  const message = userMessage(prompt);
   const project: Project = {
     id,
     name: null,
@@ -121,11 +123,11 @@ export function createProject(prompt: string) {
  * A follow-up prompt. Ignored while the AI is still answering the last one. `skipped`
  * goes just before it: the AI's questions, all skipped, when a prompt was typed instead.
  */
-export function sendMessage(projectId: string, text: string, skipped?: string) {
+export function sendMessage(projectId: string, prompt: Prompt, skipped?: string) {
   const project = find(projectId);
   if (!project || project.turn) return;
-  const message: Message = { id: newId(), role: "user", text };
-  const before: Message | undefined = skipped ? { id: newId(), role: "user", text: skipped } : undefined;
+  const message = userMessage(prompt);
+  const before: UserMessage | undefined = skipped ? { id: newId(), role: "user", text: skipped } : undefined;
   const sent = before ? [before, message] : [message];
   for (const m of sent) born.set(m.id, Date.now());
   update(projectId, (p) => ({ ...p, messages: [...p.messages, ...sent], turn: newTurn(), stopping: false }));
@@ -204,6 +206,10 @@ function updateTurn(id: string, change: (turn: Turn) => Turn) {
   update(id, (project) => ({ ...project, turn: change(project.turn ?? newTurn()) }));
 }
 
+function userMessage({ text, attachments }: Prompt): UserMessage {
+  return { id: newId(), role: "user", text, ...(attachments.length > 0 && { attachments }) };
+}
+
 function newTurn(): Turn {
   return { phase: "thinking", startedAt: Date.now(), steps: [], answer: null };
 }
@@ -218,7 +224,7 @@ function stopAll() {
  * there is one (with `skipped` before it). Reconnects if the connection drops, since
  * the answer goes on there.
  */
-async function follow(projectId: string, message?: Message, skipped?: Message) {
+async function follow(projectId: string, message?: UserMessage, skipped?: UserMessage) {
   follows.get(projectId)?.abort();
   const controller = new AbortController();
   follows.set(projectId, controller);
@@ -228,6 +234,7 @@ async function follow(projectId: string, message?: Message, skipped?: Message) {
       ? {
           text: message.text,
           messageId: message.id,
+          ...(message.attachments && { attachments: message.attachments.map((file) => file.id) }),
           ...(skipped && { skipped: { text: skipped.text, messageId: skipped.id } }),
         }
       : {},
@@ -238,11 +245,12 @@ async function follow(projectId: string, message?: Message, skipped?: Message) {
       const result = await listen(projectId, body, signal);
       if (result === "done") return;
       if (result !== "dropped") {
-        // Turned down: take the prompt back, so it can be sent again.
+        // Turned down: take the prompt back out of the chat and put it in the box, to send again.
         update(projectId, (project) => ({
           ...project,
           messages: project.messages.filter((m) => m.id !== message?.id && m.id !== skipped?.id),
           turn: null,
+          returned: message ? { text: message.text, attachments: message.attachments ?? [] } : project.returned,
         }));
         if (typeof result === "string") toast.error(result);
         return;
@@ -361,7 +369,7 @@ async function play(projectId: string, event: TurnEvent, signal: AbortSignal) {
         messages: withoutQuestions(project.messages.filter((message) => !event.messageIds.includes(message.id))),
         turn: null,
         stopping: false,
-        returned: project.stopping ? event.text : project.returned,
+        returned: project.stopping ? event.prompt : project.returned,
       }));
   }
 }

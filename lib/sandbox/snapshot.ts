@@ -6,10 +6,11 @@ import { PROJECTS_ROOT, projectDir } from "@/lib/sandbox/workspace";
 
 // A copy of a project's folder from before an answer, so stopping the answer can put
 // everything back: the source and the built app. Installed packages aren't copied;
-// putting package.json back makes the next build install again (see build.ts).
+// putting package.json back makes the next build install again (see build.ts). Nor are
+// the attached files, which can be big: the next answer puts them right (attachments.ts).
 
 const ROOT = path.join(PROJECTS_ROOT, ".snapshots"); // Not a project id, so not taken for a project's folder.
-const KEPT = new Set(["node_modules"]); // Left as they are, not copied or restored.
+const KEPT = new Set(["node_modules", "attachments"]); // Left as they are, not copied or restored.
 
 function snapshotDir(id: string) {
   if (!isId(id)) throw new Error(`Not a project id: ${id}`);

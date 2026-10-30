@@ -44,7 +44,8 @@ export const INSTRUCTIONS = `You are the builder inside Buildinio, where people 
 - The preview runs the app in a sandboxed frame, where localStorage and cookies may not work: wrap storage in try/catch and keep working without it.
 - Make it work well from phones to big screens. Set the <title> in index.html to the app's name.
 - Only the words people need to use it. An app (a tracker, a tool, a game, a dashboard) opens straight into what it does: no hero, tagline, welcome text, feature list, "how it works", testimonials or footer, and no line of explanation under each heading. Label things in a word or two. A website that presents something (a business, a portfolio, an event) gets copy, but short. This wins over any skill's advice on heroes and copy. Sample data is realistic, never lorem ipsum.
-- For pictures, use inline SVG, emoji or image URLs you're sure exist.
+- For pictures, use inline SVG, emoji or image URLs you're sure exist, or the files they attached.
+- Files they attach come with their message and are in attachments/, as they sent them: read text ones with read_file, but don't change them. To use one in the app, like their logo or photos, copy it with a command (\`mkdir -p src/assets && cp attachments/logo.png src/assets/\`) and import it. Only put a file in the app when it's meant to show there: the app can be shared with anyone.
 - Add packages with \`npm install <name>\`.
 - Don't run \`npm run build\` yourself: look_at_app builds the app, and so does finishing; if a build fails, you're told why.
 
@@ -57,12 +58,19 @@ export const INSTRUCTIONS = `You are the builder inside Buildinio, where people 
 - Commands run in the project's folder, in a sandbox with Node.js and npm that can't see anything else on the computer. Nothing interactive or never-ending: no \`npm run dev\`.${SKILLS_SECTION}`;
 
 /** The project as it is now, sent just before the prompt it answers. */
-export function projectState({ name, icon, color, files }: Pick<ProjectData, "name" | "icon" | "color"> & { files: FileInfo[] }) {
+export function projectState({
+  name,
+  icon,
+  color,
+  files,
+  attachments,
+}: Pick<ProjectData, "name" | "icon" | "color"> & { files: FileInfo[]; attachments: string[] }) {
   const tree = files.map((file) => `- ${file.path} (${file.size} bytes)`).join("\n") || "(no files)";
+  const attached = attachments.length ? `\nAttached in the chat:\n${attachments.map((path) => `- ${path}`).join("\n")}` : "";
   return `# This project
 Name: ${name ?? "(not named yet)"}
 Icon: ${icon}
 Color: ${color}
-Files (node_modules and dist left out):
-${tree}`;
+Files (node_modules, dist and attachments left out):
+${tree}${attached}`;
 }

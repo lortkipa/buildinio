@@ -3,8 +3,9 @@ import type { NextRequest } from "next/server";
 import { isRunning } from "@/lib/ai/registry";
 import { listen, startRun } from "@/lib/ai/runs";
 import { getSessionUser, SESSION_COOKIE } from "@/lib/auth/session";
+import { MAX_ATTACHMENTS } from "@/lib/projects/attachments";
 import { isId } from "@/lib/projects/ids";
-import { addMessage, getProject, insertProject, projectExists } from "@/lib/projects/server";
+import { addPrompt, getProject, insertProject, projectExists } from "@/lib/projects/server";
 import type { TurnEvent } from "@/lib/projects/types";
 import { createWorkspace } from "@/lib/sandbox/workspace";
 
@@ -12,7 +13,8 @@ const MAX_PROMPT = 20_000;
 
 /**
  * Sends a prompt and streams the AI's answer, one JSON event per line (TurnEvent).
- * The first prompt also creates the project. Without a prompt, it joins the answer in
+ * The first prompt also creates the project. A prompt is text, files (`attachments`, the
+ * ids app/api/attachments gave them) or both. Without one, it joins the answer in
  * progress (or restarts one the server lost), or says how the last one ended.
  */
 export async function POST(request: NextRequest, { params }: RouteContext<"/api/projects/[id]/turn">) {
@@ -26,14 +28,17 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
   // The AI's questions, all skipped, when a prompt was typed instead of answering them.
   const skipped = typeof body?.skipped?.text === "string" ? body.skipped.text.trim() : "";
   if (text.length > MAX_PROMPT || skipped.length > MAX_PROMPT) return new Response("That’s too long.", { status: 413 });
+  const files: unknown[] = Array.isArray(body?.attachments) ? body.attachments : [];
+  if (files.length > MAX_ATTACHMENTS) return new Response(`Attach up to ${MAX_ATTACHMENTS} files.`, { status: 413 });
 
   let project = getProject(user.id, id);
   // Sent again after the connection dropped: it's already here.
   const resent = project?.messages.some((message) => message.id === body?.messageId);
-  if (text && !resent) {
+  if ((text || files.length) && !resent) {
     if (!isId(body.messageId) || (skipped && !isId(body.skipped.messageId))) {
       return new Response("Bad message id.", { status: 400 });
     }
+    if (!files.every(isId) || new Set(files).size !== files.length) return new Response("Bad file id.", { status: 400 });
     if (!project) {
       if (projectExists(id)) return new Response("Not found.", { status: 404 });
       insertProject(user.id, id);
@@ -41,8 +46,10 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
     } else if (isRunning(id)) {
       return new Response("The AI is still answering.", { status: 409 });
     }
-    if (skipped && project) addMessage(id, { id: body.skipped.messageId, role: "user", text: skipped });
-    addMessage(id, { id: body.messageId, role: "user", text });
+    const before = skipped && project ? { id: body.skipped.messageId, role: "user" as const, text: skipped } : undefined;
+    if (!addPrompt(user.id, id, { id: body.messageId, role: "user", text }, files, before)) {
+      return new Response("Some of the files are gone. Remove them and attach them again.", { status: 410 });
+    }
     project = getProject(user.id, id)!;
     startRun(project, user.id);
   } else if (!project) {

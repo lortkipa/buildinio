@@ -3,13 +3,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { accounts, messages, projects, users } from "@/lib/db/schema";
+import { accounts, attachments, messages, projects, users } from "@/lib/db/schema";
+import { attachmentUrl } from "@/lib/projects/attachments";
 import { listFiles } from "@/lib/sandbox/files";
 import { projectDir } from "@/lib/sandbox/workspace";
 
 // Everything a user has here, as one JSON document: their account and settings (the avatar
-// as its address, not the picture itself), and each project with its chat and its code
-// (the source, without node_modules or the built app).
+// as its address, not the picture itself), and each project with its chat (files attached
+// to it as their addresses too) and its code (the source, without node_modules or the built app).
 
 const MAX_FILE_BYTES = 10_000_000; // Commands can leave big files behind; the AI's own are far smaller.
 
@@ -32,6 +33,19 @@ export async function exportAccount(userId: string, origin: string) {
       .where(eq(messages.projectId, project.id))
       .orderBy(asc(messages.createdAt), sql`rowid`)
       .all();
+    const files = db
+      .select({
+        id: attachments.id,
+        messageId: attachments.messageId,
+        name: attachments.name,
+        type: attachments.contentType,
+        size: attachments.size,
+      })
+      .from(attachments)
+      .innerJoin(messages, eq(attachments.messageId, messages.id))
+      .where(eq(messages.projectId, project.id))
+      .orderBy(asc(attachments.position))
+      .all();
     const dir = projectDir(project.id);
     const code: Record<string, string> = {};
     for (const file of await listFiles(dir)) {
@@ -51,6 +65,11 @@ export async function exportAccount(userId: string, origin: string) {
         sentAt: message.createdAt.toISOString(),
         ...(message.role === "assistant" && { seconds: message.seconds, feedback: message.feedback }),
         ...(message.questions && { questions: message.questions }),
+        ...(files.some((file) => file.messageId === message.id) && {
+          attachments: files
+            .filter((file) => file.messageId === message.id)
+            .map((file) => ({ name: file.name, type: file.type, size: file.size, url: absolute(origin, attachmentUrl(file.id)) })),
+        }),
       })),
       code,
     });

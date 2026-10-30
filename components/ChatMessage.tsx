@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { MessageAttachments } from "@/components/Attachments";
 import { MessageActions } from "@/components/MessageActions";
 import { MessageText } from "@/components/MessageText";
 import { QuestionsCard } from "@/components/QuestionsCard";
@@ -11,16 +12,25 @@ import type { ProjectColor } from "@/lib/projects/options";
 import { isNew, setFeedback } from "@/lib/projects/store";
 import type { Message } from "@/lib/projects/types";
 
-/** What you typed: on the right, on a tint of the project's color, with its lists and links. */
+/**
+ * What you typed: on the right, on a tint of the project's color, with its lists and links.
+ * The files attached to it go above.
+ */
 export function UserMessage({ message, color }: { message: Message; color: ProjectColor }) {
   const enter = usePlayOnce("motion-safe:animate-enter", isNew(message.id));
+  if (message.role !== "user") return null;
   return (
     <div className={`flex justify-end ${enter.className}`} onAnimationEnd={enter.onAnimationEnd}>
-      <div
-        style={{ "--project": PROJECT_COLORS[color] } as CSSProperties}
-        className="max-w-[85%] rounded-3xl bg-[color-mix(in_srgb,var(--project)_14%,transparent)] px-4 py-2.5 leading-relaxed transition-colors duration-500 wrap-anywhere dark:bg-[color-mix(in_srgb,var(--project)_24%,transparent)]"
-      >
-        <UserText text={message.text} />
+      <div className="flex max-w-[85%] min-w-0 flex-col items-end gap-2">
+        {message.attachments && <MessageAttachments files={message.attachments} />}
+        {message.text && (
+          <div
+            style={{ "--project": PROJECT_COLORS[color] } as CSSProperties}
+            className="max-w-full rounded-3xl bg-[color-mix(in_srgb,var(--project)_14%,transparent)] px-4 py-2.5 leading-relaxed transition-colors duration-500 wrap-anywhere dark:bg-[color-mix(in_srgb,var(--project)_24%,transparent)]"
+          >
+            <UserText text={message.text} />
+          </div>
+        )}
       </div>
     </div>
   );

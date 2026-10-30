@@ -12,7 +12,7 @@ import { usePlayOnce } from "@/components/usePlayOnce";
 import { setMobilePreview } from "@/components/usePreviewState";
 import { formatAnswers } from "@/lib/projects/questions";
 import { markPreviewSeen, sendMessage, stopAnswer, takeReturned, useProject } from "@/lib/projects/store";
-import type { Project } from "@/lib/projects/types";
+import type { Project, Prompt } from "@/lib/projects/types";
 
 const FOLLOW_SLACK = 96; // px from the bottom that still counts as reading the latest.
 
@@ -85,14 +85,14 @@ function Chat({ project }: { project: Project }) {
   const last = project.messages.at(-1);
   const waiting = last?.role === "assistant" && !project.turn ? last.questions : undefined;
 
-  function handleSend(text: string) {
+  function handleSend(prompt: Prompt) {
     following.current = true;
-    sendMessage(project.id, text, waiting && formatAnswers(waiting, waiting.map(() => null)));
+    sendMessage(project.id, prompt, waiting && formatAnswers(waiting, waiting.map(() => null)));
   }
 
   function handleAnswer(text: string) {
     following.current = true;
-    sendMessage(project.id, text);
+    sendMessage(project.id, { text, attachments: [] });
   }
 
   const handleStop = useCallback(() => stopAnswer(project.id), [project.id]);

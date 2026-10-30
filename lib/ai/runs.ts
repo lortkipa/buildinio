@@ -11,10 +11,13 @@ import {
   deleteMessage,
   getProject,
   nameProject,
+  projectAttachments,
   projectExists,
+  releaseAttachments,
   updateProject,
 } from "@/lib/projects/server";
 import type { AssistantMessage, ProjectData, ProjectSettings, TurnEvent } from "@/lib/projects/types";
+import { attachmentPaths, syncAttachments } from "@/lib/sandbox/attachments";
 import { dropSnapshot, restoreSnapshot, takeSnapshot } from "@/lib/sandbox/snapshot";
 import { ensureWorkspace } from "@/lib/sandbox/workspace";
 
@@ -69,9 +72,15 @@ async function answer(run: Run, project: ProjectData) {
   await ensureWorkspace(project.id);
   await takeSnapshot(project.id);
   const undo: Undo = { before: { name: project.name, icon: project.icon, color: project.color }, set: {} };
+  // The files attached in the chat, copied into the project for the AI to use.
+  const files = await syncAttachments(project.id).catch((error) => {
+    console.error("Couldn't copy the attached files into the project:", error);
+    return attachmentPaths(projectAttachments(project.id));
+  });
 
-  // The first prompt names the project, alongside the answer.
-  const prompt = project.messages.findLast((message) => message.role === "user")?.text ?? "";
+  // The first prompt names the project, alongside the answer. Just files: by their names.
+  const last = project.messages.findLast((message) => message.role === "user");
+  const prompt = last?.text || last?.attachments?.map((file) => file.name).join(", ") || "";
   const naming =
     project.name === null
       ? pickName(prompt, signal).then((look) => {
@@ -89,6 +98,7 @@ async function answer(run: Run, project: ProjectData) {
       icon: project.icon,
       color: project.color,
       messages: project.messages,
+      files,
       hasApp: project.appVersion > 0,
       signal,
       emit,
@@ -141,7 +151,7 @@ type Undo = { before: ProjectSettings; set: Partial<ProjectSettings> };
  * Stop was pressed: everything the answer did is undone, as if the prompt was never
  * sent. The code goes back to the snapshot (the built app too), the settings it changed
  * go back unless they've been changed by hand since, and the prompt is taken out of
- * the chat so the browser can put it back in the prompt box.
+ * the chat so the browser can put it back in the prompt box, with its files.
  */
 async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
   // The prompt, and the skipped questions sent just before it, if any.
@@ -158,13 +168,19 @@ async function withdraw(run: Run, project: ProjectData, { before, set }: Undo) {
     if (now[key] === set[key]) Object.assign(settings, { [key]: before[key] });
   }
   updateProject(project.id, settings);
+  const attachments = releaseAttachments(prompt.id); // Before the prompt goes, or they'd go with it.
   for (const message of prompts) deleteMessage(project.id, message.id);
   // Questions the stopped prompt answered stay answered: the answers go back in the prompt box.
   const asked = project.messages[answered];
   if (asked?.role === "assistant" && asked.questions) clearQuestions(project.id, asked.id);
   await dropSnapshot(project.id);
   runs.delete(project.id); // Ready for the next prompt.
-  send(run, { type: "withdrawn", messageIds: prompts.map((message) => message.id), text: prompt.text, settings });
+  send(run, {
+    type: "withdrawn",
+    messageIds: prompts.map((message) => message.id),
+    prompt: { text: prompt.text, attachments },
+    settings,
+  });
 }
 
 /** Tells everyone listening, and keeps the steps for those who join later. */
