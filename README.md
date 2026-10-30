@@ -44,27 +44,18 @@ It works without this: email codes show up in the terminal. To turn on more, fil
 
 ## Host it at home (laptop, NAS, etc.)
 
-Runs on your own machine and gets a free HTTPS address like `https://my-pc.tail1234.ts.net`, with no router setup.
+Runs in Docker on your own machine and gets a free HTTPS address like `https://my-pc.tail1234.ts.net`, with no router setup. You only need [Docker](https://docs.docker.com/get-docker/) and this folder.
 
-**1. Build it**
-
-```bash
-npm install
-npm run build
-```
-
-**2. Keep it running** (restarts on crash and on reboot)
+**1. Start it** (from this folder, without `sudo`; it builds, then restarts by itself after a crash or reboot)
 
 ```bash
-npm install -g pm2
-pm2 start npm --name buildinio -- start
-pm2 save
-pm2 startup
+cp -n .env.example .env.local
+docker compose up -d
 ```
 
-`pm2 startup` prints one command: run it.
+The first start takes a few minutes. Then open http://localhost:3000.
 
-**3. Put it online** with [Tailscale](https://tailscale.com/download) (free)
+**2. Put it online** with [Tailscale](https://tailscale.com/download) (free)
 
 ```bash
 sudo tailscale up
@@ -73,18 +64,18 @@ sudo tailscale funnel --bg 3000
 
 The first time, it gives you a link to turn on Funnel. It then prints your address.
 
-**4. Use that address**: in `.env.local`, set `APP_URL=https://your-address.ts.net`, then:
+**3. Use that address**: in `.env.local`, set `APP_URL=https://your-address.ts.net`, then:
 
 ```bash
-pm2 restart buildinio
+docker compose restart
 ```
 
 | To | Run |
 | --- | --- |
-| Stop | `pm2 stop buildinio` |
-| Start again | `pm2 start buildinio` |
-| See logs | `pm2 logs buildinio` |
-| Update | `git pull && npm install && npm run build && pm2 restart buildinio` |
+| Stop | `docker compose down` |
+| Start again | `docker compose up -d` |
+| See logs | `docker compose logs -f` |
+| Update | `git pull && docker compose up -d --build --force-recreate` |
 | Take it offline | `sudo tailscale funnel reset` |
 
 Your data is in `data/`. Back up that folder.
